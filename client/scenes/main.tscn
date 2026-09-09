@@ -1,8 +1,9 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=9 format=3]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
 [ext_resource type="Script" path="res://scripts/level/level_loader.gd" id="2_loader"]
 [ext_resource type="PackedScene" path="res://scenes/player.tscn" id="3_player"]
+[ext_resource type="Script" path="res://scripts/ui/hud.gd" id="4_hud"]
 
 [sub_resource type="Gradient" id="Gradient_bg"]
 offsets = PackedFloat32Array(0, 1)
@@ -46,6 +47,10 @@ script = ExtResource("2_loader")
 [node name="Player" parent="." instance=ExtResource("3_player")]
 
 [node name="HUD" type="CanvasLayer" parent="."]
+
+[node name="GameHUD" type="CanvasLayer" parent="."]
+layer = 1
+script = ExtResource("4_hud")
 
 [node name="Vignette" type="TextureRect" parent="HUD"]
 anchors_preset = 15

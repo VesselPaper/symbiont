@@ -164,6 +164,16 @@ func _build_enemies(room: Dictionary) -> void:
 		var enemy := _enemy_scene.instantiate()
 		enemy.position = Vector2(e.x, e.y)
 		enemy.patrol_half_width = e.get("range", 80.0)
+		enemy.hp = e.get("hp", 1)
+		var t: String = e.get("type", "patrol")
+		enemy.type_key = t
+		match t:
+			"spitter":
+				enemy.type = PatrolEnemy.EnemyType.SPITTER
+			"diver":
+				enemy.type = PatrolEnemy.EnemyType.DIVER
+			_:
+				enemy.type = PatrolEnemy.EnemyType.PATROL
 		add_child(enemy)
 
 

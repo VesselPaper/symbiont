@@ -17,8 +17,8 @@
         { "x": 60, "y": -90, "w": 110 }
       ],
       "enemies": [
-        { "type": "patrol", "x": -380, "y": -11, "range": 80 },
-        { "type": "patrol", "x": 180, "y": -11, "range": 70 }
+        { "type": "patrol", "x": -380, "y": -11, "range": 80, "hp": 1 },
+        { "type": "patrol", "x": 180, "y": -11, "range": 70, "hp": 1 }
       ],
       "decor": [
         { "type": "torch", "x": -490, "y": -50 },
@@ -52,9 +52,10 @@
         { "x": 60, "y": -180, "w": 90 }
       ],
       "enemies": [
-        { "type": "patrol", "x": -460, "y": -11, "range": 60 },
-        { "type": "patrol", "x": 0, "y": -11, "range": 90 },
-        { "type": "patrol", "x": 370, "y": -131, "range": 60 }
+        { "type": "patrol", "x": -460, "y": -11, "range": 60, "hp": 1 },
+        { "type": "spitter", "x": 0, "y": -11, "range": 0, "hp": 2 },
+        { "type": "diver", "x": 200, "y": -140, "range": 90, "hp": 2 },
+        { "type": "patrol", "x": 370, "y": -131, "range": 60, "hp": 1 }
       ],
       "decor": [
         { "type": "torch", "x": -490, "y": -50 },
@@ -87,8 +88,9 @@
         { "x": -60, "y": -220, "w": 120 }
       ],
       "enemies": [
-        { "type": "patrol", "x": -300, "y": -11, "range": 90 },
-        { "type": "patrol", "x": 300, "y": -11, "range": 80 }
+        { "type": "spitter", "x": -300, "y": -11, "range": 0, "hp": 2 },
+        { "type": "diver", "x": 40, "y": -180, "range": 110, "hp": 2 },
+        { "type": "patrol", "x": 300, "y": -11, "range": 80, "hp": 1 }
       ],
       "decor": [
         { "type": "torch", "x": -100, "y": -70 },
