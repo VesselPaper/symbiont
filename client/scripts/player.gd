@@ -7,22 +7,23 @@ extends CharacterBody2D
 @export_group("移动")
 @export var run_speed := 240.0
 @export var accel_ground := 2600.0
-@export var accel_air := 1700.0
+@export var accel_air := 800.0         ## 空中加速度（低=空中发飘，更考验起跳时机）
 @export var friction := 2400.0
 
 @export_group("跳跃")
-@export var gravity := 1900.0
-@export var jump_velocity := -560.0
-@export var double_jump_velocity := -500.0
-@export var fall_gravity_mult := 1.5
-@export var low_jump_mult := 0.45
-@export var coyote_time := 0.1
-@export var jump_buffer := 0.12
+@export var gravity := 2000.0
+@export var jump_velocity := -500.0
+@export var double_jump_velocity := -430.0
+@export var fall_gravity_mult := 1.6
+@export var low_jump_mult := 2.3       ## 松键跳变矮（上升中松键 → 重力放大）
+@export var coyote_time := 0.08
+@export var jump_buffer := 0.1
 
 @export_group("冲刺")
-@export var dash_speed := 760.0
-@export var dash_time := 0.16
-@export var dash_cooldown := 0.5
+@export var dash_speed := 520.0
+@export var dash_time := 0.14
+@export var dash_cooldown := 1.1
+@export var max_air_dashes := 1        ## 空中冲刺次数（落地重置）
 
 @export_group("攻击")
 @export var attack_cooldown := 0.35
@@ -39,6 +40,7 @@ var energy := 0.0
 
 # 状态
 var _jumps_left := 1
+var _air_dashes := 1
 var _coyote_timer := 0.0
 var _jump_buffer_timer := 0.0
 var _dash_timer := 0.0
@@ -195,6 +197,7 @@ func _physics_process(delta: float) -> void:
 	if is_on_floor():
 		_coyote_timer = coyote_time
 		_jumps_left = 1
+		_air_dashes = 1
 
 	var want_attack := Input.is_action_just_pressed("attack")
 
@@ -432,6 +435,11 @@ func _tick_timers(delta: float) -> void:
 
 
 func _start_dash() -> void:
+	# 空中冲刺次数限制（防止无限滞空）
+	if not is_on_floor():
+		if _air_dashes <= 0:
+			return
+		_air_dashes -= 1
 	var input_dir := Input.get_axis("move_left", "move_right")
 	_dash_dir = Vector2(input_dir, 0.0) if input_dir != 0.0 else Vector2(_facing, 0.0)
 	_dash_timer = dash_time
