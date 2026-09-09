@@ -241,5 +241,10 @@ func _build_doors(room: Dictionary) -> void:
 
 
 func _on_door_body(body: Node2D, area: Area2D) -> void:
+	# 延迟到帧末再触发：避免在物理回调中释放节点导致崩溃
 	if body is CharacterBody2D:
-		door_entered.emit(area.get_meta("to"), area.get_meta("entry"))
+		call_deferred("_emit_door_entered", area.get_meta("to"), area.get_meta("entry"))
+
+
+func _emit_door_entered(to: String, entry: Vector2) -> void:
+	door_entered.emit(to, entry)

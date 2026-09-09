@@ -6,6 +6,7 @@ extends Node2D
 @onready var player: CharacterBody2D = $Player
 
 var _current_room := "entrance"
+var _switching := false
 
 
 func _ready() -> void:
@@ -25,5 +26,9 @@ func _enter_room(id: String) -> void:
 
 
 func _on_door_entered(to: String, entry: Vector2) -> void:
+	if _switching:
+		return
+	_switching = true
 	_enter_room(to)
 	player.global_position = entry
+	_switching = false

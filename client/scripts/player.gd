@@ -84,7 +84,7 @@ func _physics_process(delta: float) -> void:
 	if _jump_buffer_timer > 0.0:
 		if is_on_floor() or _coyote_timer > 0.0:
 			velocity.y = jump_velocity
-			_jumps_left = 0
+			_jumps_left = 1
 			_consume_jump_input()
 		elif _jumps_left > 0:
 			velocity.y = double_jump_velocity
