@@ -1,12 +1,44 @@
 class_name VisualLib
 extends RefCounted
-## 程序化视觉工具库：发光光晕 / 程序纹理 / 尘土粒子（纯代码生成，无外部素材）
-## 对应《美术风格与建模规划》——代码生成色块保底路线的精修版
+## 程序化视觉工具库：光晕 / 粒子 / Kenney 素材包贴图加载
+## 素材：assets/vendor/kenney_tiny-dungeon（CC0）+ fantasy-ui-borders（CC0）
+## 对应《美术风格与建模规划》素材来源章节
 
-static var _tex_cache: Dictionary = {}
+static var _pack_cache: Dictionary = {}
 
 
-## 径向发光光晕（叠加混合），radius 为光晕半径（px）
+## 加载 Kenney Tiny Dungeon 的 16×16 tile（缓存）
+static func pack(tile: String) -> Texture2D:
+	if not _pack_cache.has(tile):
+		_pack_cache[tile] = load("res://assets/vendor/kenney_tiny-dungeon/Tiles/" + tile + ".png")
+	return _pack_cache[tile]
+
+
+# ---- 地形贴图 ----
+static func get_dirt_texture() -> Texture2D:
+	return pack("tile_0000")
+static func get_dirt_top_texture() -> Texture2D:
+	return pack("tile_0002")
+static func get_stone_texture() -> Texture2D:
+	return pack("tile_0007")
+static func get_stone_top_texture() -> Texture2D:
+	return pack("tile_0009")
+
+
+# ---- 角色 / 敌人 / 门 ----
+static func get_hero_texture() -> Texture2D:
+	return pack("tile_0104")
+static func get_enemy_patrol_texture() -> Texture2D:
+	return pack("tile_0103")
+static func get_enemy_spitter_texture() -> Texture2D:
+	return pack("tile_0108")
+static func get_enemy_diver_texture() -> Texture2D:
+	return pack("tile_0116")
+static func get_door_texture() -> Texture2D:
+	return pack("tile_0117")
+
+
+## 径向发光光晕（叠加混合）
 static func make_glow(radius: float, color: Color, alpha := 0.35) -> Sprite2D:
 	var grad := Gradient.new()
 	grad.colors = PackedColorArray([
@@ -29,7 +61,7 @@ static func make_glow(radius: float, color: Color, alpha := 0.35) -> Sprite2D:
 	return spr
 
 
-## 落地尘土（一次性粒子，调用 restart() 触发）
+## 一次性粒子（尘土 / 死亡爆散）
 static func make_dust_puff() -> CPUParticles2D:
 	var p := CPUParticles2D.new()
 	p.emitting = false
@@ -46,92 +78,3 @@ static func make_dust_puff() -> CPUParticles2D:
 	p.scale_amount_max = 2.5
 	p.color = Color(0.62, 0.58, 0.5, 0.55)
 	return p
-
-
-## 土壤 tile（16×16 无缝：斑点 + 微地层）
-static func get_dirt_texture() -> ImageTexture:
-	if not _tex_cache.has("dirt"):
-		var size := 16
-		var img := Image.create(size, size, false, Image.FORMAT_RGBA8)
-		img.fill(Color8(0x5a, 0x46, 0x32))
-		var rng := RandomNumberGenerator.new()
-		rng.seed = 20260301
-		for i in 26:
-			var x := rng.randi_range(0, size - 1)
-			var y := rng.randi_range(0, size - 1)
-			var c := Color8(0x4a, 0x3a, 0x28) if rng.randf() < 0.5 else Color8(0x6b, 0x54, 0x3a)
-			img.set_pixel(x, y, c)
-			if rng.randf() < 0.5:
-				img.set_pixel((x + 1) % size, y, c)
-		for x in size:
-			img.set_pixel(x, 5, Color8(0x50, 0x3e, 0x2b))
-			img.set_pixel(x, 11, Color8(0x50, 0x3e, 0x2b))
-		_tex_cache["dirt"] = ImageTexture.create_from_image(img)
-	return _tex_cache["dirt"]
-
-
-## 土壤顶面 tile（16×8：亮顶边 + 草叶）
-static func get_dirt_top_texture() -> ImageTexture:
-	if not _tex_cache.has("dirt_top"):
-		var w := 16
-		var h := 8
-		var img := Image.create(w, h, false, Image.FORMAT_RGBA8)
-		var rng := RandomNumberGenerator.new()
-		rng.seed = 777
-		for y in h:
-			for x in w:
-				var c := Color8(0x6b, 0x54, 0x3a)
-				if y == 0:
-					c = Color8(0x8a, 0x6f, 0x4a)
-				elif y == 1:
-					c = Color8(0x7d, 0x63, 0x43)
-				img.set_pixel(x, y, c)
-		for i in 5:
-			var x := rng.randi_range(0, w - 1)
-			img.set_pixel(x, 0, Color8(0x5a, 0x7a, 0x3a))
-			if rng.randf() < 0.6:
-				img.set_pixel(x, 1, Color8(0x4a, 0x6b, 0x3a))
-		_tex_cache["dirt_top"] = ImageTexture.create_from_image(img)
-	return _tex_cache["dirt_top"]
-
-
-## 石墙 tile（16×16 无缝：错缝砖 + 砖间色差 + 高光棱）
-static func get_stone_texture() -> ImageTexture:
-	if not _tex_cache.has("stone"):
-		var size := 16
-		var img := Image.create(size, size, false, Image.FORMAT_RGBA8)
-		for y in size:
-			var row := 0 if y < 8 else 1
-			var off := 4 if row % 2 == 1 else 0
-			for x in size:
-				var mx := (x + off) % 8
-				if y % 8 == 0 or mx == 0:
-					img.set_pixel(x, y, Color8(0x35, 0x32, 0x2e))
-				else:
-					var xx := (x + off) % 16
-					var col := 0 if xx < 8 else 1
-					var v := ((row * 7 + col) % 5) * 2
-					var c := Color8(0x4a + v, 0x47 + v, 0x42 + v)
-					if y % 8 == 1 or mx == 1:
-						c = Color8(0x56 + v, 0x53 + v, 0x4d + v)
-					img.set_pixel(x, y, c)
-		_tex_cache["stone"] = ImageTexture.create_from_image(img)
-	return _tex_cache["stone"]
-
-
-## 石墙顶面 tile（16×5：亮顶边）
-static func get_stone_top_texture() -> ImageTexture:
-	if not _tex_cache.has("stone_top"):
-		var w := 16
-		var h := 5
-		var img := Image.create(w, h, false, Image.FORMAT_RGBA8)
-		for y in h:
-			for x in w:
-				var c := Color8(0x55, 0x52, 0x4d)
-				if y == 0:
-					c = Color8(0x6a, 0x66, 0x60)
-				elif y == 1:
-					c = Color8(0x60, 0x5c, 0x56)
-				img.set_pixel(x, y, c)
-		_tex_cache["stone_top"] = ImageTexture.create_from_image(img)
-	return _tex_cache["stone_top"]

@@ -60,6 +60,19 @@ texture = SubResource("GradientTexture2D_vig")
 stretch_mode = 6
 mouse_filter = 2
 
+[node name="Objective" type="Label" parent="HUD"]
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -320.0
+offset_top = 8.0
+offset_right = 320.0
+offset_bottom = 30.0
+text = "目标：深入烬渊 · 跟随发光的门 · 寻找共生体"
+horizontal_alignment = 1
+theme_override_colors/font_color = Color(1, 0.88, 0.6, 0.85)
+theme_override_font_sizes/font_size = 15
+
 [node name="ControlsHint" type="Label" parent="HUD"]
 anchors_preset = 7
 anchor_left = 0.5

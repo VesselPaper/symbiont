@@ -317,13 +317,38 @@ func _build_doors(room: Dictionary) -> void:
 			"base": glow.scale.x, "speed": 2.0, "phase": randf() * TAU, "amount": 0.15,
 		})
 
-		var vis := ColorRect.new()
-		vis.offset_left = -15.0
-		vis.offset_top = -55.0
-		vis.offset_right = 15.0
-		vis.offset_bottom = 55.0
-		vis.color = Color(1.0, 0.45, 0.2, 0.9)
-		area.add_child(vis)
+		# 门框：石柱 + 顶楣（Kenney 石 tile）
+		for sx in [-16.0, 16.0]:
+			var pillar := Sprite2D.new()
+			pillar.texture = VisualLib.get_stone_texture()
+			pillar.position = Vector2(sx, 0)
+			pillar.scale = Vector2(1.0, 3.0)
+			area.add_child(pillar)
+		var lintel := Sprite2D.new()
+		lintel.texture = VisualLib.get_stone_texture()
+		lintel.position = Vector2(0, -52)
+		lintel.scale = Vector2(2.4, 1.0)
+		area.add_child(lintel)
+
+		# 传送门光幕（暖橙半透明）
+		var core := ColorRect.new()
+		core.offset_left = -12.0
+		core.offset_top = -42.0
+		core.offset_right = 12.0
+		core.offset_bottom = 42.0
+		core.color = Color(1.0, 0.5, 0.2, 0.5)
+		area.add_child(core)
+
+		# 目标房间名标签
+		if d.has("label"):
+			var lbl := Label.new()
+			lbl.text = "→ " + str(d.label)
+			lbl.position = Vector2(-46, -64)
+			lbl.size = Vector2(92, 16)
+			lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			lbl.add_theme_font_size_override("font_size", 12)
+			lbl.add_theme_color_override("font_color", Color(1.0, 0.85, 0.6, 0.9))
+			area.add_child(lbl)
 
 		area.body_entered.connect(_on_door_body.bind(area))
 		add_child(area)

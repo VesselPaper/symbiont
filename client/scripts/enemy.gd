@@ -1,6 +1,6 @@
 class_name PatrolEnemy
 extends CharacterBody2D
-## 敌人分型（GDD 第 6 节）：
+## 敌人分型（GDD 第 6 节）—— Kenney Tiny Dungeon 素材 sprite
 ##   patrol  巡逻仆役：地面往返，接触伤害，HP1
 ##   spitter 孢子怪：站桩远程抛弹，HP2（弹可被击碎/下劈）
 ##   diver   深渊飞虫：空中往返 + 悬浮预警俯冲，HP2
@@ -18,16 +18,13 @@ var type_key := "patrol"
 const PLAYER_LAYER := 2
 const PROJECTILE_SCRIPT := preload("res://scripts/enemy_projectile.gd")
 
-# 通用状态
+# 状态
 var _home_x := 0.0
 var _dir := 1
 var _dead := false
 var _hit_cd := 0.0
 var _flash := 0.0
 var _wiggle_t := 0.0
-var _segs: Array[ColorRect] = []
-var _sac: ColorRect = null
-var _wings: Array[Polygon2D] = []
 
 # spitter
 var _shoot_timer := 0.0
@@ -62,9 +59,13 @@ func _physics_process(delta: float) -> void:
 		EnemyType.DIVER:
 			_physics_diver(delta)
 
-	_animate(delta)
+	# 轻微体型起伏（生存感）
+	_wiggle_t += delta
+	var spr := $Visual.get_child(0) if $Visual.get_child_count() > 0 else null
+	if spr is Sprite2D:
+		spr.scale.y = 1.0 + 0.06 * sin(_wiggle_t * 8.0)
 
-	# 受击闪白（diver 预警闪烁优先处理于自身分支）
+	# 受击闪白
 	if _flash > 0.0:
 		$Visual.modulate = Color(1.8, 1.1, 1.1)
 	elif _dive_state != 1:
@@ -142,86 +143,24 @@ func _spawn_projectile() -> void:
 	get_parent().add_child(proj)
 
 
-# ---------------- 视觉 ----------------
+# ---------------- 视觉（素材 sprite） ----------------
 
 func _build_visual() -> void:
 	var vis: Node2D = $Visual
 	for c in vis.get_children():
 		c.free()
+	var tex: Texture2D
 	match type:
 		EnemyType.PATROL:
-			for i in 3:
-				var seg := ColorRect.new()
-				seg.offset_left = -7.0 + i * 5.0
-				seg.offset_right = seg.offset_left + 5.0
-				seg.offset_top = -13.0
-				seg.offset_bottom = 0.0
-				var v := 0.07 * i
-				seg.color = Color(0.45 + v, 0.38 + v, 0.30 + v)
-				vis.add_child(seg)
-				_segs.append(seg)
-			_add_eye(vis, 2.5, -9.5)
+			tex = VisualLib.get_enemy_patrol_texture()
 		EnemyType.SPITTER:
-			var body := ColorRect.new()
-			body.offset_left = -7.0
-			body.offset_top = -14.0
-			body.offset_right = 7.0
-			body.offset_bottom = 0.0
-			body.color = Color(0.49, 0.55, 0.36)
-			vis.add_child(body)
-			_sac = ColorRect.new()
-			_sac.offset_left = 3.0
-			_sac.offset_top = -11.0
-			_sac.offset_right = 8.0
-			_sac.offset_bottom = -6.0
-			_sac.color = Color(0.79, 0.83, 0.29)
-			vis.add_child(_sac)
-			_add_eye(vis, -2.0, -10.0)
+			tex = VisualLib.get_enemy_spitter_texture()
 		EnemyType.DIVER:
-			var body := ColorRect.new()
-			body.offset_left = -2.0
-			body.offset_top = -10.0
-			body.offset_right = 2.0
-			body.offset_bottom = 2.0
-			body.color = Color(0.25, 0.35, 0.40)
-			vis.add_child(body)
-			for s in [-1.0, 1.0]:
-				var wing := Polygon2D.new()
-				wing.polygon = PackedVector2Array([
-					Vector2(0, -2), Vector2(10 * s, -8), Vector2(4 * s, 2),
-				])
-				wing.color = Color(0.45, 0.62, 0.68, 0.85)
-				vis.add_child(wing)
-				_wings.append(wing)
-			_add_eye(vis, 1.5, -7.0)
-
-
-func _add_eye(vis: Node2D, x: float, y: float) -> void:
-	var eye := ColorRect.new()
-	eye.offset_left = x
-	eye.offset_top = y
-	eye.offset_right = x + 3.0
-	eye.offset_bottom = y + 3.0
-	eye.color = Color(0.98, 0.76, 0.36)
-	vis.add_child(eye)
-	var glow := VisualLib.make_glow(8.0, Color(0.98, 0.76, 0.36), 0.25)
-	glow.position = Vector2(x + 1.5, y + 1.5)
-	vis.add_child(glow)
-
-
-func _animate(delta: float) -> void:
-	_wiggle_t += delta
-	match type:
-		EnemyType.PATROL:
-			for i in _segs.size():
-				_segs[i].position.y = sin(_wiggle_t * 9.0 + i * 1.3) * 1.5
-		EnemyType.SPITTER:
-			if _sac:
-				var pulse := 1.0 + (0.35 if _telegraph > 0.0 else 0.1 * sin(_wiggle_t * 3.0))
-				_sac.scale = Vector2(pulse, pulse)
-		EnemyType.DIVER:
-			for w in _wings:
-				w.scale.y = 1.0 + 0.3 * sin(_wiggle_t * 14.0)
+			tex = VisualLib.get_enemy_diver_texture()
+	var spr := Sprite2D.new()
+	spr.texture = tex
+	spr.position = Vector2(0, -6)
+	vis.add_child(spr)
 
 
 # ---------------- 碰撞 / 受击 ----------------

@@ -5,103 +5,103 @@
       "id": "entrance",
       "name": "烬渊入口",
       "player_start": [-460, -11],
-      "bounds": { "left": -530, "right": 390 },
+      "bounds": { "left": -530, "right": 490 },
       "terrain": [
-        { "type": "ground", "x": -520, "y": 0, "w": 300, "h": 120, "layer": "dirt" },
-        { "type": "ground", "x": -40, "y": 0, "w": 380, "h": 120, "layer": "dirt" },
-        { "type": "ground", "x": 260, "y": -56, "w": 120, "h": 60, "layer": "stone" }
+        { "type": "ground", "x": -520, "y": 0, "w": 1040, "h": 90, "layer": "dirt" }
       ],
       "platforms": [
-        { "x": -440, "y": -80, "w": 100 },
-        { "x": -160, "y": -120, "w": 80 },
-        { "x": 60, "y": -90, "w": 110 }
+        { "x": -400, "y": -60, "w": 90 },
+        { "x": -240, "y": -120, "w": 90 },
+        { "x": -80, "y": -180, "w": 90 },
+        { "x": 80, "y": -240, "w": 90 },
+        { "x": 240, "y": -180, "w": 90 },
+        { "x": 400, "y": -120, "w": 90 }
       ],
       "enemies": [
-        { "type": "patrol", "x": -380, "y": -11, "range": 80, "hp": 1 },
-        { "type": "patrol", "x": 180, "y": -11, "range": 70, "hp": 1 }
+        { "type": "patrol", "x": 250, "y": -11, "range": 80, "hp": 1 },
+        { "type": "patrol", "x": 80, "y": -251, "range": 50, "hp": 1 }
       ],
       "decor": [
         { "type": "torch", "x": -490, "y": -50 },
-        { "type": "torch", "x": 320, "y": -90 },
-        { "type": "stalactite", "x": -360, "y": -180 },
-        { "type": "stalactite", "x": -40, "y": -200 },
-        { "type": "stalactite", "x": 200, "y": -160 },
+        { "type": "torch", "x": 490, "y": -50 },
+        { "type": "stalactite", "x": -300, "y": -200 },
+        { "type": "stalactite", "x": 150, "y": -220 },
         { "type": "moss", "x": -500, "y": 0 },
-        { "type": "moss", "x": -30, "y": 0 }
+        { "type": "moss", "x": 100, "y": 0 }
       ],
       "doors": [
-        { "x": 370, "y": -40, "to": "hall", "entry": [-470, -11] }
+        { "x": 470, "y": -40, "to": "hall", "entry": [-470, -11], "label": "中庭" }
       ]
     },
     {
       "id": "hall",
       "name": "烬渊中庭",
       "player_start": [-470, -11],
-      "bounds": { "left": -530, "right": 440 },
+      "bounds": { "left": -530, "right": 510 },
       "terrain": [
-        { "type": "ground", "x": -520, "y": 0, "w": 200, "h": 120, "layer": "dirt" },
-        { "type": "ground", "x": -60, "y": 0, "w": 380, "h": 120, "layer": "dirt" },
-        { "type": "ground", "x": -320, "y": -140, "w": 130, "h": 30, "layer": "stone" },
-        { "type": "ground", "x": -160, "y": -140, "w": 110, "h": 30, "layer": "stone" },
-        { "type": "ground", "x": -240, "y": -240, "w": 90, "h": 30, "layer": "stone" },
-        { "type": "ground", "x": 300, "y": -120, "w": 140, "h": 30, "layer": "dirt" }
+        { "type": "ground", "x": -520, "y": 0, "w": 1040, "h": 90, "layer": "dirt" },
+        { "type": "ground", "x": 360, "y": -120, "w": 140, "h": 26, "layer": "stone" }
       ],
       "platforms": [
-        { "x": -450, "y": -70, "w": 90 },
-        { "x": 120, "y": -80, "w": 90 },
-        { "x": 60, "y": -180, "w": 90 }
+        { "x": -460, "y": -60, "w": 80 },
+        { "x": -340, "y": -120, "w": 80 },
+        { "x": -220, "y": -180, "w": 80 },
+        { "x": -100, "y": -240, "w": 80 },
+        { "x": 20, "y": -180, "w": 80 },
+        { "x": 140, "y": -120, "w": 80 },
+        { "x": 260, "y": -60, "w": 80 }
       ],
       "enemies": [
-        { "type": "patrol", "x": -460, "y": -11, "range": 60, "hp": 1 },
-        { "type": "spitter", "x": 0, "y": -11, "range": 0, "hp": 2 },
-        { "type": "diver", "x": 200, "y": -140, "range": 90, "hp": 2 },
-        { "type": "patrol", "x": 370, "y": -131, "range": 60, "hp": 1 }
+        { "type": "spitter", "x": -400, "y": -11, "range": 0, "hp": 2 },
+        { "type": "patrol", "x": 440, "y": -11, "range": 60, "hp": 1 },
+        { "type": "diver", "x": 0, "y": -150, "range": 130, "hp": 2 }
       ],
       "decor": [
         { "type": "torch", "x": -490, "y": -50 },
-        { "type": "torch", "x": 300, "y": -160 },
+        { "type": "torch", "x": 360, "y": -160 },
         { "type": "stalactite", "x": -450, "y": -200 },
         { "type": "stalactite", "x": -100, "y": -220 },
         { "type": "stalactite", "x": 250, "y": -180 },
-        { "type": "moss", "x": -500, "y": 0 }
+        { "type": "moss", "x": -500, "y": 0 },
+        { "type": "moss", "x": 200, "y": 0 }
       ],
       "doors": [
-        { "x": -510, "y": -40, "to": "entrance", "entry": [330, -11] },
-        { "x": 430, "y": -131, "to": "sanctum", "entry": [-470, -11] }
+        { "x": -510, "y": -40, "to": "entrance", "entry": [400, -11], "label": "入口" },
+        { "x": 490, "y": -40, "to": "sanctum", "entry": [-470, -11], "label": "心核前厅" }
       ]
     },
     {
       "id": "sanctum",
       "name": "心核前厅",
       "player_start": [-470, -11],
-      "bounds": { "left": -530, "right": 430 },
+      "bounds": { "left": -530, "right": 520 },
       "terrain": [
-        { "type": "ground", "x": -520, "y": 0, "w": 500, "h": 120, "layer": "dirt" },
-        { "type": "ground", "x": 160, "y": 0, "w": 260, "h": 120, "layer": "dirt" },
-        { "type": "ground", "x": -60, "y": -40, "w": 200, "h": 60, "layer": "stone" },
-        { "type": "ground", "x": -360, "y": -160, "w": 90, "h": 30, "layer": "stone" },
-        { "type": "ground", "x": 240, "y": -160, "w": 90, "h": 30, "layer": "stone" }
+        { "type": "ground", "x": -520, "y": 0, "w": 1040, "h": 90, "layer": "dirt" },
+        { "type": "ground", "x": 0, "y": -120, "w": 200, "h": 30, "layer": "stone" }
       ],
       "platforms": [
-        { "x": -360, "y": -100, "w": 90 },
-        { "x": 240, "y": -100, "w": 90 },
-        { "x": -60, "y": -220, "w": 120 }
+        { "x": -460, "y": -60, "w": 90 },
+        { "x": -330, "y": -120, "w": 90 },
+        { "x": -200, "y": -180, "w": 90 },
+        { "x": -70, "y": -240, "w": 90 },
+        { "x": 50, "y": -340, "w": 90 },
+        { "x": 180, "y": -240, "w": 90 }
       ],
       "enemies": [
-        { "type": "spitter", "x": -300, "y": -11, "range": 0, "hp": 2 },
-        { "type": "diver", "x": 40, "y": -180, "range": 110, "hp": 2 },
-        { "type": "patrol", "x": 300, "y": -11, "range": 80, "hp": 1 }
+        { "type": "spitter", "x": -400, "y": -11, "range": 0, "hp": 2 },
+        { "type": "patrol", "x": 320, "y": -11, "range": 90, "hp": 1 },
+        { "type": "diver", "x": 120, "y": -200, "range": 100, "hp": 2 }
       ],
       "decor": [
-        { "type": "torch", "x": -100, "y": -70 },
-        { "type": "torch", "x": 140, "y": -70 },
-        { "type": "seal", "x": -60, "y": -262 },
+        { "type": "torch", "x": -100, "y": -150 },
+        { "type": "torch", "x": 100, "y": -150 },
+        { "type": "seal", "x": 50, "y": -382 },
         { "type": "stalactite", "x": -420, "y": -200 },
         { "type": "stalactite", "x": 100, "y": -200 },
         { "type": "moss", "x": -500, "y": 0 }
       ],
       "doors": [
-        { "x": -510, "y": -40, "to": "hall", "entry": [310, -11] }
+        { "x": -510, "y": -40, "to": "hall", "entry": [420, -11], "label": "中庭" }
       ]
     }
   ]
