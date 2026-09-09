@@ -35,6 +35,28 @@ var _attack_cd := 0.0
 var _facing := 1
 var _dash_dir := Vector2.RIGHT
 
+# 美术动效状态
+var _squash := Vector2.ONE        ## 挤压拉伸（落地/起跳）
+var _was_on_floor := true
+var _bob_t := 0.0                 ## 走路起伏相位
+var _land_dust: CPUParticles2D
+
+
+func _ready() -> void:
+	# 落地尘土
+	_land_dust = VisualLib.make_dust_puff()
+	_land_dust.position = Vector2(0, -1)
+	add_child(_land_dust)
+	# 肩上共生体（发光小精灵）
+	var sib := Node2D.new()
+	sib.position = Vector2(-6, -19)
+	var orb := Polygon2D.new()
+	orb.polygon = PackedVector2Array([Vector2(0, -3), Vector2(3, 0), Vector2(0, 3), Vector2(-3, 0)])
+	orb.color = Color(0.85, 0.98, 0.9)
+	sib.add_child(orb)
+	sib.add_child(VisualLib.make_glow(10.0, Color(0.6, 0.95, 0.85), 0.30))
+	$Visual.add_child(sib)
+
 
 func _physics_process(delta: float) -> void:
 	_tick_timers(delta)
@@ -61,7 +83,6 @@ func _physics_process(delta: float) -> void:
 	var input_dir := Input.get_axis("move_left", "move_right")
 	if input_dir != 0.0:
 		_facing = 1 if input_dir > 0.0 else -1
-	$Visual.scale.x = _facing
 
 	# 重力：下落加速 / 轻按跳跃变矮
 	var g := gravity
@@ -85,13 +106,31 @@ func _physics_process(delta: float) -> void:
 		if is_on_floor() or _coyote_timer > 0.0:
 			velocity.y = jump_velocity
 			_jumps_left = 1
+			_squash = Vector2(0.85, 1.15)
 			_consume_jump_input()
 		elif _jumps_left > 0:
 			velocity.y = double_jump_velocity
 			_jumps_left -= 1
+			_squash = Vector2(0.85, 1.15)
 			_consume_jump_input()
 
 	move_and_slide()
+
+	# 落地检测 → 挤压 + 尘土
+	if is_on_floor() and not _was_on_floor:
+		_squash = Vector2(1.22, 0.78)
+		_land_dust.restart()
+	_was_on_floor = is_on_floor()
+
+	# 动效：挤压回弹 + 走路起伏 + 朝向翻转
+	_squash = _squash.lerp(Vector2.ONE, minf(1.0, 14.0 * delta))
+	var bob := 0.0
+	if is_on_floor() and absf(velocity.x) > 20.0:
+		_bob_t += delta * 11.0
+		bob = -absf(sin(_bob_t)) * 1.5
+	var vis: Node2D = $Visual
+	vis.scale = Vector2(_facing * _squash.x, _squash.y)
+	vis.position.y = lerpf(vis.position.y, bob, minf(1.0, 18.0 * delta))
 
 
 func _tick_timers(delta: float) -> void:
