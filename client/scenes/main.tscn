@@ -19,6 +19,7 @@ height = 64
 script = ExtResource("1_main")
 
 [node name="Background" type="CanvasLayer" parent="."]
+layer = -1
 
 [node name="Bg" type="TextureRect" parent="Background"]
 anchors_preset = 15
