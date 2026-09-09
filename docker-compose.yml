@@ -1,0 +1,68 @@
+# Symbiont 一键部署（骨架，随开发补全）
+# 服务：client(WebGL) / admin-web(管理后台) / backend(FastAPI) / mysql / redis
+name: symbiont
+
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: symbiont-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpass}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-symbiont}
+      MYSQL_USER: ${MYSQL_USER:-symbiont}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-symbiontpass}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-rootpass}"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  redis:
+    image: redis:7-alpine
+    container_name: symbiont-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: ../docker/backend.Dockerfile
+    container_name: symbiont-backend
+    environment:
+      DATABASE_URL: mysql+pymysql://${MYSQL_USER:-symbiont}:${MYSQL_PASSWORD:-symbiontpass}@mysql:3306/${MYSQL_DATABASE:-symbiont}?charset=utf8mb4
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      JWT_SECRET: ${JWT_SECRET:-dev_secret_change_me}
+      AI_API_KEY: ${AI_API_KEY:-}
+    ports:
+      - "8000:8000"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  client:
+    build:
+      context: ./client
+      dockerfile: ../docker/client.Dockerfile
+    container_name: symbiont-client
+    ports:
+      - "8080:80"
+
+  admin-web:
+    build:
+      context: ./admin-web
+      dockerfile: ../docker/admin-web.Dockerfile
+    container_name: symbiont-admin-web
+    ports:
+      - "8081:80"
+
+volumes:
+  mysql_data:
+  redis_data:
