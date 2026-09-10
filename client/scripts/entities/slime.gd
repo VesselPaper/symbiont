@@ -172,8 +172,10 @@ func _die() -> void:
 	EventBus.enemy_killed.emit(self, global_position)
 	# 埋点：史莱姆被击倒（M1-02 要求；玩家被碰扣血由 player_hurt 触发，不在此重复埋）
 	EventBus.log_event("slime_killed", {"pos": global_position})
-	_spawn_limb_pickup()
-	queue_free()
+	# 死亡发生在玩家攻击命中的物理回调中；此时实例化带碰撞的 Area2D(肢体拾取物)
+	# 会触发 "Can't change state while flushing queries" 错误，必须用 call_deferred 延后
+	_spawn_limb_pickup.call_deferred()
+	queue_free.call_deferred()
 
 func _spawn_limb_pickup() -> void:
 	var pickup := LIMB_PICKUP_SCENE.instantiate()
