@@ -67,7 +67,7 @@ color = Color(0.3914568, 0.3914568, 0.3914566, 1)
 polygon = PackedVector2Array(-80, -12, 80, -12, 80, 12, -80, 12)
 
 [node name="PlatformB" type="StaticBody2D" parent="." unique_id=1145824567]
-position = Vector2(850, 512)
+position = Vector2(777, 512)
 collision_mask = 0
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="PlatformB" unique_id=669209225]
@@ -81,7 +81,7 @@ polygon = PackedVector2Array(-80, -12, 80, -12, 80, 12, -80, 12)
 position = Vector2(80, 647)
 
 [node name="DummyTarget" parent="." unique_id=762259326 instance=ExtResource("3_dummy")]
-position = Vector2(1100, 645)
+position = Vector2(1094, 646)
 
 [node name="SlimeA" parent="." unique_id=1593519754 instance=ExtResource("4_slime")]
 position = Vector2(350, 648)
