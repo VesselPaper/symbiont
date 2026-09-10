@@ -45,26 +45,13 @@
 
 ## 快速开始
 
-前置：Git、[Godot 4.5.1](https://godotengine.org/download/)（或运行 `scripts/setup.ps1` 自动安装，Windows）、Python 3.12+。
+怎么打开游戏玩：
 
-```powershell
-# 1) 初始化环境（Godot + server 虚拟环境）
-scripts/setup.ps1
+1. 打开 Godot 软件（如果电脑上没装，见下面"团队协作"一节的第 1 步，运行一次 `scripts\setup.ps1` 就会自动装好）
+2. 在 Godot 的项目管理器里点"导入"，找到项目里的 `client\project.godot` 文件，点确定
+3. 点运行按钮（▶，在窗口上方），或直接按 **F5**，游戏就启动了
 
-# 2) 生成游戏数据（SQLite → client/data JSON）
-python tools/build_game_data.py
-python tools/db_export.py
-
-# 3) 打开游戏
-#    Godot 编辑器打开 client/project.godot，按 F5 运行
-
-# 4) （可选）启动后端
-scripts/run_server.ps1        # 浏览器访问 http://127.0.0.1:8000/docs
-
-# 5) （可选）一键全栈
-docker compose -f deploy/docker-compose.yml up -d
-#    游戏 Web 版: http://localhost:8080
-```
+就这 3 步，其他都不用管。
 
 ## 团队协作：成员同步与提交指南
 
