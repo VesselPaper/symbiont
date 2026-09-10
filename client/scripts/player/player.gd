@@ -147,9 +147,10 @@ func _start_pogo() -> void:
 func _update_pogo_state() -> void:
 	if not _pogo_active:
 		return
-	# 持续强制下落（加速下落），直到落地（_end_pogo）或命中实体（_on_hitbox_down_body_entered 反弹）
+	# 持续强制下落（加速下落）
 	velocity.y = POGO_FALL_SPEED
-	if is_on_floor():
+	# 碰到地面或墙（实体）即结束下砍；命中敌人由 _on_hitbox_down_body_entered 处理（反弹）
+	if is_on_floor() or is_on_wall():
 		_end_pogo()
 
 func _end_pogo() -> void:
