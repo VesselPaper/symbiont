@@ -1,0 +1,48 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/player/player.gd" id="1_player"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_body"]
+size = Vector2(14, 26)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_side"]
+size = Vector2(22, 18)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_down"]
+size = Vector2(18, 14)
+
+[node name="Player" type="CharacterBody2D"]
+collision_layer = 2
+collision_mask = 1
+script = ExtResource("1_player")
+
+[node name="Body" type="Polygon2D" parent="."]
+color = Color(0.85, 0.9, 0.95, 1)
+polygon = PackedVector2Array(-8, -14, 8, -14, 8, 14, -8, 14)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("RectangleShape2D_body")
+
+[node name="HitboxSide" type="Area2D" parent="."]
+collision_layer = 0
+collision_mask = 4
+monitoring = false
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="HitboxSide"]
+shape = SubResource("RectangleShape2D_side")
+
+[node name="Visual" type="Polygon2D" parent="HitboxSide"]
+color = Color(0.6, 0.8, 1, 0.45)
+polygon = PackedVector2Array(-11, -8, 11, -8, 11, 8, -11, 8)
+
+[node name="HitboxDown" type="Area2D" parent="."]
+collision_layer = 0
+collision_mask = 4
+monitoring = false
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="HitboxDown"]
+shape = SubResource("RectangleShape2D_down")
+
+[node name="Visual" type="Polygon2D" parent="HitboxDown"]
+color = Color(0.6, 0.8, 1, 0.45)
+polygon = PackedVector2Array(-9, -6, 9, -6, 9, 6, -9, 6)
