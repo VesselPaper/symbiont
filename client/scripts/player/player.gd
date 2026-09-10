@@ -2,7 +2,7 @@ extends CharacterBody2D
 ## 玩家控制器（M1-01）
 ##
 ## 职责：水平移动、跳跃（coyote time + jump buffer，固定跳高）、
-## 横砍 / 空中下劈判定、受击无敌帧与击退、死亡重生。
+## 地面横砍 / 空中下砍（pogo：加速下落+踩敌反弹）、受击无敌帧与击退、死亡重生。
 ## 视觉为占位方块（Polygon2D），美术资源到位后替换节点即可。
 ##
 ## 数值先用脚本顶部常量占位，M2 迁入数据文件（见 docs/02 §2.3）。
@@ -26,7 +26,10 @@ const ATTACK_DAMAGE := 1
 const ATTACK_COOLDOWN := 0.25
 const ATTACK_ACTIVE_TIME := 0.12   # 判定框单次启用时长（一次挥砍只命中一次）
 const SIDE_HITBOX_OFFSET := Vector2(32, -14)  # 横砍判定框：64宽×56高（4×角色宽16 × 2×角色高28），从头顶上方到身前（面朝右时 x:0→64, y:-42→+14）
-const DOWN_HITBOX_OFFSET := Vector2(0, 18)  # 下劈判定框（玩家脚下方）
+const POGO_HITBOX_OFFSET := Vector2(32, 14)   # 下砍判定框：64宽×28高（前方4×宽16 × 下方1×高28），面朝右时 x:0→64, y:0→28
+const POGO_FALL_SPEED := 700.0       # 下砍时强制下落速度（加速下落）
+const POGO_BOUNCE_VELOCITY := -650.0 # 命中实体后的向上反弹初速（≈83px 高，可调）
+const POGO_RETRIGGER_COOLDOWN := 0.1 # 反弹后可再次下砍的最小间隔（支持多段踩跳）
 
 # ---- 生命 / 受击 ----
 const MAX_HP := 5
@@ -34,14 +37,12 @@ const INVINCIBLE_TIME := 0.5    # 受击无敌时长（期间闪烁表现）
 const KNOCKBACK_HORIZONTAL := 260.0
 const KNOCKBACK_UPWARD := -220.0
 
-enum AttackKind { SIDE, DOWN_STRIKE }
-
 var hp := MAX_HP
 var _facing := 1                            # 1 面朝右，-1 面朝左
 var _is_dead := false
 var _coyote_timer := 0.0
 var _jump_buffer_timer := 0.0
-var _attack_kind := AttackKind.SIDE
+var _pogo_active := false
 var _attack_cooldown_timer := 0.0
 var _attack_active_timer := 0.0
 var _hit_this_swing: Array[Node2D] = []     # 本次挥砍已命中的目标，防止同一判定框重复扣血
@@ -66,6 +67,7 @@ func _physics_process(delta: float) -> void:
 	_try_start_attack()
 	_apply_horizontal_movement(delta)
 	_apply_gravity(delta)
+	_update_pogo_state()
 	move_and_slide()
 	_update_facing()
 	_update_attack_state(delta)
@@ -115,17 +117,47 @@ func _handle_jump() -> void:
 func _try_start_attack() -> void:
 	if _attack_cooldown_timer > 0.0:
 		return
-	# 必须按下攻击键(J)才挥砍，否则冷却一结束就会无限自动攻击
+	# 必须按下攻击键(J)才攻击，否则冷却一结束就会无限自动挥砍
 	if not Input.is_action_just_pressed("attack"):
 		return
-	# 空中按住下 + J → 下劈；其余情况横砍
-	var is_down_strike := not is_on_floor() and Input.is_action_pressed("move_down")
-	_attack_kind = AttackKind.DOWN_STRIKE if is_down_strike else AttackKind.SIDE
+	if is_on_floor():
+		_start_side_slash()
+	else:
+		_start_pogo()
+
+# 地面：普通横砍（0.12s 短暂判定，一次挥砍只命中一次）
+func _start_side_slash() -> void:
 	_attack_cooldown_timer = ATTACK_COOLDOWN
 	_attack_active_timer = ATTACK_ACTIVE_TIME
 	_hit_this_swing.clear()
-	_hitbox_side.monitoring = _attack_kind == AttackKind.SIDE
-	_hitbox_down.monitoring = _attack_kind == AttackKind.DOWN_STRIKE
+	_hitbox_side.monitoring = true
+	_hitbox_down.monitoring = false
+	_pogo_active = false
+
+# 空中：下砍（pogo）—— 加速下落 + 身前下方持续判定，直到落地或命中实体
+func _start_pogo() -> void:
+	_pogo_active = true
+	_hit_this_swing.clear()
+	_hitbox_side.monitoring = false
+	_hitbox_down.monitoring = true
+	_attack_cooldown_timer = POGO_RETRIGGER_COOLDOWN
+	velocity.y = POGO_FALL_SPEED
+	EventBus.log_event("pogo_start", {})
+
+func _update_pogo_state() -> void:
+	if not _pogo_active:
+		return
+	# 持续强制下落（加速下落），直到落地（_end_pogo）或命中实体（_on_hitbox_down_body_entered 反弹）
+	velocity.y = POGO_FALL_SPEED
+	if is_on_floor():
+		_end_pogo()
+
+func _end_pogo() -> void:
+	if not _pogo_active:
+		return
+	_pogo_active = false
+	_hitbox_down.monitoring = false
+	_hit_this_swing.clear()
 
 func _update_attack_state(delta: float) -> void:
 	_attack_cooldown_timer = maxf(_attack_cooldown_timer - delta, 0.0)
@@ -142,9 +174,9 @@ func _end_attack() -> void:
 	_hit_this_swing.clear()
 
 func _update_hitbox_pose() -> void:
-	# 横砍判定框随面朝方向左右翻转；下劈固定朝下
+	# 横砍判定框随面朝方向左右翻转；下砍判定框固定朝前下方
 	_hitbox_side.position = Vector2(SIDE_HITBOX_OFFSET.x * _facing, SIDE_HITBOX_OFFSET.y)
-	_hitbox_down.position = DOWN_HITBOX_OFFSET
+	_hitbox_down.position = POGO_HITBOX_OFFSET
 	# 占位阶段把判定框可视层与开关绑定，便于在编辑器中观察攻击范围
 	_hitbox_side_visual.visible = _hitbox_side.monitoring
 	_hitbox_down_visual.visible = _hitbox_down.monitoring
@@ -153,7 +185,17 @@ func _on_hitbox_side_body_entered(body: Node2D) -> void:
 	_apply_hit(body)
 
 func _on_hitbox_down_body_entered(body: Node2D) -> void:
+	# 下砍判定只在 pogo 状态下生效：命中实体 → 伤害 + 向上反弹（踩跳）
+	if not _pogo_active:
+		return
+	if not body.is_in_group("damageable"):
+		return
 	_apply_hit(body)
+	velocity.y = POGO_BOUNCE_VELOCITY
+	_end_pogo()
+	# 反弹后可快速再按 J 连续下砍（多段踩跳）
+	_attack_cooldown_timer = POGO_RETRIGGER_COOLDOWN
+	EventBus.log_event("pogo_bounce", {"target": body.name})
 
 func _apply_hit(body: Node2D) -> void:
 	if not body.is_in_group("damageable"):
@@ -198,6 +240,7 @@ func _respawn() -> void:
 	_is_dead = false
 	_attack_cooldown_timer = 0.0
 	_attack_active_timer = 0.0
+	_pogo_active = false
 	_hitbox_side.monitoring = false
 	_hitbox_down.monitoring = false
 	_hit_this_swing.clear()

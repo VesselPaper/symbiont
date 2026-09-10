@@ -9,7 +9,7 @@ size = Vector2(14, 26)
 size = Vector2(64, 56)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_down"]
-size = Vector2(18, 14)
+size = Vector2(64, 28)
 
 [node name="Player" type="CharacterBody2D" groups=["player"]]
 collision_layer = 2
@@ -45,4 +45,4 @@ shape = SubResource("RectangleShape2D_down")
 
 [node name="Visual" type="Polygon2D" parent="HitboxDown"]
 color = Color(0.6, 0.8, 1, 0.45)
-polygon = PackedVector2Array(-9, -6, 9, -6, 9, 6, -9, 6)
+polygon = PackedVector2Array(-32, -14, 32, -14, 32, 14, -32, 14)
