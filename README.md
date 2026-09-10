@@ -60,131 +60,56 @@ docker compose -f deploy/docker-compose.yml up -d
 
 ## 团队协作：成员同步与提交指南
 
-**核心原则：我们的操作是"更新"（在别人最新代码的基础上增量修改），永远不是"覆盖"。**
-Git 默认会阻止你把旧代码直接推上去覆盖别人的新代码，但错误的操作习惯仍可能造成混乱。
-下面的流程照做，就能保证：你永远基于最新代码工作，你的提交永远不会盖掉别人的修改。
+代码都放在 GitHub 上。组员只需要记住两句话：**开工前先更新本地，干完活把改动传上去**。照着下面的步骤复制命令就行。
 
-### 0. 首次使用 Git 的准备
+### 第一次（每人只做一次）：把项目下载到电脑
 
-```powershell
-# 安装 Git（https://git-scm.com）后，配置一次身份（改成自己的名字/邮箱）
-git config --global user.name "你的名字"
-git config --global user.email "你的邮箱@xxx.com"
-# 让中文文件名正常显示（否则 git status 里中文会变转义符）
-git config --global core.quotepath false
+1. 打开电脑上的"命令提示符"（开始菜单搜 cmd）或 PowerShell
+2. 运行下面这行命令，回车（会自动把整个项目下载到当前文件夹）：
 ```
-
-### 1. 第一次把项目拉到本地（克隆）
-
-```powershell
 git clone https://github.com/VesselPaper/symbiont.git
+```
+3. 如果提示"git 不是内部或外部命令"：先到 https://git-scm.com 下载安装 Git（一直点下一步装完），再重开一个窗口重新运行
+4. 进入项目文件夹并初始化环境：
+```
 cd symbiont
-scripts\setup.ps1          # 自动装 Godot 依赖、server 虚拟环境、生成游戏数据
-# 然后打开 client/project.godot，按 F5 运行
+scripts\setup.ps1
 ```
+5. 打开 `client/project.godot`，按 F5 就能运行游戏
 
-⚠️ **如果你电脑上已经有一个旧的 symbiont 文件夹**（上一轮实验留下的），**不要**直接在里面改代码后提交——
-旧文件夹的本地状态和线上不一致，提交会把旧文件、旧内容带回去，覆盖掉我们新写的代码。
-安全做法（二选一）：
-- **推荐**：删掉旧文件夹，按上面重新 clone 一份干净的；
-- 或先执行第 2 节的同步流程，确认本地已是最新再开工。
+⚠️ 如果你的电脑上**已经有一个旧版本的 symbiont 文件夹**：不要在里面改东西，直接删掉它，再按上面第 1 步重新 clone 一份新的。
 
-### 2. 开工前 / 线上项目更新了：把最新代码拉到本地
+### 每次开工前：更新本地仓库（把线上最新代码拉到电脑）
 
-```powershell
-git fetch origin            # 查看线上是否有新提交
-git status                  # 本地落后(behind)还是领先(ahead)
-git pull origin main        # 把线上最新代码合并到本地（= fetch + merge）
+在项目文件夹里运行：
 ```
-
-- 如果 `git pull` 报"本地有未提交的修改，无法合并"：
-  ```powershell
-  git stash                  # 把未提交的改动暂时收起来
-  git pull origin main       # 再拉取
-  git stash pop              # 把改动放回来（如有冲突按第 4 节解决）
-  ```
-- 拉取后建议跑一次 `scripts\test_all.ps1`，确认环境和数据没问题再开工。
-
-### 3. 干完活：把改动更新到 GitHub（提交 + 推送）
-
-**标准六步**（每一步都有目的，别跳）：
-
-```powershell
-# ① 看自己到底改了哪些文件
-git status
-
-# ② 检查改动内容是否符合预期
-git diff
-
-# ③ 只添加【自己这次改的文件】—— 不要偷懒 git add -A 全加，
-#    否则容易把别人的文件、生成物(.godot/、.venv/、client/data/ 等)一起提交
-git add <你改的文件或目录>      # 例: git add client/scenes/player/ docs/02-系统接口设计文档.md
-
-# ④ 提交（写清楚改了什么）
-git commit -m "feat(client): 新增玩家控制器"
-
-# ⑤ ★推送前必做★：先把线上新提交合并进本地。
-#    如果这期间别人推了新代码，这一步会把它们合进来，避免推送被拒/冲突
-git pull --rebase origin main
-
-# ⑥ 推送到 GitHub
-git push origin main
+git pull
 ```
+看到 `Already up to date` 就是已经最新，看到 `Updating` 就是在更新。
 
-- 如果 ⑤ 出现冲突（CONFLICT），按第 4 节处理；
-- 如果 ⑥ 被拒绝（`non-fast-forward` / `fetch first`）：说明线上又有新提交，回到 ⑤ 再来一次即可，**不要**用 `--force`。
+### 干完活：把改动传到 GitHub
 
-### 4. 冲突（CONFLICT）怎么办
-
-多人改同一个文件时，Git 无法自动合并就会报冲突，这是**正常现象**，不是出错：
-
-```powershell
-git status                  # 看哪些文件冲突（显示 both modified）
-# 用编辑器打开冲突文件，会看到这样的标记：
-#   <<<<<<< HEAD
-#   线上已有的内容
-#   =======
-#   你本地改的内容
-#   >>>>>>> your-branch
-# 手动把两边合理的内容合并保留，删掉 <<<<<<< ======= >>>>>>> 标记行
-git add <解决好的文件>       # 标记为已解决
-git pull --rebase --continue   # 继续完成合并
-git push origin main
+在项目文件夹里，**依次运行下面 4 条命令**：
 ```
+git add .
+git commit -m "写一句话：你这次改了啥，比如：加了玩家移动"
+git pull
+git push
+```
+- 第 3 条 `git pull` 很关键：先把别人新传的代码合并进来，再传你的，这样不会盖掉别人的改动，**不能跳过**
+- 第 4 条看到 `main -> main` 就成功了
 
-拿不准怎么合并时：**别乱删、别乱提交**，把冲突文件截图发群里一起解决。
+### 出问题了怎么办
 
-### 5. 红线（千万别做）
+- **`git push` 报错**（提示 fetch first / non-fast-forward）：说明别人先传了新东西。再运行一次 `git pull`，然后再 `git push`，直到成功。
+- **`git pull` 后文件里出现 `<<<<<<<` 和 `>>>>>>>` 符号**：说明你和别人改了同一个地方（这叫冲突）。**不要乱删**，把这个文件截图发群里，组长来帮你合并。
+- **忘了自己改过哪些文件**：运行 `git status` 会列出来。
 
-| ❌ 禁止 | 后果 |
-|---|---|
-| `git push --force` / `-f` | 强制推送会**直接覆盖**线上历史，别人代码全没——绝对禁止 |
-| 在旧仓库上不 pull 就提交推送 | 旧文件/旧内容会被带回，盖掉新代码 |
-| `git add -A` 无脑全加 | 可能把生成物和别人的改动一起提交 |
-| 手改 `client/data/` 下的 JSON | 那是生成物，改 `database/game_data/*.sql` 后重新导出 |
-| 提交 `.godot/`、`server/.venv/`、`*.log` | 已在 .gitignore，正常 add 不会带上；别用 `-f` 强行加 |
+### 千万别做
 
-### 6. 提交信息规范
-
-格式：`类型(范围): 一句话描述`，例：
-
-- `feat(client): 新增玩家控制器`
-- `fix(server): 修复登录接口 500`
-- `docs: 更新接口文档 02`
-- `chore: 更新依赖`
-
-类型：`feat` 新功能 / `fix` 修 bug / `docs` 文档 / `refactor` 重构 / `chore` 杂项 / `test` 测试。
-
-### 7. 常见问题速查
-
-| 问题 | 解决 |
-|---|---|
-| push 被拒（non-fast-forward） | `git pull --rebase origin main` 后再 push |
-| 忘了自己改过什么 | `git status` + `git diff` |
-| 想撤销最后一次提交但保留改动 | `git reset --soft HEAD~1` |
-| 改乱了想丢弃未提交改动 | `git checkout -- <文件>`（⚠️ 会丢改动，慎用） |
-| 想看看提交历史 | `git log --oneline` |
-| 谁改的这行代码 | `git blame <文件>` |
+- ❌ 不要运行 `git push -f`（会直接把别人的代码覆盖掉）
+- ❌ 不要删掉别人的文件再提交
+- ❌ 提交信息不要只写"更新""修改"，写清楚具体改了啥
 
 ## 测试
 
