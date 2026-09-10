@@ -20,8 +20,8 @@ docker compose -f deploy/docker-compose.yml up -d
 - `Dockerfile.server`：后端镜像（python:3.12-slim + uvicorn）。
 - `Dockerfile.game-web`：游戏 Web 版镜像（nginx:alpine + `client/build/web`）。
 
-> ⚠️ `game-web` 依赖 Godot Web 导出产物 `client/build/web/`，M2 起先运行
-> `scripts/export_web.ps1`（需安装 Godot 导出模板），M0 阶段该镜像暂不构建。
+⚠️ `game-web` 依赖 Godot Web 导出产物 `client/build/web/`，M2 起先运行
+`scripts/export_web.ps1`（需安装 Godot 导出模板），M0 阶段该镜像暂不构建。
 
 ## 目录
 
