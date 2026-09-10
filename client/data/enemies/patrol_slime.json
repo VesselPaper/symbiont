@@ -1,0 +1,12 @@
+{
+  "id": "patrol_slime",
+  "name": "巡逻史莱姆",
+  "hp": 8,
+  "speed": 40.0,
+  "behavior": "patrol",
+  "attack_damage": 1,
+  "drops": {
+    "sacrifice_part": "monster_limb"
+  },
+  "desc": "第一层最常见的敌人，直线巡逻。"
+}

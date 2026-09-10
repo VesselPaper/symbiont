@@ -1,0 +1,17 @@
+{
+  "id": "intro_parasite_2",
+  "npc_id": "",
+  "title": "新生指导",
+  "lines": [
+    {
+      "speaker": "寄生体",
+      "text": "很好。力量在涌上来，不是么？"
+    },
+    {
+      "speaker": "系统",
+      "text": "按 攻击键 攻击，按 交互键 献祭。"
+    }
+  ],
+  "next_id": "",
+  "branch": ""
+}

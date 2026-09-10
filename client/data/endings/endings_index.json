@@ -1,0 +1,14 @@
+{
+  "refuse_die": {
+    "name": "拒绝献祭（死）"
+  },
+  "human": {
+    "name": "人类结局"
+  },
+  "transformed": {
+    "name": "异化结局"
+  },
+  "true_he": {
+    "name": "真结局 HE"
+  }
+}

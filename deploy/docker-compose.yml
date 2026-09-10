@@ -1,0 +1,48 @@
+# 共生之缚 全栈一键启动：MySQL + 后端 + 游戏 Web 版（nginx）
+# 用法: docker compose -f deploy/docker-compose.yml up -d
+# 访问: 游戏 http://localhost:8080 | 后端 http://localhost:8000/docs | MySQL 127.0.0.1:3306
+# 注: game-web 需要先运行 scripts/export_web.ps1 生成 client/build/web（M2 起可用）
+services:
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: symbiont
+      MYSQL_USER: symbiont
+      MYSQL_PASSWORD: symbiont
+    volumes:
+      - mysql_data:/var/lib/mysql
+      # 首次启动自动执行数据库脚本（课程交付：数据库脚本）
+      - ../database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ../database/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-proot"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  server:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.server
+    environment:
+      SYMBIONT_DATABASE_URL: "mysql+pymysql://symbiont:symbiont@mysql:3306/symbiont?charset=utf8mb4"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+
+  game-web:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.game-web
+    depends_on:
+      - server
+    ports:
+      - "8080:80"
+
+volumes:
+  mysql_data:

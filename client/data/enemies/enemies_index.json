@@ -1,0 +1,18 @@
+{
+  "patrol_slime": {
+    "name": "巡逻史莱姆",
+    "behavior": "patrol"
+  },
+  "spore_shooter": {
+    "name": "孢子射手",
+    "behavior": "ranged"
+  },
+  "dive_fly": {
+    "name": "俯冲飞虫",
+    "behavior": "dive"
+  },
+  "gatekeeper_boss": {
+    "name": "守门 Boss",
+    "behavior": "boss"
+  }
+}

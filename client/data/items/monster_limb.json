@@ -1,0 +1,10 @@
+{
+  "id": "monster_limb",
+  "name": "怪物肢体",
+  "type": "quest",
+  "desc": "沾染邪神气息的怪物残肢，可献祭。",
+  "icon": "",
+  "stats": {},
+  "obtain": "enemy_drop",
+  "flags": {}
+}

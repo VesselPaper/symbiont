@@ -1,0 +1,33 @@
+; Godot 4.5 工程配置 —— 共生之缚 Symbiont
+; M0 骨架：autoload 单例 + 主场景占位。输入映射等在 M1 玩家控制器任务中配置。
+
+config_version=5
+
+[application]
+
+config/name="Symbiont 共生之缚"
+config/description="类恶魔城 2D 游戏：自下而上探索深渊地牢，在献祭与人性之间抉择。"
+run/main_scene="res://scenes/main/main.tscn"
+config/features=PackedStringArray("4.5", "GL Compatibility")
+config/icon="res://icon.svg"
+
+[autoload]
+
+EventBus="*res://autoload/event_bus.gd"
+GameManager="*res://autoload/game_manager.gd"
+DataDB="*res://autoload/data_db.gd"
+SaveSystem="*res://autoload/save_system.gd"
+Settings="*res://autoload/settings.gd"
+Network="*res://autoload/network.gd"
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=720
+window/stretch/mode="canvas_items"
+window/stretch/aspect="keep"
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"

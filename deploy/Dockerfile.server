@@ -1,0 +1,12 @@
+# 共生之缚 后端镜像
+FROM python:3.12-slim
+
+WORKDIR /srv
+COPY server/requirements.txt /srv/requirements.txt
+RUN pip install --no-cache-dir -r /srv/requirements.txt
+
+COPY server/ /srv/app/
+WORKDIR /srv/app
+
+EXPOSE 8000
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -1,0 +1,56 @@
+# 共生之缚 CI：数据管道 + server pytest + Godot headless 冒烟
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  # ---------- 数据管道（SQLite → JSON） ----------
+  data-pipeline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: 构建并导出游戏数据
+        run: |
+          python tools/build_game_data.py
+          python tools/db_export.py
+      - name: 数据管道测试
+        run: |
+          python -m pytest tools/tests -v
+
+  # ---------- 后端 ----------
+  server:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: 安装依赖
+        run: pip install -r server/requirements.txt
+      - name: 运行测试
+        run: python -m pytest server -v
+
+  # ---------- Godot 客户端（无头冒烟） ----------
+  client:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: 下载 Godot 4.5.1 (headless)
+        run: |
+          wget -q https://github.com/godotengine/godot/releases/download/4.5.1-stable/Godot_v4.5.1-stable_linux.x86_64.zip
+          unzip -q Godot_v4.5.1-stable_linux.x86_64.zip
+          mv Godot_v4.5.1-stable_linux.x86_64 godot
+          chmod +x godot
+      - name: 生成导入缓存
+        run: ./godot --headless --path client --import --quit 2>&1 | tail -5
+      - name: 主场景冒烟启动
+        run: ./godot --headless --path client --quit-after 30 2>&1 | tail -10
+      - name: GDScript 冒烟断言
+        run: ./godot --headless --path client --script res://tests/smoke_test.gd 2>&1 | tail -10

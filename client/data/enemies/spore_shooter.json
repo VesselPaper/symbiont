@@ -1,0 +1,12 @@
+{
+  "id": "spore_shooter",
+  "name": "孢子射手",
+  "hp": 6,
+  "speed": 20.0,
+  "behavior": "ranged",
+  "attack_damage": 1,
+  "drops": {
+    "sacrifice_part": "monster_limb"
+  },
+  "desc": "远程吐孢子弹，近距离无力。"
+}

@@ -1,0 +1,10 @@
+{
+  "heretic_priest": {
+    "name": "异教徒祭司",
+    "faction": "heretic"
+  },
+  "engineer_master": {
+    "name": "工程师",
+    "faction": "engineer"
+  }
+}

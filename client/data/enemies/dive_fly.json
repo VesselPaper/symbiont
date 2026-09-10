@@ -1,0 +1,12 @@
+{
+  "id": "dive_fly",
+  "name": "俯冲飞虫",
+  "hp": 5,
+  "speed": 120.0,
+  "behavior": "dive",
+  "attack_damage": 1,
+  "drops": {
+    "sacrifice_part": "monster_limb"
+  },
+  "desc": "空中巡游，发现玩家后俯冲。"
+}

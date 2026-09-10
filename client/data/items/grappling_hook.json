@@ -1,0 +1,12 @@
+{
+  "id": "grappling_hook",
+  "name": "钩锁",
+  "type": "upgrade",
+  "desc": "可抓取金属锚点的钩锁，大幅扩展移动范围。",
+  "icon": "",
+  "stats": {},
+  "obtain": "map_pickup",
+  "flags": {
+    "movement": "hookshot"
+  }
+}

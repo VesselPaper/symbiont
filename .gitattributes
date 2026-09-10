@@ -1,0 +1,28 @@
+# 统一行尾与二进制声明（Godot 4 / Python / 文本）
+* text=auto
+
+*.gd    text eol=lf
+*.tscn  text eol=lf
+*.tres  text eol=lf
+*.godot text eol=lf
+*.gdshader text eol=lf
+*.md    text eol=lf
+*.py    text eol=lf
+*.sql   text eol=lf
+*.json  text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+*.cfg   text eol=lf
+*.ini   text eol=lf
+*.svg   text eol=lf
+*.txt   text eol=lf
+*.ps1   text eol=crlf
+
+*.png   binary
+*.jpg   binary
+*.otf   binary
+*.ttf   binary
+*.wav   binary
+*.ogg   binary
+*.mp3   binary
+*.zip   binary
