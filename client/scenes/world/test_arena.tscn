@@ -3,6 +3,7 @@
 [ext_resource type="Script" uid="uid://dgru46wtu0ks3" path="res://scripts/world/test_arena.gd" id="1_arena"]
 [ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="2_player"]
 [ext_resource type="PackedScene" path="res://scenes/entities/dummy_target.tscn" id="3_dummy"]
+[ext_resource type="PackedScene" path="res://scenes/entities/slime.tscn" id="4_slime"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_ground"]
 size = Vector2(1280, 60)
@@ -81,6 +82,12 @@ position = Vector2(80, 647)
 
 [node name="DummyTarget" parent="." unique_id=762259326 instance=ExtResource("3_dummy")]
 position = Vector2(1100, 645)
+
+[node name="SlimeA" parent="." unique_id=1593519754 instance=ExtResource("4_slime")]
+position = Vector2(350, 648)
+
+[node name="SlimeB" parent="." unique_id=1625119477 instance=ExtResource("4_slime")]
+position = Vector2(900, 648)
 
 [node name="Camera2D" type="Camera2D" parent="." unique_id=1365575610]
 position = Vector2(640, 360)
