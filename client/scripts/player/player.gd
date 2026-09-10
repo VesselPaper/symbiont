@@ -25,7 +25,7 @@ const JUMP_BUFFER_TIME := 0.15  # 落地前提前按跳的输入缓冲
 const ATTACK_DAMAGE := 1
 const ATTACK_COOLDOWN := 0.25
 const ATTACK_ACTIVE_TIME := 0.12   # 判定框单次启用时长（一次挥砍只命中一次）
-const SIDE_HITBOX_OFFSET := Vector2(16, 2)  # 横砍判定框相对玩家中心的位置（面朝右时）
+const SIDE_HITBOX_OFFSET := Vector2(32, -14)  # 横砍判定框：64宽×56高（4×角色宽16 × 2×角色高28），从头顶上方到身前（面朝右时 x:0→64, y:-42→+14）
 const DOWN_HITBOX_OFFSET := Vector2(0, 18)  # 下劈判定框（玩家脚下方）
 
 # ---- 生命 / 受击 ----
