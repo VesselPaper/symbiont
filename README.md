@@ -13,7 +13,6 @@
 - [团队协作：成员同步与提交指南](#团队协作成员同步与提交指南)
 - [项目结构](#项目结构)
 - [致谢（第三方资产）](#致谢第三方资产)
-- [里程碑](#里程碑)
 
 ## 技术架构
 
@@ -139,7 +138,3 @@ webadmin/   （stretch）管理看板
 - [Kenney](https://kenney.nl) —— `kenney_tiny-dungeon`、`kenney_fantasy-ui-borders`（CC0，见 `client/assets/CREDITS.md`）
 - [Noto Sans CJK](https://github.com/googlefonts/noto-cjk)（SIL OFL，中文字体）
 - [Godot Engine](https://godotengine.org)（MIT）
-
-## 里程碑
-
-M0 基建 → M1 垂直切片（第一层可玩）→ M2 系统完善+后端全量 → M3 内容完成（三结局）→ M4 打磨交付。详见 `docs/00-项目计划与流程.md`。
