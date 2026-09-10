@@ -115,6 +115,9 @@ func _handle_jump() -> void:
 func _try_start_attack() -> void:
 	if _attack_cooldown_timer > 0.0:
 		return
+	# 必须按下攻击键(J)才挥砍，否则冷却一结束就会无限自动攻击
+	if not Input.is_action_just_pressed("attack"):
+		return
 	# 空中按住下 + J → 下劈；其余情况横砍
 	var is_down_strike := not is_on_floor() and Input.is_action_pressed("move_down")
 	_attack_kind = AttackKind.DOWN_STRIKE if is_down_strike else AttackKind.SIDE
