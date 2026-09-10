@@ -10,13 +10,18 @@ const FLOAT_AMPLITUDE := 3.0   # 上下浮动幅度 px
 const FLOAT_SPEED := 3.5       # 浮动角速度 rad/s
 
 var _base_y := 0.0
+var _base_captured := false
 var _time := 0.0
 
 func _ready() -> void:
-	_base_y = position.y
 	body_entered.connect(_on_body_entered)
 
 func _process(delta: float) -> void:
+	# 基准高度要在"节点被放到最终位置之后"再记：父节点先 add_child 再设 global_position，
+	# _ready 里记的初始值(0)是错的，会导致浮动动画把掉落物拽回屏幕顶部（M1-02 教训）。
+	if not _base_captured:
+		_base_y = position.y
+		_base_captured = true
 	_time += delta
 	position.y = _base_y + sin(_time * FLOAT_SPEED) * FLOAT_AMPLITUDE
 
