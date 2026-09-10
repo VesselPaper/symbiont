@@ -6,7 +6,7 @@
 size = Vector2(14, 26)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_side"]
-size = Vector2(22, 18)
+size = Vector2(34, 22)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_down"]
 size = Vector2(18, 14)
@@ -34,7 +34,7 @@ shape = SubResource("RectangleShape2D_side")
 
 [node name="Visual" type="Polygon2D" parent="HitboxSide"]
 color = Color(0.6, 0.8, 1, 0.45)
-polygon = PackedVector2Array(-11, -8, 11, -8, 11, 8, -11, 8)
+polygon = PackedVector2Array(-17, -11, 17, -11, 17, 11, -17, 11)
 
 [node name="HitboxDown" type="Area2D" parent="."]
 collision_layer = 0
