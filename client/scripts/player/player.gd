@@ -14,9 +14,10 @@ const FRICTION := 1600.0        # 地面无输入时的减速
 const AIR_FRICTION := 300.0     # 空中无输入时只轻微减速，保留跳跃飘动感
 
 # ---- 垂直移动 ----
-const GRAVITY := 980.0
+const GRAVITY := 2550
 const MAX_FALL_SPEED := 900.0
-const JUMP_VELOCITY := -500.0
+const CHARACTER_HEIGHT := 28.0    # 角色视觉身高（Body Polygon2D 高 28px）
+const JUMP_VELOCITY := -727.0     # 跳跃初速：√(2×2550×3.7×28)≈727 → 跳高≈3.7 倍身高（D-009）
 const COYOTE_TIME := 0.1        # 离开平台边缘后仍可起跳的宽容时间
 const JUMP_BUFFER_TIME := 0.15  # 落地前提前按跳的输入缓冲
 
