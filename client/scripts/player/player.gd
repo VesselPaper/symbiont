@@ -1,7 +1,7 @@
 extends CharacterBody2D
 ## 玩家控制器（M1-01）
 ##
-## 职责：水平移动、跳跃（coyote time + jump buffer + 可变跳高）、
+## 职责：水平移动、跳跃（coyote time + jump buffer，固定跳高）、
 ## 横砍 / 空中下劈判定、受击无敌帧与击退、死亡重生。
 ## 视觉为占位方块（Polygon2D），美术资源到位后替换节点即可。
 ##
@@ -17,7 +17,6 @@ const AIR_FRICTION := 300.0     # 空中无输入时只轻微减速，保留跳�
 const GRAVITY := 980.0
 const MAX_FALL_SPEED := 900.0
 const JUMP_VELOCITY := -500.0
-const JUMP_CUT_FACTOR := 0.4    # 松开跳跃键后保留的上升速度比例（可变跳高）
 const COYOTE_TIME := 0.1        # 离开平台边缘后仍可起跳的宽容时间
 const JUMP_BUFFER_TIME := 0.15  # 落地前提前按跳的输入缓冲
 
@@ -108,9 +107,7 @@ func _handle_jump() -> void:
 		velocity.y = JUMP_VELOCITY
 		_jump_buffer_timer = 0.0
 		_coyote_timer = 0.0
-	# 可变跳高：松开跳跃键且仍在上冲时立即截断上升速度
-	if Input.is_action_just_released("jump") and velocity.y < 0.0:
-		velocity.y *= JUMP_CUT_FACTOR
+	# 固定跳高：起跳速度与重力恒定，无论按多久，跳跃高度一致（见决策日志 D-008）
 
 # ---- 攻击 ----
 
