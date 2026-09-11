@@ -6,6 +6,8 @@
 [ext_resource type="PackedScene" path="res://scenes/entities/slime.tscn" id="4_slime"]
 [ext_resource type="PackedScene" path="res://scenes/ui/dialogue_box.tscn" id="5_dbox"]
 [ext_resource type="Script" path="res://components/dialogue.gd" id="6_dlg"]
+[ext_resource type="PackedScene" path="res://scenes/ui/tutorial_hint.tscn" id="7_hint"]
+[ext_resource type="Script" path="res://components/tutorial.gd" id="8_tut"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_ground"]
 size = Vector2(1280, 60)
@@ -105,3 +107,9 @@ position_smoothing_speed = 8.0
 [node name="Dialogue" type="Node" parent="."]
 script = ExtResource("6_dlg")
 ui_path = NodePath("../DialogueBox")
+
+[node name="TutorialHint" parent="." instance=ExtResource("7_hint")]
+
+[node name="Tutorial" type="Node" parent="."]
+script = ExtResource("8_tut")
+ui_path = NodePath("../TutorialHint")

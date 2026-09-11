@@ -6,10 +6,12 @@ extends Node
 ##   - 打字机逐字显示；interact(K) 快进当前条（直接显示完整文本），再按进入下一条
 ##   - 支持 next_id 顺序链（intro_parasite_1 → intro_parasite_2，next_id 为空则结束）
 ##   - 广播 EventBus.dialogue_started / dialogue_finished
+##   - M1-08：当前条完整显示后（打字机打完或玩家快进）通过 UI 契约
+##     set_continue_hint(true) 提示"按 K 继续"；换条/结束时隐藏
 ##
 ## 挂载：作为场景子节点，export ui_path 指向对话 UI（scenes/ui/dialogue_box.tscn）。
 ## UI 契约（duck typing；ui_path 留空则只走逻辑不显示，便于无头测试）：
-##   show_box() / hide_box() / set_speaker(name) / set_text(text)
+##   show_box() / hide_box() / set_speaker(name) / set_text(text) / set_continue_hint(show)
 ##
 ## 事件语义：play() 启动时 emit dialogue_started(入口 id)；整条链（含 next_id）
 ## 全部播完 emit dialogue_finished(入口 id)。next_id 链式衔接是内部流程，不重复
@@ -71,6 +73,8 @@ func _show_line(index: int) -> void:
 	if _ui != null:
 		_ui.set_speaker(str(line.get("speaker", "")))
 		_ui.show_box()
+	# 换新一条：收起"按 K 继续"提示，等本条完整显示后再亮起
+	_set_continue_hint(false)
 	_refresh_text()
 
 func _refresh_text() -> void:
@@ -78,6 +82,12 @@ func _refresh_text() -> void:
 		return
 	var line: Dictionary = _queue[_line_index]
 	_ui.set_text(str(line.get("text", "")).left(int(_visible_chars)))
+
+## M1-08：提示开关（对话 UI 契约扩展）。UI 没有该方法时静默跳过，保证旧 UI 兼容
+func _set_continue_hint(show: bool) -> void:
+	if _ui == null or not _ui.has_method("set_continue_hint"):
+		return
+	_ui.set_continue_hint(show)
 
 func _process(delta: float) -> void:
 	if not _active or _line_done:
@@ -87,6 +97,8 @@ func _process(delta: float) -> void:
 	_visible_chars = minf(_visible_chars + type_chars_per_sec * delta, float(total))
 	if _visible_chars >= float(total):
 		_line_done = true
+		# 打字机打完：亮起"按 K 继续"
+		_set_continue_hint(true)
 	_refresh_text()
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -106,6 +118,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		var line: Dictionary = _queue[_line_index]
 		_visible_chars = float(str(line.get("text", "")).length())
 		_line_done = true
+		_set_continue_hint(true)
 		_refresh_text()
 
 func _advance_line() -> void:
@@ -121,6 +134,8 @@ func _advance_line() -> void:
 func _finish() -> void:
 	_active = false
 	_line_done = true
+	# 对话结束：收起"按 K 继续"再隐藏对话框
+	_set_continue_hint(false)
 	if _ui != null:
 		_ui.hide_box()
 	EventBus.dialogue_finished.emit(_entry_dialogue_id)

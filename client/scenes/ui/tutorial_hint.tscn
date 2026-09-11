@@ -1,0 +1,35 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/tutorial_hint.gd" id="1_script"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_hint"]
+content_margin_left = 24.0
+content_margin_top = 10.0
+content_margin_right = 24.0
+content_margin_bottom = 10.0
+bg_color = Color(0.04, 0.045, 0.06, 0.72)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[node name="TutorialHint" type="CanvasLayer"]
+
+[node name="HintPanel" type="PanelContainer" parent="."]
+visible = false
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -260.0
+offset_top = 16.0
+offset_right = 260.0
+offset_bottom = 64.0
+grow_horizontal = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_hint")
+
+[node name="Label" type="Label" parent="HintPanel"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "按 A/D 左右移动"
+horizontal_alignment = 1
+vertical_alignment = 1
