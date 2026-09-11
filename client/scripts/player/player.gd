@@ -40,6 +40,7 @@ const KNOCKBACK_UPWARD := -220.0
 
 var hp := MAX_HP
 var _facing := 1                            # 1 面朝右，-1 面朝左
+var _attack_dir := 1                        # 攻击锁定朝向：出手那一刻固定，攻击中按反方向键不改判定方向
 var _is_dead := false
 var _coyote_timer := 0.0
 var _jump_buffer_timer := 0.0
@@ -133,6 +134,7 @@ func _try_start_attack() -> void:
 
 # 地面：普通横砍（0.12s 短暂判定，一次挥砍只命中一次）
 func _start_side_slash() -> void:
+	_attack_dir = _facing  # 锁定出手朝向
 	_attack_cooldown_timer = ATTACK_COOLDOWN
 	_attack_active_timer = ATTACK_ACTIVE_TIME
 	_hit_this_swing.clear()
@@ -142,6 +144,7 @@ func _start_side_slash() -> void:
 
 # 空中：下砍（pogo）—— 加速下落 + 身前下方持续判定，直到落地或命中实体
 func _start_pogo() -> void:
+	_attack_dir = _facing  # 锁定出手朝向
 	_pogo_active = true
 	_hit_this_swing.clear()
 	_hitbox_side.monitoring = false
@@ -185,9 +188,9 @@ func _end_attack() -> void:
 	_hit_this_swing.clear()
 
 func _update_hitbox_pose() -> void:
-	# 横砍/下砍判定框都随面朝方向翻转（下砍朝身前下方）
-	_hitbox_side.position = Vector2(SIDE_HITBOX_OFFSET.x * _facing, SIDE_HITBOX_OFFSET.y)
-	_hitbox_down.position = Vector2(POGO_HITBOX_OFFSET.x * _facing, POGO_HITBOX_OFFSET.y)
+	# 横砍/下砍判定框按"攻击锁定朝向"定位：攻击中按反方向键只改移动，不改变已出手的攻击方向
+	_hitbox_side.position = Vector2(SIDE_HITBOX_OFFSET.x * _attack_dir, SIDE_HITBOX_OFFSET.y)
+	_hitbox_down.position = Vector2(POGO_HITBOX_OFFSET.x * _attack_dir, POGO_HITBOX_OFFSET.y)
 	# 占位阶段把判定框可视层与开关绑定，便于在编辑器中观察攻击范围
 	_hitbox_side_visual.visible = _hitbox_side.monitoring
 	_hitbox_down_visual.visible = _hitbox_down.monitoring
