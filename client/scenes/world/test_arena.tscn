@@ -112,7 +112,7 @@ collision_mask = 0
 shape = SubResource("RectangleShape2D_jump")
 
 [node name="Visual" type="Polygon2D" parent="JumpPlatform"]
-color = Color(0.2, 0.2, 0.24, 1)
+color = Color(0.15686275, 0.15686275, 0.15686275, 1)
 polygon = PackedVector2Array(-100, -45, 100, -45, 100, 45, -100, 45)
 
 [node name="JumpMark" type="Polygon2D" parent="."]
@@ -133,7 +133,7 @@ collision_mask = 0
 shape = SubResource("RectangleShape2D_attack")
 
 [node name="Visual" type="Polygon2D" parent="AttackPlatform"]
-color = Color(0.24, 0.24, 0.28, 1)
+color = Color(0.15686275, 0.15686275, 0.15686275, 1)
 polygon = PackedVector2Array(-125, -60, 125, -60, 125, 60, -125, 60)
 
 [node name="DummyA" parent="." instance=ExtResource("3_dummy")]
@@ -147,7 +147,7 @@ collision_mask = 0
 shape = SubResource("RectangleShape2D_pogo")
 
 [node name="Visual" type="Polygon2D" parent="PogoPlatform"]
-color = Color(0.28, 0.28, 0.32, 1)
+color = Color(0.15686275, 0.15686275, 0.15686275, 1)
 polygon = PackedVector2Array(-75, -75, 75, -75, 75, 75, -75, 75)
 
 [node name="DropLowPlatform" type="StaticBody2D" parent="."]
@@ -158,7 +158,7 @@ collision_mask = 0
 shape = SubResource("RectangleShape2D_low")
 
 [node name="Visual" type="Polygon2D" parent="DropLowPlatform"]
-color = Color(0.2, 0.2, 0.24, 1)
+color = Color(0.15686275, 0.15686275, 0.15686275, 1)
 polygon = PackedVector2Array(-75, -45, 75, -45, 75, 45, -75, 45)
 
 [node name="DummyB" parent="." instance=ExtResource("3_dummy")]
@@ -172,7 +172,7 @@ collision_mask = 0
 shape = SubResource("RectangleShape2D_combat")
 
 [node name="Visual" type="Polygon2D" parent="CombatPlatform"]
-color = Color(0.3, 0.3, 0.34, 1)
+color = Color(0.15686275, 0.15686275, 0.15686275, 1)
 polygon = PackedVector2Array(-100, -90, 100, -90, 100, 90, -100, 90)
 
 [node name="AltarPlatform" type="StaticBody2D" parent="."]
@@ -183,7 +183,7 @@ collision_mask = 0
 shape = SubResource("RectangleShape2D_altar_pf")
 
 [node name="Visual" type="Polygon2D" parent="AltarPlatform"]
-color = Color(0.34, 0.34, 0.38, 1)
+color = Color(0.15686275, 0.15686275, 0.15686275, 1)
 polygon = PackedVector2Array(-150, -105, 150, -105, 150, 105, -150, 105)
 
 [node name="Altar" parent="." instance=ExtResource("10_altar")]
