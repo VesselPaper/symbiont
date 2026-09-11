@@ -18,7 +18,7 @@ const SLIME_SPAWN_POINTS := [Vector2(350, 648), Vector2(900, 648)]
 
 # ---- 摄像机（M1-09）----
 ## 垂直视野 = 角色身高的 N 倍（改这里即可调远近）；角色视觉身高 28px（见 player.gd CHARACTER_HEIGHT）
-const VIEW_HEIGHT_IN_CHARACTERS := 12.0
+const VIEW_HEIGHT_IN_CHARACTERS := 15.0
 const PLAYER_CHARACTER_HEIGHT := 28.0
 ## zoom = 视口高(720) ÷ (N×28)。N=12 → 336px 垂直视野 → zoom ≈ 2.14
 const CAMERA_ZOOM := 720.0 / (VIEW_HEIGHT_IN_CHARACTERS * PLAYER_CHARACTER_HEIGHT)
