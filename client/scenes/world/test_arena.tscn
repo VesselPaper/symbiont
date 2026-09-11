@@ -9,7 +9,7 @@
 [ext_resource type="Script" uid="uid://ctmjp5k5310an" path="res://components/tutorial.gd" id="8_tut"]
 [ext_resource type="Script" uid="uid://bees2eeru2n57" path="res://scripts/world/camera_follow.gd" id="9_cam"]
 [ext_resource type="PackedScene" path="res://scenes/items/altar.tscn" id="10_altar"]
-[ext_resource type="PackedScene" path="res://scenes/items/weapon_pickup.tscn" id="11_sword"]
+[ext_resource type="PackedScene" uid="uid://v226loe7qfs6" path="res://scenes/items/weapon_pickup.tscn" id="11_sword"]
 [ext_resource type="PackedScene" path="res://scenes/items/quest_marker.tscn" id="12_marker"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_ground"]
@@ -90,7 +90,9 @@ color = Color(0.45, 0.45, 0.5, 1)
 polygon = PackedVector2Array(-5, -5, 5, -5, 5, 5, -5, 5)
 
 [node name="WeaponPickup" parent="." unique_id=1327580533 instance=ExtResource("11_sword")]
-position = Vector2(207.99998, 663)
+position = Vector2(218, 631)
+rotation = -2.3561945
+float_amplitude = 0.0
 metadata/_edit_group_ = true
 
 [node name="move_mark" parent="." unique_id=1506237686 instance=ExtResource("12_marker")]
