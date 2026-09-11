@@ -53,6 +53,7 @@ var _attack_cooldown_timer := 0.0
 var _attack_active_timer := 0.0
 var _hit_this_swing: Array[Node2D] = []     # 本次挥砍已命中的目标，防止同一判定框重复扣血
 var _invincible_timer := 0.0
+var _input_locked := false      # 对话期间锁输入：不能移动/跳跃/攻击/下砍（见 _on_dialogue_*）
 var _spawn_point := Vector2.ZERO
 
 @onready var _body: Polygon2D = $Body
@@ -66,9 +67,21 @@ func _ready() -> void:
 	_spawn_point = global_position
 	_hitbox_side.body_entered.connect(_on_hitbox_side_body_entered)
 	_hitbox_down.body_entered.connect(_on_hitbox_down_body_entered)
+	# 对话开始锁输入、整段播完解锁（对话期间角色不能操作）
+	EventBus.dialogue_started.connect(_on_dialogue_started)
+	EventBus.dialogue_finished.connect(_on_dialogue_finished)
 
 func _physics_process(delta: float) -> void:
 	_update_jump_timers(delta)
+	if _input_locked:
+		# 对话锁输入：不响应移动/跳跃/攻击/下砍，只保留重力与碰撞（角色正常站立/落地）
+		if _pogo_active:
+			_end_pogo()
+		_apply_gravity(delta)
+		move_and_slide()
+		_update_attack_state(delta)
+		_update_hitbox_pose()
+		return
 	_handle_jump()
 	_try_start_attack()
 	_apply_horizontal_movement(delta)
@@ -78,6 +91,12 @@ func _physics_process(delta: float) -> void:
 	_update_facing()
 	_update_attack_state(delta)
 	_update_hitbox_pose()
+
+func _on_dialogue_started(_dialogue_id: String) -> void:
+	_input_locked = true
+
+func _on_dialogue_finished(_dialogue_id: String) -> void:
+	_input_locked = false
 
 func _process(delta: float) -> void:
 	_update_invincibility(delta)
@@ -270,6 +289,7 @@ func _respawn() -> void:
 	_pogo_active = false
 	_pogo_end_lag_timer = 0.0
 	_pogo_requested = false
+	_input_locked = false
 	_hitbox_side.monitoring = false
 	_hitbox_down.monitoring = false
 	_hit_this_swing.clear()
