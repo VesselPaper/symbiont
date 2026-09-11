@@ -88,7 +88,6 @@ position = Vector2(1094, 646)
 
 [node name="Camera2D" type="Camera2D" parent="." unique_id=1365575610]
 position = Vector2(640, 360)
-zoom = Vector2(2.5, 2.5)
 limit_left = 0
 limit_top = -120
 limit_right = 2560

@@ -16,9 +16,17 @@ const INTRO_DIALOGUE_ID := "intro_parasite_1"
 const SLIME_SCENE := preload("res://scenes/entities/slime.tscn")
 const SLIME_SPAWN_POINTS := [Vector2(350, 648), Vector2(900, 648)]
 
+# ---- 摄像机（M1-09）----
+## 垂直视野 = 角色身高的 N 倍（改这里即可调远近）；角色视觉身高 28px（见 player.gd CHARACTER_HEIGHT）
+const VIEW_HEIGHT_IN_CHARACTERS := 12.0
+const PLAYER_CHARACTER_HEIGHT := 28.0
+## zoom = 视口高(720) ÷ (N×28)。N=12 → 336px 垂直视野 → zoom ≈ 2.14
+const CAMERA_ZOOM := 720.0 / (VIEW_HEIGHT_IN_CHARACTERS * PLAYER_CHARACTER_HEIGHT)
+
 func _ready() -> void:
 	# 相机挂到玩家身上跟随；limit 是场景绝对坐标，不随父节点变化
 	var camera := $Camera2D as Camera2D
+	camera.zoom = Vector2(CAMERA_ZOOM, CAMERA_ZOOM)
 	camera.reparent($Player)
 	camera.position = Vector2.ZERO
 	camera.make_current()
