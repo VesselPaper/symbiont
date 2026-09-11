@@ -4,6 +4,8 @@
 [ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="2_player"]
 [ext_resource type="PackedScene" path="res://scenes/entities/dummy_target.tscn" id="3_dummy"]
 [ext_resource type="PackedScene" path="res://scenes/entities/slime.tscn" id="4_slime"]
+[ext_resource type="PackedScene" path="res://scenes/ui/dialogue_box.tscn" id="5_dbox"]
+[ext_resource type="Script" path="res://components/dialogue.gd" id="6_dlg"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_ground"]
 size = Vector2(1280, 60)
@@ -97,3 +99,9 @@ limit_right = 1280
 limit_bottom = 720
 position_smoothing_enabled = true
 position_smoothing_speed = 8.0
+
+[node name="DialogueBox" parent="." instance=ExtResource("5_dbox")]
+
+[node name="Dialogue" type="Node" parent="."]
+script = ExtResource("6_dlg")
+ui_path = NodePath("../DialogueBox")
