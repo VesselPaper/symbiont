@@ -7,6 +7,7 @@ size = Vector2(34, 52)
 
 [node name="WeaponPickup" type="Area2D" unique_id=1217598865]
 rotation = 0.6
+z_index = -1
 collision_layer = 0
 collision_mask = 2
 script = ExtResource("1_pickup")
@@ -16,44 +17,28 @@ float_amplitude = 0.0
 [node name="Visuals" type="Node2D" parent="." unique_id=1009140819]
 position = Vector2(0, -8)
 
-[node name="Glow" type="Polygon2D" parent="Visuals" unique_id=1913720059]
-color = Color(0.55, 0.8, 1, 0.4)
-polygon = PackedVector2Array(-17, -40, 17, -40, 17, 2, -17, 2)
-
-[node name="BladeGlow" type="Polygon2D" parent="Visuals" unique_id=1342341996]
-color = Color(0.7, 0.9, 1, 0.4)
-polygon = PackedVector2Array(-13, -38, 13, -38, 13, -3, -13, -3)
-
 [node name="Blade" type="Polygon2D" parent="Visuals" unique_id=1569772291]
-z_index = 1
 color = Color(0.7, 0.8, 1, 1)
 polygon = PackedVector2Array(-8, -32, 8, -32, 8, -5, 0, -36, -8, -5)
 
 [node name="BladeEdge" type="Polygon2D" parent="Visuals" unique_id=394380655]
-z_index = 1
 position = Vector2(18.314428, 1.2675467)
 scale = Vector2(2.7731447, 1)
 color = Color(0.98, 0.99, 1, 1)
 polygon = PackedVector2Array(-7.966259, -30.66719, -6.563822, -33, -5.068495, -31.318344, -5, -6, -8, -6)
 
 [node name="Guard" type="Polygon2D" parent="Visuals" unique_id=506157913]
-z_index = 1
 color = Color(0.6, 0.72, 0.95, 1)
 polygon = PackedVector2Array(-13, -5, 13, -5, 13, 0, -13, 0)
 
 [node name="Handle" type="Polygon2D" parent="Visuals" unique_id=1130507297]
-z_index = 1
 color = Color(0.4, 0.5, 0.7, 1)
 polygon = PackedVector2Array(-3, 0, 3, 0, 3, 8, -3, 8)
 
 [node name="Pommel" type="Polygon2D" parent="Visuals" unique_id=863606709]
-z_index = 1
 color = Color(0.34, 0.44, 0.62, 1)
 polygon = PackedVector2Array(-4, 7, 4, 7, 4, 13, -4, 13)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=917635715]
 position = Vector2(0, -20)
 shape = SubResource("RectangleShape2D_sword")
-
-[node name="Flicker" type="AnimationPlayer" parent="." unique_id=436726532]
-autoplay = &"flicker"
