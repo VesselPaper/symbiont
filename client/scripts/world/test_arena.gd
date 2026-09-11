@@ -11,6 +11,11 @@ const INTRO_DIALOGUE_DELAY := 0.5
 ## 开场对话 id（台词内容一律从 DataDB 读，这里只指定入口 id）
 const INTRO_DIALOGUE_ID := "intro_parasite_1"
 
+## 史莱姆场景与出生点：对话/教程前期场景无敌人（避免教学时被攻击的矛盾），
+## 教程进入"战斗"步骤时由 spawn_enemies() 生成（M1-08 修正）
+const SLIME_SCENE := preload("res://scenes/entities/slime.tscn")
+const SLIME_SPAWN_POINTS := [Vector2(350, 648), Vector2(900, 648)]
+
 func _ready() -> void:
 	# 相机挂到玩家身上跟随；limit 是场景绝对坐标，不随父节点变化
 	var camera := $Camera2D as Camera2D
@@ -21,6 +26,14 @@ func _ready() -> void:
 	# M1-03：延时播放开场寄生体低语，让场景先稳定（玩家出生 → 低语弹出）
 	var intro_timer := get_tree().create_timer(INTRO_DIALOGUE_DELAY)
 	intro_timer.timeout.connect(_play_intro_dialogue)
+
+## 生成史莱姆（教程战斗步骤调用；可重复调用会叠加，调用方保证只调一次）
+func spawn_enemies() -> void:
+	for i in range(SLIME_SPAWN_POINTS.size()):
+		var slime := SLIME_SCENE.instantiate()
+		slime.position = SLIME_SPAWN_POINTS[i]
+		slime.name = "Slime%d" % (i + 1)
+		add_child(slime)
 
 func _play_intro_dialogue() -> void:
 	# Dialogue 是挂 dialogue.gd 组件的普通 Node，用 call() 动态调用，

@@ -3,7 +3,6 @@
 [ext_resource type="Script" uid="uid://dgru46wtu0ks3" path="res://scripts/world/test_arena.gd" id="1_arena"]
 [ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="2_player"]
 [ext_resource type="PackedScene" path="res://scenes/entities/dummy_target.tscn" id="3_dummy"]
-[ext_resource type="PackedScene" path="res://scenes/entities/slime.tscn" id="4_slime"]
 [ext_resource type="PackedScene" path="res://scenes/ui/dialogue_box.tscn" id="5_dbox"]
 [ext_resource type="Script" path="res://components/dialogue.gd" id="6_dlg"]
 [ext_resource type="PackedScene" path="res://scenes/ui/tutorial_hint.tscn" id="7_hint"]
@@ -86,12 +85,6 @@ position = Vector2(80, 647)
 
 [node name="DummyTarget" parent="." unique_id=762259326 instance=ExtResource("3_dummy")]
 position = Vector2(1094, 646)
-
-[node name="SlimeA" parent="." unique_id=1593519754 instance=ExtResource("4_slime")]
-position = Vector2(350, 648)
-
-[node name="SlimeB" parent="." unique_id=1625119477 instance=ExtResource("4_slime")]
-position = Vector2(900, 648)
 
 [node name="Camera2D" type="Camera2D" parent="." unique_id=1365575610]
 position = Vector2(640, 360)

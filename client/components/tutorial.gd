@@ -97,8 +97,17 @@ func _on_enemy_killed(_enemy: Node, _position: Vector2) -> void:
 ## 进入下一步：先推进再显示对应提示；到 DONE 则交给击杀/完成流程
 func _advance() -> void:
 	_step += 1
+	# 战斗步骤开始前，让所在场景生成敌人（对话/教程前期无敌人，见 test_arena.spawn_enemies）
+	if _step == Step.COMBAT:
+		_spawn_enemies_for_combat()
 	if _step < Step.DONE:
 		_show_step_hint(_step)
+
+## 调用所在场景的 spawn_enemies()（duck typing；场景不提供则跳过）
+func _spawn_enemies_for_combat() -> void:
+	var arena := get_parent()
+	if arena != null and arena.has_method("spawn_enemies"):
+		arena.call("spawn_enemies")
 
 func _show_step_hint(step: int) -> void:
 	if step < 0 or step >= STEP_HINTS.size():
