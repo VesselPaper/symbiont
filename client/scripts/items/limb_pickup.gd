@@ -8,8 +8,9 @@ extends Area2D
 ## 武器拾取物场景里配成 "iron_sword"。
 
 @export var item_id := "monster_limb"
-## 上下浮动幅度 px；设 0 = 静止不浮动（武器拾取物插在尸体上要静止，见 weapon_pickup.tscn）
-@export var float_amplitude := 3.0
+## 上下浮动幅度 px。默认 0 = 静止（武器拾取物插在尸体上要静止）；
+## 需要浮动的拾取物（如肢体）在各自场景里显式设 >0（见 limb_pickup.tscn float_amplitude=3.0）
+@export var float_amplitude := 0.0
 const FLOAT_SPEED := 3.5       # 浮动角速度 rad/s
 
 var _base_y := 0.0
