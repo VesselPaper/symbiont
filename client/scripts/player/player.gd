@@ -47,7 +47,8 @@ var _coyote_timer := 0.0
 var _jump_buffer_timer := 0.0
 var _pogo_active := false
 var _pogo_end_lag_timer := 0.0  # 下砍后摇计时
-var _air_apex_y := 0.0          # 本次滞空的最高点 y（用于计算已下落距离）
+var _pogo_requested := false    # 下砍请求：按下 J 后从按下点下落超过阈值才真正触发（防贴地触发）
+var _pogo_request_y := 0.0      # 按下 J 时的位置 y
 var _attack_cooldown_timer := 0.0
 var _attack_active_timer := 0.0
 var _hit_this_swing: Array[Node2D] = []     # 本次挥砍已命中的目标，防止同一判定框重复扣血
@@ -106,11 +107,6 @@ func _update_jump_timers(delta: float) -> void:
 	# 着地时持续刷新 coyote 窗口；离开平台后开始倒计时
 	_coyote_timer = COYOTE_TIME if is_on_floor() else maxf(_coyote_timer - delta, 0.0)
 	_jump_buffer_timer = maxf(_jump_buffer_timer - delta, 0.0)
-	# 记录本次滞空的最高点（下砍需满足最小下落距离，见 POGO_MIN_FALL_DISTANCE）
-	if is_on_floor():
-		_air_apex_y = position.y
-	else:
-		_air_apex_y = minf(_air_apex_y, position.y)
 
 func _handle_jump() -> void:
 	if Input.is_action_just_pressed("jump"):
@@ -135,9 +131,11 @@ func _try_start_attack() -> void:
 		return
 	if is_on_floor():
 		_start_side_slash()
-	elif velocity.y > 0.0 and position.y - _air_apex_y >= POGO_MIN_FALL_DISTANCE:
-		# 空中下落且已下落足够距离 → 下砍（pogo）；刚起跳/刚出边缘/贴地时不触发
-		_start_pogo()
+	elif velocity.y > 0.0:
+		# 空中下落按 J → 记录下砍请求（从按下点下落超过阈值才真正触发，见 _update_pogo_state）
+		if not _pogo_requested:
+			_pogo_requested = true
+			_pogo_request_y = position.y
 
 # 地面：普通横砍（0.12s 短暂判定，一次挥砍只命中一次）
 func _start_side_slash() -> void:
@@ -161,6 +159,13 @@ func _start_pogo() -> void:
 	EventBus.log_event("pogo_start", {})
 
 func _update_pogo_state() -> void:
+	# 下砍请求：按下 J 后需从按下点下落超过阈值才真正触发；先落地则取消（防贴地触发）
+	if _pogo_requested:
+		if is_on_floor():
+			_pogo_requested = false
+		elif position.y - _pogo_request_y >= POGO_MIN_FALL_DISTANCE:
+			_pogo_requested = false
+			_start_pogo()
 	if not _pogo_active:
 		return
 	# 持续强制下落（加速下落）
@@ -264,7 +269,7 @@ func _respawn() -> void:
 	_attack_active_timer = 0.0
 	_pogo_active = false
 	_pogo_end_lag_timer = 0.0
-	_air_apex_y = position.y
+	_pogo_requested = false
 	_hitbox_side.monitoring = false
 	_hitbox_down.monitoring = false
 	_hit_this_swing.clear()
