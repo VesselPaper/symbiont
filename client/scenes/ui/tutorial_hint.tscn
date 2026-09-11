@@ -14,6 +14,7 @@ corner_radius_bottom_right = 8
 corner_radius_bottom_left = 8
 
 [node name="TutorialHint" type="CanvasLayer"]
+script = ExtResource("1_script")
 
 [node name="HintPanel" type="PanelContainer" parent="."]
 visible = false

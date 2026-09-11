@@ -30,7 +30,7 @@ INSERT INTO dialogues (id, npc_id, title, lines, next_id, branch) VALUES
    '[{"speaker": "寄生体", "text": "你醒了。奄奄一息，血流不止……"}, {"speaker": "寄生体", "text": "献祭吧。把眼前这具怪物的肢体献给我，我保你活下去。"}]',
    'intro_parasite_2', ''),
   ('intro_parasite_2', '', '新生指导',
-   '[{"speaker": "寄生体", "text": "很好。力量在涌上来，不是么？"}, {"speaker": "系统", "text": "按 攻击键 攻击，按 交互键 献祭。"}]',
+   '[{"speaker": "寄生体", "text": "很好。力量在涌上来，不是么？"}, {"speaker": "系统", "text": "按 J 攻击，按 K 交互。"}]',
    '', ''),
   ('refuse_die', '', '拒绝',
    '[{"speaker": "系统", "text": "你拒绝了献祭。生命一点点流逝……黑暗吞没了你。"}]',
