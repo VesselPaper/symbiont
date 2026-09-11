@@ -7,8 +7,8 @@ extends Node
 ##     → PICKUP → SACRIFICE → DONE，一个目标达成才推进下一环
 ##   - 软隔离（组长定稿）：假人默认不激活、史莱姆到战斗环才生成、祭坛要肢体才能献祭，
 ##     不设门/墙 —— 提前跑去后一环无事可做
-##   - 事件驱动为主：铁剑拾取(WEAPON)、击杀(COMBAT)、肢体拾取(PICKUP)、献祭(SACRIFICE)
-##     走 EventBus；区域进入(MOVE/JUMP)与假人受击(ATTACK/POGO)走每帧检查
+##   - 事件驱动为主：铁剑拾取(WEAPON)、任务光点(MOVE/JUMP)、击杀(COMBAT)、
+##     肢体拾取(PICKUP)、献祭(SACRIFICE)走 EventBus；假人受击(ATTACK/POGO)走每帧检查
 ##   - 每环条件满足后立即推进，天然防抖（同一提示不会重复触发）
 ##   - 对话台词走 DataDB 是对话组件的职责；本组件的气泡文案属 UI 提示，
 ##     允许写在代码常量里（见 BUBBLE_TEXTS）
@@ -26,10 +26,10 @@ const WEAPON_FLASH_DURATION := 1.2
 ## 教程完成提示的停留时长（秒），到点隐藏气泡
 const DONE_HINT_DURATION := 1.0
 
-## 标记区坐标矩形（与 test_arena.tscn 的发光块视觉对齐；区域判定用玩家节点坐标）：
-## 行走标记在地面(x≈475，玩家站地 y≈647)；跳跃标记在 JumpPlatform 高台顶(x≈660，玩家站台 y≈557)
-const MOVE_MARK_ZONE := Rect2(450, 600, 60, 80)   # x:450~510 —— 覆盖 x≈475 的行走标记
-const JUMP_MARK_ZONE := Rect2(630, 530, 60, 60)   # x:630~690 —— 覆盖 x≈660 的跳跃标记（高台上）
+## 任务光点 marker_id（M1-11）：test_arena.tscn 里两个 QuestMarker 实例配置的标识，
+## 触发时 EventBus.marker_triggered 携带，与当前环匹配才推进（反向测试防错触发）
+const MOVE_MARKER_ID := "move_mark"
+const JUMP_MARKER_ID := "jump_mark"
 
 ## 教学假人节点名（test_arena 内的实例名，见 test_arena.tscn）
 const DUMMY_A_NODE := "DummyA"
@@ -55,6 +55,10 @@ enum Step { WAIT_FOR_DIALOGUE = -1, WEAPON, MOVE, JUMP, ATTACK, POGO, COMBAT, PI
 
 ## 头顶气泡 UI 节点（tutorial_bubble）；留空则只走逻辑不显示
 @export var ui_path: NodePath
+## 两个任务光点（QuestMarker）在场景里的路径（test_arena.tscn 的 Tutorial 上配好）；
+## 进入 MOVE/JUMP 环时 activate 对应光点（软隔离），触发信号由 marker_triggered 接收
+@export var move_marker_path: NodePath
+@export var jump_marker_path: NodePath
 
 var _ui: Node
 var _step := Step.WAIT_FOR_DIALOGUE
@@ -62,6 +66,8 @@ var _player: Node                 # 分组 "player" 的玩家节点（缓存，�
 var _dummies: Dictionary = {}     # 教学假人缓存：节点名 → 节点
 var _dummy_a_initial_hp := 0      # 进入 ATTACK 时假人甲的初始 hp，受击小于它就推进
 var _dummy_b_initial_hp := 0      # 进入 POGO 时假人乙的初始 hp
+var _move_marker: Node            # MOVE 环任务光点（move_marker_path）
+var _jump_marker: Node            # JUMP 环任务光点（jump_marker_path）
 var _weapon_flash_timer := 0.0    # "获得铁剑"气泡倒计时，到点进 MOVE
 var _done_hint_timer := 0.0
 
@@ -70,10 +76,17 @@ func _ready() -> void:
 		_ui = get_node_or_null(ui_path)
 		if _ui == null:
 			push_warning("tutorial: 找不到 ui_path=%s，本组件只走逻辑不显示" % ui_path)
+	# M1-11：任务光点引用在编辑期摆好（test_arena 是 Tutorial 的兄弟场景节点），
+	# _ready 时必已在树上；路径未配 / 缺失不报错，只走逻辑不 activate
+	if move_marker_path != NodePath(""):
+		_move_marker = get_node_or_null(move_marker_path)
+	if jump_marker_path != NodePath(""):
+		_jump_marker = get_node_or_null(jump_marker_path)
 	EventBus.dialogue_finished.connect(_on_dialogue_finished)
 	EventBus.enemy_killed.connect(_on_enemy_killed)
 	EventBus.item_picked.connect(_on_item_picked)
 	EventBus.sacrifice_done.connect(_on_sacrifice_done)
+	EventBus.marker_triggered.connect(_on_marker_triggered)
 
 func _process(delta: float) -> void:
 	# 气泡每帧跟随玩家头顶（UI 存在才定位；无 UI 时纯逻辑仍正常推进）
@@ -94,14 +107,6 @@ func _process(delta: float) -> void:
 				_advance()
 		return
 	match _step:
-		Step.MOVE:
-			# 走到行走标记区（x≈475 发光块）→ 进 JUMP；提前踩进去不推进，轮到即可立即推进
-			if _player_in_rect(MOVE_MARK_ZONE):
-				_advance()
-		Step.JUMP:
-			# 跳过矮墙后进入跳跃标记区（x≈710 发光块）→ 进 ATTACK
-			if _player_in_rect(JUMP_MARK_ZONE):
-				_advance()
 		Step.ATTACK:
 			# 假人甲受击一次（hp 小于进入本环时的初始值）→ 进 POGO
 			if _dummy_hit(DUMMY_A_NODE, _dummy_a_initial_hp):
@@ -110,8 +115,10 @@ func _process(delta: float) -> void:
 			# 假人乙受击一次 → 进 COMBAT
 			if _dummy_hit(DUMMY_B_NODE, _dummy_b_initial_hp):
 				_advance()
-		Step.COMBAT, Step.PICKUP, Step.SACRIFICE:
-			pass  # 由事件推进（击杀/拾取/献祭），不需每帧轮询
+		Step.MOVE, Step.JUMP, Step.COMBAT, Step.PICKUP, Step.SACRIFICE:
+			# MOVE/JUMP 由 marker_triggered 信号推进；其余由事件推进（击杀/拾取/献祭），
+			# 都不需每帧轮询（M1-11：删掉原来的 Rect2 区域检测）
+			pass
 
 # ---- 事件 / 推进 ----
 
@@ -135,6 +142,17 @@ func _on_item_picked(item_id: String, _count: int) -> void:
 			if item_id == "monster_limb":
 				_advance()  # PICKUP → SACRIFICE
 
+## M1-11：任务光点触发（MOVE/JUMP 环）：marker_id 与当前环匹配才推进。
+## 反向测试：别的光点提前触发 / 无关 marker_id 一律不推进，防误跳环
+func _on_marker_triggered(marker_id: String) -> void:
+	match _step:
+		Step.MOVE:
+			if marker_id == MOVE_MARKER_ID:
+				_advance()  # MOVE → JUMP
+		Step.JUMP:
+			if marker_id == JUMP_MARKER_ID:
+				_advance()  # JUMP → ATTACK
+
 func _on_enemy_killed(_enemy: Node, _position: Vector2) -> void:
 	if _step != Step.COMBAT:
 		return
@@ -152,6 +170,12 @@ func _on_sacrifice_done(_sacrifice_id: String, _total_count: int) -> void:
 func _advance() -> void:
 	_step += 1
 	match _step:
+		Step.MOVE:
+			# 到行走环才激活行走光点（软隔离：提前触碰没反应）
+			_activate_marker(_move_marker)
+		Step.JUMP:
+			# 到跳跃环才激活跳跃光点
+			_activate_marker(_jump_marker)
 		Step.ATTACK:
 			# 到攻击环才激活假人甲（软隔离：提前打它没反应），记下初始 hp 作受击判定基准
 			_activate_dummy(DUMMY_A_NODE)
@@ -177,14 +201,12 @@ func _activate_dummy(node_name: String) -> void:
 	if dummy != null and dummy.has_method("activate"):
 		dummy.activate()
 
-# ---- 检测 ----
+## 激活任务光点（M1-11 软隔离：进对应环才 activate，见 quest_marker.gd）
+func _activate_marker(marker: Node) -> void:
+	if marker != null and is_instance_valid(marker) and marker.has_method("activate"):
+		marker.activate()
 
-## 玩家节点是否进入区域矩形（MOVE/JUMP 用；玩家中心点坐标）
-func _player_in_rect(rect: Rect2) -> bool:
-	var player := _get_player()
-	if player == null:
-		return false
-	return rect.has_point(player.global_position)
+# ---- 检测 ----
 
 ## 假人是否已被打到（hp 小于进入本环时的初始值即算受击一次，不用打死）
 func _dummy_hit(node_name: String, initial_hp: int) -> bool:

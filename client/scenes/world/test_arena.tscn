@@ -1,4 +1,4 @@
-[gd_scene load_steps=20 format=3 uid="uid://bkuega3o1vpb7"]
+[gd_scene load_steps=21 format=3 uid="uid://bkuega3o1vpb7"]
 
 [ext_resource type="Script" uid="uid://dgru46wtu0ks3" path="res://scripts/world/test_arena.gd" id="1_arena"]
 [ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="2_player"]
@@ -10,6 +10,7 @@
 [ext_resource type="Script" path="res://scripts/world/camera_follow.gd" id="9_cam"]
 [ext_resource type="PackedScene" path="res://scenes/items/altar.tscn" id="10_altar"]
 [ext_resource type="PackedScene" path="res://scenes/items/weapon_pickup.tscn" id="11_sword"]
+[ext_resource type="PackedScene" path="res://scenes/items/quest_marker.tscn" id="12_marker"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_ground"]
 size = Vector2(2560, 60)
@@ -91,15 +92,9 @@ polygon = PackedVector2Array(-5, -5, 5, -5, 5, 5, -5, 5)
 [node name="WeaponPickup" parent="." instance=ExtResource("11_sword")]
 position = Vector2(200, 680)
 
-[node name="MoveMark" type="Polygon2D" parent="."]
-position = Vector2(475, 653)
-color = Color(0.35, 0.9, 1, 0.9)
-polygon = PackedVector2Array(-5, -5, 5, -5, 5, 5, -5, 5)
-
-[node name="MoveMarkHalo" type="Polygon2D" parent="."]
-position = Vector2(475, 653)
-color = Color(0.35, 0.9, 1, 0.18)
-polygon = PackedVector2Array(-9, -9, 9, -9, 9, 9, -9, 9)
+[node name="move_mark" parent="." instance=ExtResource("12_marker")]
+position = Vector2(475, 640)
+marker_id = "move_mark"
 
 [node name="Player" parent="." unique_id=218680313 instance=ExtResource("2_player")]
 position = Vector2(80, 647)
@@ -115,15 +110,9 @@ shape = SubResource("RectangleShape2D_jump")
 color = Color(0.15686275, 0.15686275, 0.15686275, 1)
 polygon = PackedVector2Array(-100, -45, 100, -45, 100, 45, -100, 45)
 
-[node name="JumpMark" type="Polygon2D" parent="."]
-position = Vector2(660, 563)
-color = Color(0.35, 0.9, 1, 0.9)
-polygon = PackedVector2Array(-5, -5, 5, -5, 5, 5, -5, 5)
-
-[node name="JumpMarkHalo" type="Polygon2D" parent="."]
-position = Vector2(660, 563)
-color = Color(0.35, 0.9, 1, 0.18)
-polygon = PackedVector2Array(-9, -9, 9, -9, 9, 9, -9, 9)
+[node name="jump_mark" parent="." instance=ExtResource("12_marker")]
+position = Vector2(660, 540)
+marker_id = "jump_mark"
 
 [node name="AttackPlatform" type="StaticBody2D" parent="."]
 position = Vector2(885, 600)
@@ -210,3 +199,5 @@ position = Vector2(80, 603)
 [node name="Tutorial" type="Node" parent="."]
 script = ExtResource("8_tut")
 ui_path = NodePath("../TutorialBubble")
+move_marker_path = NodePath("../move_mark")
+jump_marker_path = NodePath("../jump_mark")

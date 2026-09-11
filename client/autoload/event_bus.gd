@@ -21,6 +21,9 @@ signal item_picked(item_id: String, count: int)
 signal sacrifice_done(sacrifice_id: String, total_count: int)
 signal body_part_modified(part: String, route: String)
 
+# ---- 任务光点 / 教程 ----
+signal marker_triggered(marker_id: String)
+
 # ---- 存档 / 流程 ----
 signal save_requested(slot: int)
 signal save_loaded(slot: int)
