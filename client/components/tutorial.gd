@@ -4,6 +4,7 @@ extends Node
 ## 纯流程逻辑，与 UI 解耦（风格同 components/dialogue.gd）：
 ##   - 等待 EventBus.dialogue_finished("intro_parasite_1")（开场低语整条链播完）后开始
 ##   - 动作触发式逐步推进：移动 → 跳跃 → 攻击 → 下砍(pogo) → 战斗（击杀任意敌人）
+##     → 捡肢体（item_picked）→ 献祭（sacrifice_done）→ 完成
 ##   - 每步条件满足后立即进入下一步，天然防抖（同一提示不会重复触发）
 ##   - 对话台词走 DataDB 是对话组件的职责；本组件的提示文案属 UI 提示，
 ##     允许写在代码常量里（见 STEP_HINTS）
@@ -26,11 +27,13 @@ const STEP_HINTS := [
 	"按 J 攻击",
 	"空中下落时按 J 下砍",
 	"有敌人靠近！按 J 攻击它",
+	"捡起地上的怪物肢体",
+	"到祭坛按 K 献上肢体",
 ]
 const DONE_HINT_TEXT := "教程完成"
 
-## 步骤状态机：WAIT_FOR_DIALOGUE 等待开场对话；MOVE..COMBAT 对应提示步骤；DONE 结束
-enum Step { WAIT_FOR_DIALOGUE = -1, MOVE, JUMP, ATTACK, POGO, COMBAT, DONE }
+## 步骤状态机：WAIT_FOR_DIALOGUE 等待开场对话；MOVE..SACRIFICE 对应提示步骤；DONE 结束
+enum Step { WAIT_FOR_DIALOGUE = -1, MOVE, JUMP, ATTACK, POGO, COMBAT, PICKUP, SACRIFICE, DONE }
 
 ## 提示条 UI 节点（tutorial_hint）；留空则只走逻辑不显示
 @export var ui_path: NodePath
@@ -48,6 +51,9 @@ func _ready() -> void:
 			push_warning("tutorial: 找不到 ui_path=%s，本组件只走逻辑不显示" % ui_path)
 	EventBus.dialogue_finished.connect(_on_dialogue_finished)
 	EventBus.enemy_killed.connect(_on_enemy_killed)
+	# M1-04：捡肢体 / 献祭是事件驱动的推进（同击杀，不每帧轮询）
+	EventBus.item_picked.connect(_on_item_picked)
+	EventBus.sacrifice_done.connect(_on_sacrifice_done)
 
 func _process(delta: float) -> void:
 	# 完成后的"教程完成"短提示计时：到点隐藏提示条
@@ -89,6 +95,21 @@ func _on_dialogue_finished(dialogue_id: String) -> void:
 
 func _on_enemy_killed(_enemy: Node, _position: Vector2) -> void:
 	if _step != Step.COMBAT:
+		return
+	# COMBAT → PICKUP：提示去捡掉落的肢体（M1-04）
+	_advance()
+
+## 捡起肢体：PICKUP 步收到 item_picked("monster_limb") → 推进到 SACRIFICE（提示去献祭）
+func _on_item_picked(item_id: String, _count: int) -> void:
+	if _step != Step.PICKUP:
+		return
+	if item_id != "monster_limb":
+		return
+	_advance()
+
+## 献祭完成：SACRIFICE 步收到 sacrifice_done → 教程走完（沿用原有"教程完成"短提示逻辑）
+func _on_sacrifice_done(_sacrifice_id: String, _total_count: int) -> void:
+	if _step != Step.SACRIFICE:
 		return
 	_step = Step.DONE
 	_done_hint_timer = DONE_HINT_DURATION

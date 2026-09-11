@@ -8,6 +8,7 @@
 [ext_resource type="PackedScene" path="res://scenes/ui/tutorial_hint.tscn" id="7_hint"]
 [ext_resource type="Script" path="res://components/tutorial.gd" id="8_tut"]
 [ext_resource type="Script" path="res://scripts/world/camera_follow.gd" id="9_cam"]
+[ext_resource type="PackedScene" path="res://scenes/items/altar.tscn" id="10_altar"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_ground"]
 size = Vector2(2560, 60)
@@ -86,6 +87,9 @@ position = Vector2(80, 647)
 
 [node name="DummyTarget" parent="." unique_id=762259326 instance=ExtResource("3_dummy")]
 position = Vector2(1094, 646)
+
+[node name="Altar" parent="." instance=ExtResource("10_altar")]
+position = Vector2(1300, 690)
 
 [node name="Camera2D" type="Camera2D" parent="." unique_id=1365575610]
 position = Vector2(640, 360)

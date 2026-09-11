@@ -48,6 +48,21 @@ func _run_checks() -> bool:
 		push_error("[smoke] record_sacrifice 计数错误: %d" % gm.sacrifice_count)
 		failed = true
 
+	# 2.5) 怪物肢体计数（M1-04：拾取记账 / 献祭消耗）
+	gm.add_monster_limb(1)
+	if gm.monster_limb_count != 1:
+		push_error("[smoke] add_monster_limb 计数错误: %d" % gm.monster_limb_count)
+		failed = true
+	if not gm.try_consume_monster_limb():
+		push_error("[smoke] 有肢体时 try_consume_monster_limb 应返回 true")
+		failed = true
+	if gm.monster_limb_count != 0:
+		push_error("[smoke] 消耗后肢体计数应为 0: %d" % gm.monster_limb_count)
+		failed = true
+	if gm.try_consume_monster_limb():
+		push_error("[smoke] 无肢体时 try_consume_monster_limb 应返回 false")
+		failed = true
+
 	# 3) DataDB 数据表加载（M0 允许空表，但结构须可用）
 	var data_db: Node = nodes["DataDB"]
 	for table_name in ["items", "enemies", "endings"]:
