@@ -40,6 +40,7 @@ const KNOCKBACK_HORIZONTAL := 260.0
 const KNOCKBACK_UPWARD := -220.0
 
 var hp := MAX_HP
+var has_weapon := false                    # M1-10：是否已拾取铁剑；没武器时按 J 静默无效
 var _facing := 1                            # 1 面朝右，-1 面朝左
 var _attack_dir := 1                        # 攻击锁定朝向：出手那一刻固定，攻击中按反方向键不改判定方向
 var _is_dead := false
@@ -70,6 +71,8 @@ func _ready() -> void:
 	# 对话开始锁输入、整段播完解锁（对话期间角色不能操作）
 	EventBus.dialogue_started.connect(_on_dialogue_started)
 	EventBus.dialogue_finished.connect(_on_dialogue_finished)
+	# M1-10：拾取铁剑解锁攻击（没武器时按 J 静默无效，见 _try_start_attack）
+	EventBus.item_picked.connect(_on_item_picked)
 
 func _physics_process(delta: float) -> void:
 	_update_jump_timers(delta)
@@ -97,6 +100,11 @@ func _on_dialogue_started(_dialogue_id: String) -> void:
 
 func _on_dialogue_finished(_dialogue_id: String) -> void:
 	_input_locked = false
+
+## M1-10：拾取铁剑后解锁攻击（武器剧情：开场对话引导玩家先捡剑再学攻击）
+func _on_item_picked(item_id: String, _count: int) -> void:
+	if item_id == "iron_sword":
+		has_weapon = true
 
 func _process(delta: float) -> void:
 	_update_invincibility(delta)
@@ -140,6 +148,9 @@ func _handle_jump() -> void:
 # ---- 攻击 ----
 
 func _try_start_attack() -> void:
+	# M1-10：没武器不能攻击（静默返回，不弹任何提示；武器剧情见 seed.sql intro_parasite_1）
+	if not has_weapon:
+		return
 	if _attack_cooldown_timer > 0.0:
 		return
 	# 下砍后摇期间不触发任何攻击（防落地瞬间秒横砍）

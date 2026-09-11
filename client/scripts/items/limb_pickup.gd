@@ -1,11 +1,13 @@
 extends Area2D
-## 怪物肢体拾取物（M1-02）
+## 地面拾取物通用脚本（M1-02 肢体 / M1-10 武器拾取物复用）
 ##
-## 史莱姆被击倒后掉落在脚下，玩家碰到即拾取：emit EventBus.item_picked("monster_limb", 1)
-## 后销毁。极简单的上下浮动动画（正弦摆动）让它在地面上显眼。
-## 视觉为绿色小方块占位，美术资源到位后替换 Body 节点即可。
+## 玩家碰到即拾取：emit EventBus.item_picked(item_id, 1) 后销毁。
+## 极简单的上下浮动动画（正弦摆动）让它在地面上显眼。
+## 视觉为占位方块，美术资源到位后替换 Body 节点即可。
+## M1-10：ITEM_ID 常量泛化为 @export item_id，默认仍是 "monster_limb"（M1-02 行为不变），
+## 武器拾取物场景里配成 "iron_sword"。
 
-const ITEM_ID := "monster_limb"
+@export var item_id := "monster_limb"
 const FLOAT_AMPLITUDE := 3.0   # 上下浮动幅度 px
 const FLOAT_SPEED := 3.5       # 浮动角速度 rad/s
 
@@ -29,5 +31,5 @@ func _on_body_entered(body: Node2D) -> void:
 	# mask=2 只探测玩家；has_method 兜底防御（只有玩家挂 take_damage）
 	if not body.has_method("take_damage"):
 		return
-	EventBus.item_picked.emit(ITEM_ID, 1)
+	EventBus.item_picked.emit(item_id, 1)
 	queue_free()

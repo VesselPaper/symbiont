@@ -26,7 +26,7 @@ var _feedback_timer := 0.0
 func _ready() -> void:
 	body_entered.connect(_on_body_entered)
 	body_exited.connect(_on_body_exited)
-	# 中文必须用 Noto Sans CJK，否则渲染成方块（同 dialogue_box / tutorial_hint 的写法）
+	# 中文必须用 Noto Sans CJK，否则渲染成方块（同 dialogue_box / tutorial_bubble 的写法）
 	var font := load(FONT_PATH) as Font
 	if font == null:
 		push_error("altar: 加载中文字体失败 %s" % FONT_PATH)
