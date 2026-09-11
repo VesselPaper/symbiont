@@ -8,7 +8,8 @@ extends Area2D
 ## 武器拾取物场景里配成 "iron_sword"。
 
 @export var item_id := "monster_limb"
-const FLOAT_AMPLITUDE := 3.0   # 上下浮动幅度 px
+## 上下浮动幅度 px；设 0 = 静止不浮动（武器拾取物插在尸体上要静止，见 weapon_pickup.tscn）
+@export var float_amplitude := 3.0
 const FLOAT_SPEED := 3.5       # 浮动角速度 rad/s
 
 var _base_y := 0.0
@@ -25,7 +26,7 @@ func _process(delta: float) -> void:
 		_base_y = position.y
 		_base_captured = true
 	_time += delta
-	position.y = _base_y + sin(_time * FLOAT_SPEED) * FLOAT_AMPLITUDE
+	position.y = _base_y + sin(_time * FLOAT_SPEED) * float_amplitude
 
 func _on_body_entered(body: Node2D) -> void:
 	# mask=2 只探测玩家；has_method 兜底防御（只有玩家挂 take_damage）
