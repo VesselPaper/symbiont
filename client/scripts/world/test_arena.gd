@@ -24,12 +24,9 @@ const PLAYER_CHARACTER_HEIGHT := 28.0
 const CAMERA_ZOOM := 720.0 / (VIEW_HEIGHT_IN_CHARACTERS * PLAYER_CHARACTER_HEIGHT)
 
 func _ready() -> void:
-	# 相机挂到玩家身上跟随；limit 是场景绝对坐标，不随父节点变化
+	# 相机 zoom 由这里设置（垂直视野 = N 倍角色身高）；水平跟随/垂直死区由 camera_follow.gd 处理
 	var camera := $Camera2D as Camera2D
 	camera.zoom = Vector2(CAMERA_ZOOM, CAMERA_ZOOM)
-	camera.reparent($Player)
-	camera.position = Vector2.ZERO
-	camera.make_current()
 
 	# M1-03：延时播放开场寄生体低语，让场景先稳定（玩家出生 → 低语弹出）
 	var intro_timer := get_tree().create_timer(INTRO_DIALOGUE_DELAY)

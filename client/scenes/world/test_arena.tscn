@@ -7,6 +7,7 @@
 [ext_resource type="Script" path="res://components/dialogue.gd" id="6_dlg"]
 [ext_resource type="PackedScene" path="res://scenes/ui/tutorial_hint.tscn" id="7_hint"]
 [ext_resource type="Script" path="res://components/tutorial.gd" id="8_tut"]
+[ext_resource type="Script" path="res://scripts/world/camera_follow.gd" id="9_cam"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_ground"]
 size = Vector2(2560, 60)
@@ -92,8 +93,8 @@ limit_left = 0
 limit_top = -120
 limit_right = 2560
 limit_bottom = 720
-position_smoothing_enabled = true
-position_smoothing_speed = 8.0
+script = ExtResource("9_cam")
+target_path = NodePath("../Player")
 
 [node name="DialogueBox" parent="." instance=ExtResource("5_dbox")]
 
