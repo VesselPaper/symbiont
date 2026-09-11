@@ -30,8 +30,6 @@ const POGO_HITBOX_OFFSET := Vector2(32, 14)   # 下砍判定框：64宽×28高�
 const POGO_FALL_SPEED := 700.0       # 下砍时强制下落速度（加速下落）
 const POGO_BOUNCE_VELOCITY := -650.0 # 命中实体后的向上反弹初速（≈83px 高，可调）
 const POGO_RETRIGGER_COOLDOWN := 0.1 # 反弹后可再次下砍的最小间隔（支持多段踩跳）
-const POGO_CHAIN_DECAY := 0.7        # 连续踩跳链：同一次滞空里每次反弹 ×0.7（递减，防无限滞空连砍）
-const POGO_MIN_BOUNCE_VELOCITY := -200.0 # 反弹低于此值不再反弹，链自然中断（约 4 连后断）
 
 # ---- 生命 / 受击 ----
 const MAX_HP := 5
@@ -45,7 +43,6 @@ var _is_dead := false
 var _coyote_timer := 0.0
 var _jump_buffer_timer := 0.0
 var _pogo_active := false
-var _pogo_chain := 0                # 同一次滞空内的连续踩跳次数（落地清零）
 var _attack_cooldown_timer := 0.0
 var _attack_active_timer := 0.0
 var _hit_this_swing: Array[Node2D] = []     # 本次挥砍已命中的目标，防止同一判定框重复扣血
@@ -153,11 +150,8 @@ func _update_pogo_state() -> void:
 		return
 	# 持续强制下落（加速下落）
 	velocity.y = POGO_FALL_SPEED
-	# 碰到地面或墙（实体）即结束下砍；落地同时重置踩跳链；命中敌人由 _on_hitbox_down_body_entered 处理（反弹）
-	if is_on_floor():
-		_pogo_chain = 0
-		_end_pogo()
-	elif is_on_wall():
+	# 碰到地面或墙（实体）即结束下砍；命中敌人由 _on_hitbox_down_body_entered 处理（反弹）
+	if is_on_floor() or is_on_wall():
 		_end_pogo()
 
 func _end_pogo() -> void:
@@ -201,16 +195,12 @@ func _on_hitbox_down_body_entered(body: Node2D) -> void:
 	if not body.is_in_group("damageable"):
 		return
 	_apply_hit(body)
-	# 连续踩跳链：同一次滞空每踩一次反弹 ×0.7；链太弱（低于阈值）则不再反弹，自然下落（方案B）
-	_pogo_chain += 1
-	var bounce := POGO_BOUNCE_VELOCITY * pow(POGO_CHAIN_DECAY, _pogo_chain - 1)
-	if bounce > POGO_MIN_BOUNCE_VELOCITY:
-		bounce = 0.0
-	velocity.y = bounce
+	# 固定反弹高度（递减链已按组长反馈移除，节奏由"仅下落时触发"控制）
+	velocity.y = POGO_BOUNCE_VELOCITY
 	_end_pogo()
-	# 反弹后可快速再按 J 连续下砍（多段踩跳，链会递减）
+	# 反弹后可再按 J 连续下砍（需等转为下落）
 	_attack_cooldown_timer = POGO_RETRIGGER_COOLDOWN
-	EventBus.log_event("pogo_bounce", {"target": body.name, "chain": _pogo_chain, "bounce": bounce})
+	EventBus.log_event("pogo_bounce", {"target": body.name})
 
 func _apply_hit(body: Node2D) -> void:
 	if not body.is_in_group("damageable"):
@@ -256,7 +246,6 @@ func _respawn() -> void:
 	_attack_cooldown_timer = 0.0
 	_attack_active_timer = 0.0
 	_pogo_active = false
-	_pogo_chain = 0
 	_hitbox_side.monitoring = false
 	_hitbox_down.monitoring = false
 	_hit_this_swing.clear()
