@@ -3,7 +3,7 @@
 [ext_resource type="Script" path="res://scripts/items/limb_pickup.gd" id="1_pickup"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_sword"]
-size = Vector2(28, 40)
+size = Vector2(34, 52)
 
 [sub_resource type="Animation" id="Animation_flicker"]
 resource_name = "flicker"
@@ -19,7 +19,7 @@ tracks/0/keys = {
 "times": PackedFloat32Array(0, 0.45, 0.9),
 "transitions": PackedFloat32Array(1, 1, 1),
 "update": 0,
-"values": [0.35, 0.12, 0.35]
+"values": [0.4, 0.15, 0.4]
 }
 tracks/1/type = "value"
 tracks/1/imported = false
@@ -37,35 +37,40 @@ tracks/1/keys = {
 [node name="WeaponPickup" type="Area2D"]
 collision_layer = 0
 collision_mask = 2
+rotation = 0.6
 script = ExtResource("1_pickup")
 item_id = "iron_sword"
 
 [node name="Visuals" type="Node2D" parent="."]
-position = Vector2(0, -16)
+position = Vector2(0, -8)
 
 [node name="Glow" type="Polygon2D" parent="Visuals"]
-color = Color(0.55, 0.8, 1, 0.35)
-polygon = PackedVector2Array(-14, -38, 14, -38, 14, -6, -14, -6)
+color = Color(0.55, 0.8, 1, 0.4)
+polygon = PackedVector2Array(-17, -40, 17, -40, 17, 2, -17, 2)
 
 [node name="BladeGlow" type="Polygon2D" parent="Visuals"]
-color = Color(0.7, 0.9, 1, 0.3)
-polygon = PackedVector2Array(-10, -36, 10, -36, 10, -10, -10, -10)
+color = Color(0.7, 0.9, 1, 0.4)
+polygon = PackedVector2Array(-13, -38, 13, -38, 13, -3, -13, -3)
 
 [node name="Blade" type="Polygon2D" parent="Visuals"]
-color = Color(0.95, 0.97, 1, 1)
-polygon = PackedVector2Array(-6, -30, 6, -30, 6, -12, 0, -34, -6, -12)
+color = Color(0.98, 0.99, 1, 1)
+polygon = PackedVector2Array(-8, -32, 8, -32, 8, -5, 0, -36, -8, -5)
+
+[node name="BladeEdge" type="Polygon2D" parent="Visuals"]
+color = Color(0.5, 0.65, 0.9, 1)
+polygon = PackedVector2Array(-9, -33, -6, -33, -5, -6, -9, -6)
 
 [node name="Guard" type="Polygon2D" parent="Visuals"]
-color = Color(0.55, 0.7, 0.95, 1)
-polygon = PackedVector2Array(-11, -13, 11, -13, 11, -9, -11, -9)
+color = Color(0.6, 0.72, 0.95, 1)
+polygon = PackedVector2Array(-13, -5, 13, -5, 13, 0, -13, 0)
 
 [node name="Handle" type="Polygon2D" parent="Visuals"]
-color = Color(0.38, 0.48, 0.65, 1)
-polygon = PackedVector2Array(-2.5, -9, 2.5, -9, 2.5, 0, -2.5, 0)
+color = Color(0.4, 0.5, 0.7, 1)
+polygon = PackedVector2Array(-3, 0, 3, 0, 3, 8, -3, 8)
 
 [node name="Pommel" type="Polygon2D" parent="Visuals"]
-color = Color(0.32, 0.42, 0.58, 1)
-polygon = PackedVector2Array(-3.5, -2, 3.5, -2, 3.5, 4, -3.5, 4)
+color = Color(0.34, 0.44, 0.62, 1)
+polygon = PackedVector2Array(-4, 7, 4, 7, 4, 13, -4, 13)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 position = Vector2(0, -20)

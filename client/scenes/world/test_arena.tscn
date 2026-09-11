@@ -90,7 +90,7 @@ color = Color(0.45, 0.45, 0.5, 1)
 polygon = PackedVector2Array(-5, -5, 5, -5, 5, 5, -5, 5)
 
 [node name="WeaponPickup" parent="." instance=ExtResource("11_sword")]
-position = Vector2(200, 680)
+position = Vector2(200, 660)
 
 [node name="move_mark" parent="." instance=ExtResource("12_marker")]
 position = Vector2(475, 640)
