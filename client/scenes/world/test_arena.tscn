@@ -1,4 +1,4 @@
-[gd_scene load_steps=15 format=3 uid="uid://bkuega3o1vpb7"]
+[gd_scene load_steps=20 format=3 uid="uid://bkuega3o1vpb7"]
 
 [ext_resource type="Script" uid="uid://dgru46wtu0ks3" path="res://scripts/world/test_arena.gd" id="1_arena"]
 [ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="2_player"]
@@ -17,11 +17,23 @@ size = Vector2(2560, 60)
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_wall"]
 size = Vector2(40, 1170)
 
-[sub_resource type="RectangleShape2D" id="RectangleShape2D_lowwall"]
-size = Vector2(30, 90)
-
-[sub_resource type="RectangleShape2D" id="RectangleShape2D_step"]
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_jump"]
 size = Vector2(200, 90)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_attack"]
+size = Vector2(250, 120)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_pogo"]
+size = Vector2(150, 150)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_low"]
+size = Vector2(150, 90)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_combat"]
+size = Vector2(200, 180)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_altar_pf"]
+size = Vector2(300, 210)
 
 [node name="TestArena" type="Node2D" unique_id=1453451352]
 script = ExtResource("1_arena")
@@ -82,56 +94,100 @@ position = Vector2(200, 680)
 [node name="MoveMark" type="Polygon2D" parent="."]
 position = Vector2(475, 653)
 color = Color(0.35, 0.9, 1, 0.9)
-polygon = PackedVector2Array(-10, -4, 10, -4, 10, 4, -10, 4)
+polygon = PackedVector2Array(-5, -5, 5, -5, 5, 5, -5, 5)
 
 [node name="MoveMarkHalo" type="Polygon2D" parent="."]
 position = Vector2(475, 653)
-color = Color(0.35, 0.9, 1, 0.22)
-polygon = PackedVector2Array(-18, -8, 18, -8, 18, 8, -18, 8)
-
-[node name="LowWall" type="StaticBody2D" parent="."]
-position = Vector2(560, 615)
-collision_mask = 0
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="LowWall"]
-shape = SubResource("RectangleShape2D_lowwall")
-
-[node name="Visual" type="Polygon2D" parent="LowWall"]
-color = Color(0.18, 0.18, 0.2, 1)
-polygon = PackedVector2Array(-15, -45, 15, -45, 15, 45, -15, 45)
-
-[node name="JumpMark" type="Polygon2D" parent="."]
-position = Vector2(710, 653)
-color = Color(0.35, 0.9, 1, 0.9)
-polygon = PackedVector2Array(-10, -4, 10, -4, 10, 4, -10, 4)
-
-[node name="JumpMarkHalo" type="Polygon2D" parent="."]
-position = Vector2(710, 653)
-color = Color(0.35, 0.9, 1, 0.22)
-polygon = PackedVector2Array(-18, -8, 18, -8, 18, 8, -18, 8)
+color = Color(0.35, 0.9, 1, 0.18)
+polygon = PackedVector2Array(-9, -9, 9, -9, 9, 9, -9, 9)
 
 [node name="Player" parent="." unique_id=218680313 instance=ExtResource("2_player")]
 position = Vector2(80, 647)
 
-[node name="DummyA" parent="." instance=ExtResource("3_dummy")]
-position = Vector2(850, 646)
-
-[node name="HighStep" type="StaticBody2D" parent="."]
-position = Vector2(1050, 645)
+[node name="JumpPlatform" type="StaticBody2D" parent="."]
+position = Vector2(660, 615)
 collision_mask = 0
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="HighStep"]
-shape = SubResource("RectangleShape2D_step")
+[node name="CollisionShape2D" type="CollisionShape2D" parent="JumpPlatform"]
+shape = SubResource("RectangleShape2D_jump")
 
-[node name="Visual" type="Polygon2D" parent="HighStep"]
-color = Color(0.3, 0.3, 0.34, 1)
+[node name="Visual" type="Polygon2D" parent="JumpPlatform"]
+color = Color(0.2, 0.2, 0.24, 1)
 polygon = PackedVector2Array(-100, -45, 100, -45, 100, 45, -100, 45)
 
+[node name="JumpMark" type="Polygon2D" parent="."]
+position = Vector2(660, 563)
+color = Color(0.35, 0.9, 1, 0.9)
+polygon = PackedVector2Array(-5, -5, 5, -5, 5, 5, -5, 5)
+
+[node name="JumpMarkHalo" type="Polygon2D" parent="."]
+position = Vector2(660, 563)
+color = Color(0.35, 0.9, 1, 0.18)
+polygon = PackedVector2Array(-9, -9, 9, -9, 9, 9, -9, 9)
+
+[node name="AttackPlatform" type="StaticBody2D" parent="."]
+position = Vector2(885, 600)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="AttackPlatform"]
+shape = SubResource("RectangleShape2D_attack")
+
+[node name="Visual" type="Polygon2D" parent="AttackPlatform"]
+color = Color(0.24, 0.24, 0.28, 1)
+polygon = PackedVector2Array(-125, -60, 125, -60, 125, 60, -125, 60)
+
+[node name="DummyA" parent="." instance=ExtResource("3_dummy")]
+position = Vector2(900, 527)
+
+[node name="PogoPlatform" type="StaticBody2D" parent="."]
+position = Vector2(1085, 585)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="PogoPlatform"]
+shape = SubResource("RectangleShape2D_pogo")
+
+[node name="Visual" type="Polygon2D" parent="PogoPlatform"]
+color = Color(0.28, 0.28, 0.32, 1)
+polygon = PackedVector2Array(-75, -75, 75, -75, 75, 75, -75, 75)
+
+[node name="DropLowPlatform" type="StaticBody2D" parent="."]
+position = Vector2(1235, 615)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="DropLowPlatform"]
+shape = SubResource("RectangleShape2D_low")
+
+[node name="Visual" type="Polygon2D" parent="DropLowPlatform"]
+color = Color(0.2, 0.2, 0.24, 1)
+polygon = PackedVector2Array(-75, -45, 75, -45, 75, 45, -75, 45)
+
 [node name="DummyB" parent="." instance=ExtResource("3_dummy")]
-position = Vector2(1130, 646)
+position = Vector2(1210, 557)
+
+[node name="CombatPlatform" type="StaticBody2D" parent="."]
+position = Vector2(1410, 570)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="CombatPlatform"]
+shape = SubResource("RectangleShape2D_combat")
+
+[node name="Visual" type="Polygon2D" parent="CombatPlatform"]
+color = Color(0.3, 0.3, 0.34, 1)
+polygon = PackedVector2Array(-100, -90, 100, -90, 100, 90, -100, 90)
+
+[node name="AltarPlatform" type="StaticBody2D" parent="."]
+position = Vector2(1660, 555)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="AltarPlatform"]
+shape = SubResource("RectangleShape2D_altar_pf")
+
+[node name="Visual" type="Polygon2D" parent="AltarPlatform"]
+color = Color(0.34, 0.34, 0.38, 1)
+polygon = PackedVector2Array(-150, -105, 150, -105, 150, 105, -150, 105)
 
 [node name="Altar" parent="." instance=ExtResource("10_altar")]
-position = Vector2(1700, 690)
+position = Vector2(1660, 450)
 
 [node name="Camera2D" type="Camera2D" parent="." unique_id=1365575610]
 position = Vector2(640, 360)

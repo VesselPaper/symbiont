@@ -26,10 +26,10 @@ const WEAPON_FLASH_DURATION := 1.2
 ## 教程完成提示的停留时长（秒），到点隐藏气泡
 const DONE_HINT_DURATION := 1.0
 
-## 标记区坐标矩形（与 test_arena.tscn 的发光块视觉对齐；区域判定用玩家节点坐标，
-## 玩家地面时中心 y≈647，故 y 从地面往上放宽到 600）：
-const MOVE_MARK_ZONE := Rect2(450, 600, 60, 80)   # x:450~510 —— 覆盖 x≈475 的行走标记发光块
-const JUMP_MARK_ZONE := Rect2(685, 600, 60, 80)   # x:685~745 —— 覆盖 x≈710 的跳跃标记发光块
+## 标记区坐标矩形（与 test_arena.tscn 的发光块视觉对齐；区域判定用玩家节点坐标）：
+## 行走标记在地面(x≈475，玩家站地 y≈647)；跳跃标记在 JumpPlatform 高台顶(x≈660，玩家站台 y≈557)
+const MOVE_MARK_ZONE := Rect2(450, 600, 60, 80)   # x:450~510 —— 覆盖 x≈475 的行走标记
+const JUMP_MARK_ZONE := Rect2(630, 530, 60, 60)   # x:630~690 —— 覆盖 x≈660 的跳跃标记（高台上）
 
 ## 教学假人节点名（test_arena 内的实例名，见 test_arena.tscn）
 const DUMMY_A_NODE := "DummyA"
