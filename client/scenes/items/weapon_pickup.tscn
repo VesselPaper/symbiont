@@ -3,7 +3,7 @@
 [ext_resource type="Script" path="res://scripts/items/limb_pickup.gd" id="1_pickup"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_sword"]
-size = Vector2(28, 60)
+size = Vector2(28, 40)
 
 [sub_resource type="Animation" id="Animation_flicker"]
 resource_name = "flicker"
@@ -12,7 +12,7 @@ loop_mode = 1
 tracks/0/type = "value"
 tracks/0/imported = false
 tracks/0/enabled = true
-tracks/0/path = NodePath("Glow:modulate:a")
+tracks/0/path = NodePath("Visuals/Glow:modulate:a")
 tracks/0/interp = 1
 tracks/0/loop_wrap = true
 tracks/0/keys = {
@@ -24,7 +24,7 @@ tracks/0/keys = {
 tracks/1/type = "value"
 tracks/1/imported = false
 tracks/1/enabled = true
-tracks/1/path = NodePath("Glow:scale")
+tracks/1/path = NodePath("Visuals/Glow:scale")
 tracks/1/interp = 1
 tracks/1/loop_wrap = true
 tracks/1/keys = {
@@ -40,28 +40,31 @@ collision_mask = 2
 script = ExtResource("1_pickup")
 item_id = "iron_sword"
 
-[node name="Glow" type="Polygon2D" parent="."]
+[node name="Visuals" type="Node2D" parent="."]
+position = Vector2(0, -18)
+
+[node name="Glow" type="Polygon2D" parent="Visuals"]
 color = Color(0.55, 0.8, 1, 0.35)
-polygon = PackedVector2Array(-20, -64, 20, -64, 20, -6, -20, -6)
+polygon = PackedVector2Array(-12, -34, 12, -34, 12, -6, -12, -6)
 
-[node name="Blade" type="Polygon2D" parent="."]
+[node name="Blade" type="Polygon2D" parent="Visuals"]
 color = Color(0.85, 0.95, 1, 1)
-polygon = PackedVector2Array(-4, -10, 4, -10, 4, -50, 0, -62, -4, -50)
+polygon = PackedVector2Array(-3, -28, 3, -28, 3, -14, 0, -30, -3, -14)
 
-[node name="Guard" type="Polygon2D" parent="."]
+[node name="Guard" type="Polygon2D" parent="Visuals"]
 color = Color(0.5, 0.65, 0.9, 1)
-polygon = PackedVector2Array(-13, -13, 13, -13, 13, -6, -13, -6)
+polygon = PackedVector2Array(-8, -14, 8, -14, 8, -11, -8, -11)
 
-[node name="Handle" type="Polygon2D" parent="."]
+[node name="Handle" type="Polygon2D" parent="Visuals"]
 color = Color(0.35, 0.45, 0.6, 1)
-polygon = PackedVector2Array(-3, -6, 3, -6, 3, 10, -3, 10)
+polygon = PackedVector2Array(-2, -11, 2, -11, 2, -1, -2, -1)
 
-[node name="Pommel" type="Polygon2D" parent="."]
+[node name="Pommel" type="Polygon2D" parent="Visuals"]
 color = Color(0.3, 0.4, 0.55, 1)
-polygon = PackedVector2Array(-4, 8, 4, 8, 4, 14, -4, 14)
+polygon = PackedVector2Array(-3, -3, 3, -3, 3, 3, -3, 3)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
-position = Vector2(0, -30)
+position = Vector2(0, -20)
 shape = SubResource("RectangleShape2D_sword")
 
 [node name="Flicker" type="AnimationPlayer" parent="."]

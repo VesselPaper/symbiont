@@ -82,12 +82,12 @@ position = Vector2(200, 680)
 [node name="MoveMark" type="Polygon2D" parent="."]
 position = Vector2(475, 653)
 color = Color(0.35, 0.9, 1, 0.9)
-polygon = PackedVector2Array(-18, -7, 18, -7, 18, 7, -18, 7)
+polygon = PackedVector2Array(-10, -4, 10, -4, 10, 4, -10, 4)
 
 [node name="MoveMarkHalo" type="Polygon2D" parent="."]
 position = Vector2(475, 653)
 color = Color(0.35, 0.9, 1, 0.22)
-polygon = PackedVector2Array(-32, -14, 32, -14, 32, 14, -32, 14)
+polygon = PackedVector2Array(-18, -8, 18, -8, 18, 8, -18, 8)
 
 [node name="LowWall" type="StaticBody2D" parent="."]
 position = Vector2(560, 615)
@@ -103,12 +103,12 @@ polygon = PackedVector2Array(-15, -45, 15, -45, 15, 45, -15, 45)
 [node name="JumpMark" type="Polygon2D" parent="."]
 position = Vector2(710, 653)
 color = Color(0.35, 0.9, 1, 0.9)
-polygon = PackedVector2Array(-18, -7, 18, -7, 18, 7, -18, 7)
+polygon = PackedVector2Array(-10, -4, 10, -4, 10, 4, -10, 4)
 
 [node name="JumpMarkHalo" type="Polygon2D" parent="."]
 position = Vector2(710, 653)
 color = Color(0.35, 0.9, 1, 0.22)
-polygon = PackedVector2Array(-32, -14, 32, -14, 32, 14, -32, 14)
+polygon = PackedVector2Array(-18, -8, 18, -8, 18, 8, -18, 8)
 
 [node name="Player" parent="." unique_id=218680313 instance=ExtResource("2_player")]
 position = Vector2(80, 647)
