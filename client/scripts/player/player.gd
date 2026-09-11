@@ -30,6 +30,7 @@ const POGO_HITBOX_OFFSET := Vector2(32, 14)   # 下砍判定框：64宽×28高�
 const POGO_FALL_SPEED := 700.0       # 下砍时强制下落速度（加速下落）
 const POGO_BOUNCE_VELOCITY := -650.0 # 命中实体后的向上反弹初速（≈83px 高，可调）
 const POGO_RETRIGGER_COOLDOWN := 0.1 # 反弹后可再次下砍的最小间隔（支持多段踩跳）
+const POGO_END_LAG := 0.2        # 下砍结束后的后摇：期间按 J 不触发攻击（防落地瞬间秒横砍）
 
 # ---- 生命 / 受击 ----
 const MAX_HP := 5
@@ -43,6 +44,7 @@ var _is_dead := false
 var _coyote_timer := 0.0
 var _jump_buffer_timer := 0.0
 var _pogo_active := false
+var _pogo_end_lag_timer := 0.0  # 下砍后摇计时
 var _attack_cooldown_timer := 0.0
 var _attack_active_timer := 0.0
 var _hit_this_swing: Array[Node2D] = []     # 本次挥砍已命中的目标，防止同一判定框重复扣血
@@ -117,6 +119,9 @@ func _handle_jump() -> void:
 func _try_start_attack() -> void:
 	if _attack_cooldown_timer > 0.0:
 		return
+	# 下砍后摇期间不触发任何攻击（防落地瞬间秒横砍）
+	if _pogo_end_lag_timer > 0.0:
+		return
 	# 必须按下攻击键(J)才攻击，否则冷却一结束就会无限自动挥砍
 	if not Input.is_action_just_pressed("attack"):
 		return
@@ -158,6 +163,7 @@ func _end_pogo() -> void:
 	if not _pogo_active:
 		return
 	_pogo_active = false
+	_pogo_end_lag_timer = POGO_END_LAG  # 开始后摇
 	# 命中敌人时 _end_pogo 会在 body_entered 信号回调里被调用，直接改 monitoring 会被 Godot
 	# 拦截报 "Function blocked during in/out signal"，必须 set_deferred 延后（规范第 7 条）
 	_hitbox_down.set_deferred("monitoring", false)
@@ -165,6 +171,7 @@ func _end_pogo() -> void:
 
 func _update_attack_state(delta: float) -> void:
 	_attack_cooldown_timer = maxf(_attack_cooldown_timer - delta, 0.0)
+	_pogo_end_lag_timer = maxf(_pogo_end_lag_timer - delta, 0.0)
 	if _attack_active_timer <= 0.0:
 		return
 	_attack_active_timer -= delta
@@ -246,6 +253,7 @@ func _respawn() -> void:
 	_attack_cooldown_timer = 0.0
 	_attack_active_timer = 0.0
 	_pogo_active = false
+	_pogo_end_lag_timer = 0.0
 	_hitbox_side.monitoring = false
 	_hitbox_down.monitoring = false
 	_hit_this_swing.clear()
