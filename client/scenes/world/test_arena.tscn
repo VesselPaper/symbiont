@@ -1,13 +1,13 @@
-[gd_scene load_steps=21 format=3 uid="uid://bkuega3o1vpb7"]
+[gd_scene format=3 uid="uid://bkuega3o1vpb7"]
 
 [ext_resource type="Script" uid="uid://dgru46wtu0ks3" path="res://scripts/world/test_arena.gd" id="1_arena"]
 [ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="2_player"]
 [ext_resource type="PackedScene" path="res://scenes/entities/dummy_target.tscn" id="3_dummy"]
 [ext_resource type="PackedScene" path="res://scenes/ui/dialogue_box.tscn" id="5_dbox"]
-[ext_resource type="Script" path="res://components/dialogue.gd" id="6_dlg"]
+[ext_resource type="Script" uid="uid://cinkkacppjmdy" path="res://components/dialogue.gd" id="6_dlg"]
 [ext_resource type="PackedScene" path="res://scenes/ui/tutorial_bubble.tscn" id="7_bubble"]
-[ext_resource type="Script" path="res://components/tutorial.gd" id="8_tut"]
-[ext_resource type="Script" path="res://scripts/world/camera_follow.gd" id="9_cam"]
+[ext_resource type="Script" uid="uid://ctmjp5k5310an" path="res://components/tutorial.gd" id="8_tut"]
+[ext_resource type="Script" uid="uid://bees2eeru2n57" path="res://scripts/world/camera_follow.gd" id="9_cam"]
 [ext_resource type="PackedScene" path="res://scenes/items/altar.tscn" id="10_altar"]
 [ext_resource type="PackedScene" path="res://scenes/items/weapon_pickup.tscn" id="11_sword"]
 [ext_resource type="PackedScene" path="res://scenes/items/quest_marker.tscn" id="12_marker"]
@@ -77,105 +77,105 @@ shape = SubResource("RectangleShape2D_wall")
 color = Color(0.15686275, 0.15686275, 0.15686275, 1)
 polygon = PackedVector2Array(-20, -585, 20, -585, 20, 585, -20, 585)
 
-[node name="Corpse" type="Node2D" parent="."]
+[node name="Corpse" type="Node2D" parent="." unique_id=184100257]
 position = Vector2(200, 656)
 
-[node name="Body" type="Polygon2D" parent="Corpse"]
+[node name="Body" type="Polygon2D" parent="Corpse" unique_id=1347194915]
 color = Color(0.42, 0.42, 0.46, 1)
 polygon = PackedVector2Array(-26, -5, 26, -5, 26, 5, -26, 5)
 
-[node name="Head" type="Polygon2D" parent="Corpse"]
+[node name="Head" type="Polygon2D" parent="Corpse" unique_id=1323449038]
 position = Vector2(-30, 0)
 color = Color(0.45, 0.45, 0.5, 1)
 polygon = PackedVector2Array(-5, -5, 5, -5, 5, 5, -5, 5)
 
-[node name="WeaponPickup" parent="." instance=ExtResource("11_sword")]
-position = Vector2(200, 660)
+[node name="WeaponPickup" parent="." unique_id=1327580533 instance=ExtResource("11_sword")]
+position = Vector2(199.99998, 656)
 
-[node name="move_mark" parent="." instance=ExtResource("12_marker")]
+[node name="move_mark" parent="." unique_id=1506237686 instance=ExtResource("12_marker")]
 position = Vector2(475, 640)
 marker_id = "move_mark"
 
 [node name="Player" parent="." unique_id=218680313 instance=ExtResource("2_player")]
 position = Vector2(80, 647)
 
-[node name="JumpPlatform" type="StaticBody2D" parent="."]
+[node name="JumpPlatform" type="StaticBody2D" parent="." unique_id=867240688]
 position = Vector2(660, 615)
 collision_mask = 0
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="JumpPlatform"]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="JumpPlatform" unique_id=1865108519]
 shape = SubResource("RectangleShape2D_jump")
 
-[node name="Visual" type="Polygon2D" parent="JumpPlatform"]
+[node name="Visual" type="Polygon2D" parent="JumpPlatform" unique_id=1633449682]
 color = Color(0.15686275, 0.15686275, 0.15686275, 1)
 polygon = PackedVector2Array(-100, -45, 100, -45, 100, 45, -100, 45)
 
-[node name="jump_mark" parent="." instance=ExtResource("12_marker")]
+[node name="jump_mark" parent="." unique_id=875003101 instance=ExtResource("12_marker")]
 position = Vector2(660, 540)
 marker_id = "jump_mark"
 
-[node name="AttackPlatform" type="StaticBody2D" parent="."]
+[node name="AttackPlatform" type="StaticBody2D" parent="." unique_id=883957724]
 position = Vector2(885, 600)
 collision_mask = 0
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="AttackPlatform"]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="AttackPlatform" unique_id=1607203890]
 shape = SubResource("RectangleShape2D_attack")
 
-[node name="Visual" type="Polygon2D" parent="AttackPlatform"]
+[node name="Visual" type="Polygon2D" parent="AttackPlatform" unique_id=473837386]
 color = Color(0.15686275, 0.15686275, 0.15686275, 1)
 polygon = PackedVector2Array(-125, -60, 125, -60, 125, 60, -125, 60)
 
-[node name="DummyA" parent="." instance=ExtResource("3_dummy")]
+[node name="DummyA" parent="." unique_id=876914272 instance=ExtResource("3_dummy")]
 position = Vector2(900, 527)
 
-[node name="PogoPlatform" type="StaticBody2D" parent="."]
+[node name="PogoPlatform" type="StaticBody2D" parent="." unique_id=217493915]
 position = Vector2(1085, 585)
 collision_mask = 0
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="PogoPlatform"]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="PogoPlatform" unique_id=1463447825]
 shape = SubResource("RectangleShape2D_pogo")
 
-[node name="Visual" type="Polygon2D" parent="PogoPlatform"]
+[node name="Visual" type="Polygon2D" parent="PogoPlatform" unique_id=761069732]
 color = Color(0.15686275, 0.15686275, 0.15686275, 1)
 polygon = PackedVector2Array(-75, -75, 75, -75, 75, 75, -75, 75)
 
-[node name="DropLowPlatform" type="StaticBody2D" parent="."]
+[node name="DropLowPlatform" type="StaticBody2D" parent="." unique_id=251625922]
 position = Vector2(1235, 615)
 collision_mask = 0
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="DropLowPlatform"]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="DropLowPlatform" unique_id=1712816887]
 shape = SubResource("RectangleShape2D_low")
 
-[node name="Visual" type="Polygon2D" parent="DropLowPlatform"]
+[node name="Visual" type="Polygon2D" parent="DropLowPlatform" unique_id=1150593447]
 color = Color(0.15686275, 0.15686275, 0.15686275, 1)
 polygon = PackedVector2Array(-75, -45, 75, -45, 75, 45, -75, 45)
 
-[node name="DummyB" parent="." instance=ExtResource("3_dummy")]
+[node name="DummyB" parent="." unique_id=613293081 instance=ExtResource("3_dummy")]
 position = Vector2(1210, 557)
 
-[node name="CombatPlatform" type="StaticBody2D" parent="."]
+[node name="CombatPlatform" type="StaticBody2D" parent="." unique_id=1864900402]
 position = Vector2(1410, 570)
 collision_mask = 0
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="CombatPlatform"]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="CombatPlatform" unique_id=483239638]
 shape = SubResource("RectangleShape2D_combat")
 
-[node name="Visual" type="Polygon2D" parent="CombatPlatform"]
+[node name="Visual" type="Polygon2D" parent="CombatPlatform" unique_id=1747115858]
 color = Color(0.15686275, 0.15686275, 0.15686275, 1)
 polygon = PackedVector2Array(-100, -90, 100, -90, 100, 90, -100, 90)
 
-[node name="AltarPlatform" type="StaticBody2D" parent="."]
+[node name="AltarPlatform" type="StaticBody2D" parent="." unique_id=1894658216]
 position = Vector2(1660, 555)
 collision_mask = 0
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="AltarPlatform"]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="AltarPlatform" unique_id=1150258956]
 shape = SubResource("RectangleShape2D_altar_pf")
 
-[node name="Visual" type="Polygon2D" parent="AltarPlatform"]
+[node name="Visual" type="Polygon2D" parent="AltarPlatform" unique_id=159035742]
 color = Color(0.15686275, 0.15686275, 0.15686275, 1)
 polygon = PackedVector2Array(-150, -105, 150, -105, 150, 105, -150, 105)
 
-[node name="Altar" parent="." instance=ExtResource("10_altar")]
+[node name="Altar" parent="." unique_id=1054110243 instance=ExtResource("10_altar")]
 position = Vector2(1660, 450)
 
 [node name="Camera2D" type="Camera2D" parent="." unique_id=1365575610]
@@ -187,16 +187,16 @@ limit_bottom = 720
 script = ExtResource("9_cam")
 target_path = NodePath("../Player")
 
-[node name="DialogueBox" parent="." instance=ExtResource("5_dbox")]
+[node name="DialogueBox" parent="." unique_id=1667348960 instance=ExtResource("5_dbox")]
 
-[node name="Dialogue" type="Node" parent="."]
+[node name="Dialogue" type="Node" parent="." unique_id=1233768741]
 script = ExtResource("6_dlg")
 ui_path = NodePath("../DialogueBox")
 
-[node name="TutorialBubble" parent="." instance=ExtResource("7_bubble")]
+[node name="TutorialBubble" parent="." unique_id=830163663 instance=ExtResource("7_bubble")]
 position = Vector2(80, 603)
 
-[node name="Tutorial" type="Node" parent="."]
+[node name="Tutorial" type="Node" parent="." unique_id=1803435463]
 script = ExtResource("8_tut")
 ui_path = NodePath("../TutorialBubble")
 move_marker_path = NodePath("../move_mark")
