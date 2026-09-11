@@ -157,7 +157,9 @@ func _end_pogo() -> void:
 	if not _pogo_active:
 		return
 	_pogo_active = false
-	_hitbox_down.monitoring = false
+	# 命中敌人时 _end_pogo 会在 body_entered 信号回调里被调用，直接改 monitoring 会被 Godot
+	# 拦截报 "Function blocked during in/out signal"，必须 set_deferred 延后（规范第 7 条）
+	_hitbox_down.set_deferred("monitoring", false)
 	_hit_this_swing.clear()
 
 func _update_attack_state(delta: float) -> void:
@@ -175,9 +177,9 @@ func _end_attack() -> void:
 	_hit_this_swing.clear()
 
 func _update_hitbox_pose() -> void:
-	# 横砍判定框随面朝方向左右翻转；下砍判定框固定朝前下方
+	# 横砍/下砍判定框都随面朝方向翻转（下砍朝身前下方）
 	_hitbox_side.position = Vector2(SIDE_HITBOX_OFFSET.x * _facing, SIDE_HITBOX_OFFSET.y)
-	_hitbox_down.position = POGO_HITBOX_OFFSET
+	_hitbox_down.position = Vector2(POGO_HITBOX_OFFSET.x * _facing, POGO_HITBOX_OFFSET.y)
 	# 占位阶段把判定框可视层与开关绑定，便于在编辑器中观察攻击范围
 	_hitbox_side_visual.visible = _hitbox_side.monitoring
 	_hitbox_down_visual.visible = _hitbox_down.monitoring
