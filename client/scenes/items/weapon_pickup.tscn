@@ -41,27 +41,31 @@ script = ExtResource("1_pickup")
 item_id = "iron_sword"
 
 [node name="Visuals" type="Node2D" parent="."]
-position = Vector2(0, -18)
+position = Vector2(0, -16)
 
 [node name="Glow" type="Polygon2D" parent="Visuals"]
 color = Color(0.55, 0.8, 1, 0.35)
-polygon = PackedVector2Array(-12, -34, 12, -34, 12, -6, -12, -6)
+polygon = PackedVector2Array(-14, -38, 14, -38, 14, -6, -14, -6)
+
+[node name="BladeGlow" type="Polygon2D" parent="Visuals"]
+color = Color(0.7, 0.9, 1, 0.3)
+polygon = PackedVector2Array(-10, -36, 10, -36, 10, -10, -10, -10)
 
 [node name="Blade" type="Polygon2D" parent="Visuals"]
-color = Color(0.85, 0.95, 1, 1)
-polygon = PackedVector2Array(-3, -28, 3, -28, 3, -14, 0, -30, -3, -14)
+color = Color(0.95, 0.97, 1, 1)
+polygon = PackedVector2Array(-6, -30, 6, -30, 6, -12, 0, -34, -6, -12)
 
 [node name="Guard" type="Polygon2D" parent="Visuals"]
-color = Color(0.5, 0.65, 0.9, 1)
-polygon = PackedVector2Array(-8, -14, 8, -14, 8, -11, -8, -11)
+color = Color(0.55, 0.7, 0.95, 1)
+polygon = PackedVector2Array(-11, -13, 11, -13, 11, -9, -11, -9)
 
 [node name="Handle" type="Polygon2D" parent="Visuals"]
-color = Color(0.35, 0.45, 0.6, 1)
-polygon = PackedVector2Array(-2, -11, 2, -11, 2, -1, -2, -1)
+color = Color(0.38, 0.48, 0.65, 1)
+polygon = PackedVector2Array(-2.5, -9, 2.5, -9, 2.5, 0, -2.5, 0)
 
 [node name="Pommel" type="Polygon2D" parent="Visuals"]
-color = Color(0.3, 0.4, 0.55, 1)
-polygon = PackedVector2Array(-3, -3, 3, -3, 3, 3, -3, 3)
+color = Color(0.32, 0.42, 0.58, 1)
+polygon = PackedVector2Array(-3.5, -2, 3.5, -2, 3.5, 4, -3.5, 4)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 position = Vector2(0, -20)
