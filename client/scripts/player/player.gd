@@ -31,6 +31,7 @@ const POGO_FALL_SPEED := 700.0       # 下砍时强制下落速度（加速下�
 const POGO_BOUNCE_VELOCITY := -650.0 # 命中实体后的向上反弹初速（≈83px 高，可调）
 const POGO_RETRIGGER_COOLDOWN := 0.1 # 反弹后可再次下砍的最小间隔（支持多段踩跳）
 const POGO_END_LAG := 0.2        # 下砍结束后的后摇：期间按 J 不触发攻击（防落地瞬间秒横砍）
+const POGO_MIN_FALL_DISTANCE := 20.0  # 下砍需已下落的距离阈值（刚起跳/刚出边缘/贴地时不触发）
 
 # ---- 生命 / 受击 ----
 const MAX_HP := 5
@@ -46,6 +47,7 @@ var _coyote_timer := 0.0
 var _jump_buffer_timer := 0.0
 var _pogo_active := false
 var _pogo_end_lag_timer := 0.0  # 下砍后摇计时
+var _air_apex_y := 0.0          # 本次滞空的最高点 y（用于计算已下落距离）
 var _attack_cooldown_timer := 0.0
 var _attack_active_timer := 0.0
 var _hit_this_swing: Array[Node2D] = []     # 本次挥砍已命中的目标，防止同一判定框重复扣血
@@ -104,6 +106,11 @@ func _update_jump_timers(delta: float) -> void:
 	# 着地时持续刷新 coyote 窗口；离开平台后开始倒计时
 	_coyote_timer = COYOTE_TIME if is_on_floor() else maxf(_coyote_timer - delta, 0.0)
 	_jump_buffer_timer = maxf(_jump_buffer_timer - delta, 0.0)
+	# 记录本次滞空的最高点（下砍需满足最小下落距离，见 POGO_MIN_FALL_DISTANCE）
+	if is_on_floor():
+		_air_apex_y = position.y
+	else:
+		_air_apex_y = minf(_air_apex_y, position.y)
 
 func _handle_jump() -> void:
 	if Input.is_action_just_pressed("jump"):
@@ -128,8 +135,8 @@ func _try_start_attack() -> void:
 		return
 	if is_on_floor():
 		_start_side_slash()
-	elif velocity.y > 0.0:
-		# 空中且正在下落 → 下砍（pogo）；上升时按 J 不触发
+	elif velocity.y > 0.0 and position.y - _air_apex_y >= POGO_MIN_FALL_DISTANCE:
+		# 空中下落且已下落足够距离 → 下砍（pogo）；刚起跳/刚出边缘/贴地时不触发
 		_start_pogo()
 
 # 地面：普通横砍（0.12s 短暂判定，一次挥砍只命中一次）
@@ -257,6 +264,7 @@ func _respawn() -> void:
 	_attack_active_timer = 0.0
 	_pogo_active = false
 	_pogo_end_lag_timer = 0.0
+	_air_apex_y = position.y
 	_hitbox_side.monitoring = false
 	_hitbox_down.monitoring = false
 	_hit_this_swing.clear()
