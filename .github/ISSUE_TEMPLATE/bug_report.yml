@@ -1,0 +1,48 @@
+name: Bug 报告
+description: 游戏、后端或工具出现可复现的错误
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: 现象
+      description: 实际发生了什么？你期望的是什么？
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      placeholder: |
+        1. 打开游戏 / 运行 ...
+        2. 按 ...
+        3. 出现 ...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: 模块
+      options:
+        - 客户端（Godot）
+        - 后端（FastAPI / MySQL）
+        - 数据管道（tools / database）
+        - 部署（docker）
+        - 文档
+    validations:
+      required: true
+
+  - type: input
+    id: env
+    attributes:
+      label: 环境
+      description: 操作系统、Godot / Python 版本、当前提交号（`git rev-parse --short HEAD`）
+
+  - type: textarea
+    id: log
+    attributes:
+      label: 报错日志 / 截图
+      render: shell

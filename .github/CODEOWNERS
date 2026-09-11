@@ -1,0 +1,24 @@
+# 代码审查人（Code Owners）
+# 说明：被指派为 owner 的人需要对该路径的改动进行 review。
+# 组员加入仓库后，把下面的用户名替换/补充为对应负责人（GitHub 用户名，带 @）。
+# 合并 PR 时 GitHub 会自动按本文件请求 review。
+
+# 默认负责人：组长（架构与集成）
+*                       @VesselPaper
+
+# 客户端（Godot）
+/client/                @VesselPaper
+
+# 后端（FastAPI / MySQL）
+/server/                @VesselPaper
+
+# 数据管道（SQLite 内容库 → JSON）
+/tools/                 @VesselPaper
+/database/              @VesselPaper
+
+# 部署与 CI
+/deploy/                @VesselPaper
+/.github/               @VesselPaper
+
+# 课程文档
+/docs/                  @VesselPaper

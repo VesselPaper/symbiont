@@ -1,4 +1,4 @@
-# 导出游戏 Web 版（HTML5）到 client/build/web
+﻿# 导出游戏 Web 版（HTML5）到 client/build/web
 # 前置: Godot 编辑器 → 项目 → 安装导出模板(4.5.1)；导出预设 export_presets.cfg（M2 创建）
 param(
     [string]$GodotExe = "D:\Applications\Godot\Godot_v4.5.1-stable_win64.exe"

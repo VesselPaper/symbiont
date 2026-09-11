@@ -1,4 +1,4 @@
-# 共生之缚 —— 全量测试
+﻿# 共生之缚 —— 全量测试
 # 数据管道 + server pytest + Godot headless 冒烟
 param(
     [string]$GodotExe = "D:\Applications\Godot\Godot_v4.5.1-stable_win64.exe"

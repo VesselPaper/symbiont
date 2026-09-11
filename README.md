@@ -56,7 +56,9 @@
 
 ## 四、团队协作：成员同步与提交指南
 
-代码都放在 GitHub 上。组员只需要记住两句话：**开工前先更新本地，干完活把改动传上去**。照着下面的步骤复制命令就行。
+代码都放在 GitHub 上。组员只需要记住两句话：**开工前先更新本地，干完活开分支发 PR**。照着下面的步骤复制命令就行。
+
+> `main` 分支已开启保护，不能直接 push；所有改动都要走"分支 → PR → review → CI 绿 → 合并"。详细规则见根目录 [`CONTRIBUTING.md`](CONTRIBUTING.md)。
 
 ### 第一次（每人只做一次）：把项目下载到电脑
 
@@ -83,26 +85,34 @@ git pull
 ```
 看到 `Already up to date` 就是已经最新，看到 `Updating` 就是在更新。
 
-### 干完活：把改动传到 GitHub
+### 干完活：开分支 + 发 PR（不要直接推 main）
 
-在项目文件夹里，**依次运行下面 4 条命令**：
+main 有保护，直接 push 会被挡下。每次干活开一个分支：
+
 ```
-git add .
-git commit -m "写一句话：你这次改了啥，比如：加了玩家移动"
+git checkout main
 git pull
-git push
+git checkout -b feature/你的任务
+git add .
+git commit -m "feat: 写一句话：你这次改了啥，比如：加了玩家移动"
+git push -u origin feature/你的任务
 ```
-- 第 3 条 `git pull` 很关键：先把别人新传的代码合并进来，再传你的，这样不会盖掉别人的改动，**不能跳过**
-- 第 4 条看到 `main -> main` 就成功了
+
+推完后到 GitHub 网页上点 **Compare & pull request** 开 PR，按模板勾选验收清单，等 CI 变绿、组长 review 通过后合并，再删掉这个分支。
+
+- 分支名：`feature/<任务卡编号>-<简述>`、`fix/<简述>`、`docs/<简述>`、`chore/<简述>`
+- 提交信息：`类型: 干了啥`，类型用 feat / fix / docs / chore
+- 一次只做一张任务卡，小步提交，方便随时回退
 
 ### 出问题了怎么办
 
-- **`git push` 报错**（提示 fetch first / non-fast-forward）：说明别人先传了新东西。再运行一次 `git pull`，然后再 `git push`，直到成功。
-- **`git pull` 后文件里出现 `<<<<<<<` 和 `>>>>>>>` 符号**：说明你和别人改了同一个地方（这叫冲突）。**不要乱删**，把这个文件截图发群里，组长来帮你合并。
+- **`git push` 报错**（提示 fetch first / non-fast-forward）：说明 main 上有了新东西。先 `git checkout main` 再 `git pull`，回到你的分支后 `git rebase main`（或 `git merge main`），再 push。
+- **文件里出现 `<<<<<<<` 和 `>>>>>>>` 符号**：说明你和别人改了同一个地方（这叫冲突）。**不要乱删**，把这个文件截图发群里，组长来帮你合并。
 - **忘了自己改过哪些文件**：运行 `git status` 会列出来。
 
 ### 千万别做
 
+- ❌ 不要直接 `git push` 到 main（会被分支保护挡下）
 - ❌ 不要运行 `git push -f`（会直接把别人的代码覆盖掉）
 - ❌ 不要删掉别人的文件再提交
 - ❌ 提交信息不要只写"更新""修改"，写清楚具体改了啥
