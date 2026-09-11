@@ -27,10 +27,10 @@ INSERT INTO npc (id, name, faction, location, desc) VALUES
 -- ---------- 对话 ----------
 INSERT INTO dialogues (id, npc_id, title, lines, next_id, branch) VALUES
   ('intro_parasite_1', '', '寄生体的低语',
-   '[{"speaker": "寄生体", "text": "你醒了。奄奄一息，血流不止……"}, {"speaker": "寄生体", "text": "献祭吧。把眼前这具怪物的肢体献给我，我保你活下去。"}]',
+   '[{"speaker": "寄生体", "text": "醒了？血还在流……嘘，我是唯一还听得见的声音。"}, {"speaker": "寄生体", "text": "去猎杀那些爬行的怪物，把它们的肢体带到我面前。"}, {"speaker": "寄生体", "text": "献给我。我保你活下去——只要你肯给。"}]',
    'intro_parasite_2', ''),
   ('intro_parasite_2', '', '新生指导',
-   '[{"speaker": "寄生体", "text": "很好。力量在涌上来，不是么？"}, {"speaker": "系统", "text": "按 J 攻击，按 K 交互。"}]',
+   '[{"speaker": "寄生体", "text": "去吧，我的容器。我在祭坛边等你带回来的馈赠。"}, {"speaker": "系统", "text": "按 J 攻击，按 K 交互。"}]',
    '', ''),
   ('refuse_die', '', '拒绝',
    '[{"speaker": "系统", "text": "你拒绝了献祭。生命一点点流逝……黑暗吞没了你。"}]',

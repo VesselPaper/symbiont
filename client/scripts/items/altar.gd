@@ -14,9 +14,9 @@ const SACRIFICE_ID := "generic"
 ## 反馈提示（献祭成功 / 无肢体）的停留时长（秒），到点恢复"按 K 献祭"
 const FEEDBACK_DURATION := 1.2
 
-const HINT_IN_RANGE := "按 K 献祭"
-const HINT_SUCCESS := "献祭成功"
-const HINT_NO_LIMB := "没有可献祭的肢体"
+const HINT_IN_RANGE := "献上肢体（K）"
+const HINT_SUCCESS := "献祭已成"
+const HINT_NO_LIMB := "你手上没有肢体"
 
 @onready var _hint_label: Label = $HintLabel
 
