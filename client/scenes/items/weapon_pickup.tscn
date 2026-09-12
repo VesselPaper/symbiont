@@ -7,6 +7,7 @@ size = Vector2(34, 52)
 
 [node name="WeaponPickup" type="Area2D" unique_id=1217598865]
 rotation = 0.6
+scale = Vector2(0.43, 0.43)
 z_index = -1
 collision_layer = 0
 collision_mask = 2
