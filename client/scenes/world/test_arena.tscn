@@ -91,7 +91,7 @@ color = Color(0.15686275, 0.15686275, 0.15686275, 1)
 polygon = PackedVector2Array(-150, -45, 150, -45, 150, 45, -150, 45)
 
 [node name="Corpse" type="Node2D" parent="." unique_id=882141390]
-position = Vector2(715, 560)
+position = Vector2(715, 565)
 
 [node name="Body" type="Polygon2D" parent="Corpse" unique_id=70901639]
 color = Color(0.42, 0.42, 0.46, 1)
