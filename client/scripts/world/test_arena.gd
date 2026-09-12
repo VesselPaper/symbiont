@@ -1,8 +1,12 @@
 extends Node2D
-## 测试竞技场（M1-01）
+## 测试竞技场（M1-01 / M1-12 布局重排）
 ##
-## 平地 + 左右边界墙 + 两个高度递进的小平台；玩家出生在左侧、木桩在右侧，
-## 用于验证移动 / 跳跃 / 攻击的完整可玩闭环。真正的楼层场景在 M2 制作。
+## 平地 + 左右边界墙 + 教学关布局（M1-12 定稿）：
+##   地面(顶660) → 第一平台 JumpPlatform(560-860, 顶570，尸体+剑+假人甲)
+##   → 假人乙小台(900-960, 顶≈520，下劈反弹目标) → 第二平台 PogoPlatform(1000-1250, 顶440)
+##   → 台阶 Step1(1250-1350, 顶410) → 祭坛平台 AltarPlatform(1350-1700, 顶380，祭坛+史莱姆战斗区)
+## 玩家出生在左侧，用于验证移动 → 跳跃 → 拿剑 → 攻击 → 下劈跳高 → 战斗 → 献祭的
+## 完整教学闭环。真正的楼层场景在 M2 制作。
 ## M1-03：挂载对话 UI（DialogueBox，CanvasLayer 子节点保证 UI 在顶层）和对话
 ## 组件（Dialogue），场景稳定后自动弹出开场寄生体低语（intro_parasite_1 链）。
 
@@ -13,9 +17,9 @@ const INTRO_DIALOGUE_ID := "intro_parasite_1"
 
 ## 史莱姆场景与出生点：对话/教程前期场景无敌人（避免教学时被攻击的矛盾），
 ## 教程进入"战斗"步骤时由 spawn_enemies() 生成（M1-08 修正）。
-## M1-10：出生点从左到右挪到战斗分区（COMBAT 环，CombatPlatform 顶 y=480，玩家站 y≈467）
+## M1-12：战斗区在最高处的祭坛平台（AltarPlatform 顶 y=380，站 y≈367），两处出生点
 const SLIME_SCENE := preload("res://scenes/entities/slime.tscn")
-const SLIME_SPAWN_POINTS := [Vector2(1360, 467), Vector2(1440, 467)]
+const SLIME_SPAWN_POINTS := [Vector2(1450, 367), Vector2(1550, 367)]
 
 # ---- 摄像机（M1-09）----
 ## 垂直视野 = 角色身高的 N 倍（改这里即可调远近）；角色视觉身高 28px（见 player.gd CHARACTER_HEIGHT）
