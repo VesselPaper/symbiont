@@ -13,7 +13,7 @@
 [ext_resource type="PackedScene" path="res://scenes/items/quest_marker.tscn" id="12_marker"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_ground"]
-size = Vector2(1750, 60)
+size = Vector2(2044, 60)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_pit"]
 size = Vector2(295, 46)
@@ -47,14 +47,18 @@ position = Vector2(875, 690)
 collision_mask = 0
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="GroundLeft" unique_id=638024373]
+position = Vector2(147, 0)
 shape = SubResource("RectangleShape2D_ground")
 
 [node name="Visual" type="Polygon2D" parent="GroundLeft" unique_id=1207325149]
+position = Vector2(147.50003, 0)
+scale = Vector2(1.1685715, 1)
 color = Color(0.15686275, 0.15686275, 0.15686275, 1)
 polygon = PackedVector2Array(-875, -30, 875, -30, 875, 30, -875, 30)
 
 [node name="PitFloor" type="StaticBody2D" parent="." unique_id=578124910]
-position = Vector2(1897.5, 697)
+position = Vector2(1872.0001, 625)
+scale = Vector2(1.3464146, 1.6511029)
 collision_mask = 0
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="PitFloor" unique_id=338271005]
