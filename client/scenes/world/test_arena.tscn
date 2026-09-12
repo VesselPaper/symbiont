@@ -16,7 +16,7 @@
 size = Vector2(1750, 60)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_pit"]
-size = Vector2(295, 60)
+size = Vector2(295, 46)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_ground_right"]
 size = Vector2(515, 60)
@@ -54,7 +54,7 @@ color = Color(0.15686275, 0.15686275, 0.15686275, 1)
 polygon = PackedVector2Array(-875, -30, 875, -30, 875, 30, -875, 30)
 
 [node name="PitFloor" type="StaticBody2D" parent="." unique_id=578124910]
-position = Vector2(1897.5, 704)
+position = Vector2(1897.5, 697)
 collision_mask = 0
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="PitFloor" unique_id=338271005]
@@ -62,7 +62,7 @@ shape = SubResource("RectangleShape2D_pit")
 
 [node name="Visual" type="Polygon2D" parent="PitFloor" unique_id=771239488]
 color = Color(0.15686275, 0.15686275, 0.15686275, 1)
-polygon = PackedVector2Array(-147.5, -30, 147.5, -30, 147.5, 30, -147.5, 30)
+polygon = PackedVector2Array(-147.5, -23, 147.5, -23, 147.5, 23, -147.5, 23)
 
 [node name="GroundRight" type="StaticBody2D" parent="." unique_id=917263845]
 position = Vector2(2302.5, 690)
