@@ -18,7 +18,7 @@ extends Node2D
 const FLASH_SCALE := 1.4               # 触发闪光：本体 scale 峰值
 const FLASH_SCALE_UP_TIME := 0.1       # 弹起时长（秒）
 const FLASH_SCALE_DOWN_TIME := 0.1     # 回弹时长（秒）
-const MOVE_DURATION := 0.5             # move_to 飞到下一个目标点的时长（秒）
+const MOVE_DURATION := 1.1             # move_to 飞到下一个目标点的时长（秒）——慢一点更沉浸
 
 ## 光点标识：触发广播携带。M1-12 起教学只有单个光点，不再用它区分环节，
 ## 但字段保留（EventBus 信号契约兼容，其它监听方可能按 id 取用）
@@ -71,7 +71,7 @@ func move_to(target_pos: Vector2) -> void:
 	_trigger_area.set_deferred("monitoring", false)
 	_tween = create_tween()
 	_tween.tween_property(self, "position", target_pos, MOVE_DURATION) \
-		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
+		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	_tween.tween_callback(_on_arrived)
 
 ## 到达目标点：清触发标记 + 重开触碰（仍受 active 软隔离约束）。
