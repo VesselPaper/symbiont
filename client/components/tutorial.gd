@@ -30,16 +30,17 @@ const WEAPON_FLASH_DURATION := 1.2
 ## 教程完成提示的停留时长（秒），到点隐藏气泡
 const DONE_HINT_DURATION := 1.0
 
-## 每步引导光点的目标位置（M1-12 单个光点）：数组下标即 Step 枚举值（MOVE=0 … SACRIFICE=7）
+## 每步引导光点的目标位置（M1-12 单个光点；M1-13 按组长新布局更新：
+## JumpPlatform x713~1650 顶571、PogoPlatform x1111~1251 顶440、AltarPlatform x2045~2395 顶572）
 const MARKER_TARGETS: Array[Vector2] = [
 	Vector2(475, 640),   # MOVE：地面移动目标点
-	Vector2(660, 540),   # JUMP：第一平台上方（跳上去时碰触）
-	Vector2(730, 540),   # WEAPON：平台上尸体+剑的位置
-	Vector2(830, 540),   # ATTACK：攻击木桩（假人甲）
-	Vector2(1100, 400),  # POGO：第二平台上方（下劈反弹上去）
-	Vector2(1450, 340),  # COMBAT：祭坛平台（史莱姆战斗区）
-	Vector2(1550, 340),  # PICKUP：祭坛（肢体拾取后去献祭）
-	Vector2(1550, 340),  # SACRIFICE：祭坛
+	Vector2(750, 540),   # JUMP：跳上 JumpPlatform（左缘 713 内侧上方）
+	Vector2(830, 530),   # WEAPON：平台上尸体+剑的位置
+	Vector2(940, 540),   # ATTACK：攻击木桩（假人甲）
+	Vector2(1100, 470),  # POGO：下劈木桩（假人乙，JumpPlatform 上方）
+	Vector2(2150, 540),  # COMBAT：AltarPlatform 上战斗区（史莱姆）
+	Vector2(2221, 550),  # PICKUP：祭坛（肢体拾取后去献祭）
+	Vector2(2221, 550),  # SACRIFICE：祭坛
 ]
 
 ## 教学假人节点名（test_arena 内的实例名，见 test_arena.tscn）

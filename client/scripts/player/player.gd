@@ -62,12 +62,17 @@ var _spawn_point := Vector2.ZERO
 @onready var _hitbox_down: Area2D = $HitboxDown
 @onready var _hitbox_side_visual: Polygon2D = $HitboxSide/Visual
 @onready var _hitbox_down_visual: Polygon2D = $HitboxDown/Visual
+var _hitbox_down_shape: RectangleShape2D  # 下劈命中查询用（M1-13，见 _query_pogo_target）
 
 func _ready() -> void:
 	# 出生点取场景摆放位置：死亡重生回这里
 	_spawn_point = global_position
 	_hitbox_side.body_entered.connect(_on_hitbox_side_body_entered)
 	_hitbox_down.body_entered.connect(_on_hitbox_down_body_entered)
+	# M1-13：下劈命中查询用的 shape 引用（HitboxDown 的 CollisionShape2D）
+	var hb_shape_node := $HitboxDown/CollisionShape2D as CollisionShape2D
+	if hb_shape_node != null:
+		_hitbox_down_shape = hb_shape_node.shape as RectangleShape2D
 	# 对话开始锁输入、整段播完解锁（对话期间角色不能操作）
 	EventBus.dialogue_started.connect(_on_dialogue_started)
 	EventBus.dialogue_finished.connect(_on_dialogue_finished)
@@ -200,9 +205,44 @@ func _update_pogo_state() -> void:
 		return
 	# 持续强制下落（加速下落）
 	velocity.y = POGO_FALL_SPEED
-	# 碰到地面或墙（实体）即结束下砍；命中敌人由 _on_hitbox_down_body_entered 处理（反弹）
+	# M1-13：下劈命中改为"每帧查询 hitbox 区域内的可受击实体"。
+	# 原因：下劈下落很快（vy=700），hitbox 每帧位置大幅移动，body_entered 信号在
+	# monitoring 刚开启的那帧重叠信息未更新、下一帧 hitbox 已穿过目标，导致踩跳
+	# 木桩/敌人经常漏判。查询用 hitbox 上一帧位置（此时正好覆盖目标），稳定命中。
+	var target := _query_pogo_target()
+	if target != null:
+		_pogo_bounce_on(target)
+		return
+	# 碰到地面/墙（普通地形）结束下劈
 	if is_on_floor() or is_on_wall():
 		_end_pogo()
+
+## 查询 hitbox_down 区域内是否有可受击实体（damageable 且有 take_damage）。
+## 注意：查询区域用"玩家当前位置"直接计算，且**向上扩展**覆盖下落路径——下劈
+## 下落很快（vy 可达 700+），触发/下一物理步之间玩家可能已从目标上方落到下方，
+## 只查 hitbox 原位会漏判；扩展后覆盖"玩家上方 30px → 下方 50px"一段。
+func _query_pogo_target() -> Node2D:
+	var space := get_world_2d().direct_space_state
+	var q := PhysicsShapeQueryParameters2D.new()
+	var qshape := RectangleShape2D.new()
+	qshape.size = Vector2(64, 80)
+	q.shape = qshape
+	q.transform = Transform2D(0.0, global_position + Vector2(_attack_dir * 32.0, 10.0))
+	q.collision_mask = _hitbox_down.collision_mask
+	q.exclude = [self]
+	for r in space.intersect_shape(q, 8):
+		var collider: Object = r.get("collider")
+		if collider is Node2D and collider.is_in_group("damageable") and collider.has_method("take_damage"):
+			return collider as Node2D
+	return null
+
+## 下劈命中实体：伤害 + 固定向上反弹（踩跳），逻辑与 _on_hitbox_down_body_entered 一致
+func _pogo_bounce_on(target: Node2D) -> void:
+	_apply_hit(target)
+	velocity.y = POGO_BOUNCE_VELOCITY
+	_end_pogo()
+	_attack_cooldown_timer = POGO_RETRIGGER_COOLDOWN
+	EventBus.log_event("pogo_bounce", {"target": target.name})
 
 func _end_pogo() -> void:
 	if not _pogo_active:

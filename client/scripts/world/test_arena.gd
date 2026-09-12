@@ -17,9 +17,9 @@ const INTRO_DIALOGUE_ID := "intro_parasite_1"
 
 ## 史莱姆场景与出生点：对话/教程前期场景无敌人（避免教学时被攻击的矛盾），
 ## 教程进入"战斗"步骤时由 spawn_enemies() 生成（M1-08 修正）。
-## M1-12：战斗区在最高处的祭坛平台（AltarPlatform 顶 y=380，站 y≈367），两处出生点
+## M1-13：AltarPlatform 移到最右侧(x2045~2395, 顶572)，史莱姆直接站在祭坛平台上（站 y≈559）
 const SLIME_SCENE := preload("res://scenes/entities/slime.tscn")
-const SLIME_SPAWN_POINTS := [Vector2(1450, 367), Vector2(1550, 367)]
+const SLIME_SPAWN_POINTS := [Vector2(2150, 559), Vector2(2300, 559)]
 
 # ---- 摄像机（M1-09）----
 ## 垂直视野 = 角色身高的 N 倍（改这里即可调远近）；角色视觉身高 28px（见 player.gd CHARACTER_HEIGHT）

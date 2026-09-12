@@ -19,13 +19,10 @@ size = Vector2(2560, 60)
 size = Vector2(40, 1170)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_platform"]
-size = Vector2(300, 90)
+size = Vector2(987, 90)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_pogo_platform"]
-size = Vector2(250, 90)
-
-[sub_resource type="RectangleShape2D" id="RectangleShape2D_step"]
-size = Vector2(100, 90)
+size = Vector2(140, 80)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_altar_platform"]
 size = Vector2(350, 90)
@@ -34,8 +31,8 @@ size = Vector2(350, 90)
 script = ExtResource("1_arena")
 
 [node name="Backdrop" type="Polygon2D" parent="." unique_id=571203853]
-position = Vector2(1287, 360)
 z_index = -2
+position = Vector2(1287, 360)
 color = Color(0.075426795, 0.0860123, 0.10365506, 1)
 polygon = PackedVector2Array(-1280, -360, 1280, -360, 1280, 360, -1280, 360)
 
@@ -80,18 +77,21 @@ marker_id = "guide_mark"
 position = Vector2(80, 647)
 
 [node name="JumpPlatform" type="StaticBody2D" parent="." unique_id=1772295909]
-position = Vector2(710, 615)
+position = Vector2(863, 616)
 collision_mask = 0
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="JumpPlatform" unique_id=710306783]
+position = Vector2(343.5, 0)
 shape = SubResource("RectangleShape2D_platform")
 
 [node name="Visual" type="Polygon2D" parent="JumpPlatform" unique_id=298465546]
+position = Vector2(343.50006, 0)
+scale = Vector2(3.2900002, 1)
 color = Color(0.15686275, 0.15686275, 0.15686275, 1)
 polygon = PackedVector2Array(-150, -45, 150, -45, 150, 45, -150, 45)
 
 [node name="Corpse" type="Node2D" parent="." unique_id=882141390]
-position = Vector2(715, 565)
+position = Vector2(839, 567)
 
 [node name="Body" type="Polygon2D" parent="Corpse" unique_id=70901639]
 color = Color(0.42, 0.42, 0.46, 1)
@@ -103,41 +103,32 @@ color = Color(0.45, 0.45, 0.5, 1)
 polygon = PackedVector2Array(-5, -5, 5, -5, 5, 5, -5, 5)
 
 [node name="WeaponPickup" parent="." unique_id=1863270936 instance=ExtResource("11_sword")]
-position = Vector2(730, 556)
-rotation = -2.3561945
+position = Vector2(829.99994, 548.99994)
+rotation = -2.8797934
 metadata/_edit_group_ = true
 
 [node name="DummyA" parent="." unique_id=1719367442 instance=ExtResource("3_dummy")]
-position = Vector2(830, 555)
+position = Vector2(940, 557)
 
 [node name="DummyB" parent="." unique_id=256792845 instance=ExtResource("3_dummy")]
-position = Vector2(993, 503)
+position = Vector2(1030, 495)
 rotation = -1.0471976
 
 [node name="PogoPlatform" type="StaticBody2D" parent="." unique_id=856051452]
-position = Vector2(1125, 485)
+position = Vector2(1181, 480)
 collision_mask = 0
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="PogoPlatform" unique_id=2036215760]
 shape = SubResource("RectangleShape2D_pogo_platform")
 
 [node name="Visual" type="Polygon2D" parent="PogoPlatform" unique_id=532416296]
+position = Vector2(-1, -1.9669533e-06)
+scale = Vector2(0.564, 0.8888889)
 color = Color(0.15686275, 0.15686275, 0.15686275, 1)
 polygon = PackedVector2Array(-125, -45, 125, -45, 125, 45, -125, 45)
 
-[node name="Step1" type="StaticBody2D" parent="." unique_id=89991220]
-position = Vector2(1300, 455)
-collision_mask = 0
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Step1" unique_id=1962837660]
-shape = SubResource("RectangleShape2D_step")
-
-[node name="Visual" type="Polygon2D" parent="Step1" unique_id=1204928970]
-color = Color(0.15686275, 0.15686275, 0.15686275, 1)
-polygon = PackedVector2Array(-50, -45, 50, -45, 50, 45, -50, 45)
-
 [node name="AltarPlatform" type="StaticBody2D" parent="." unique_id=824955269]
-position = Vector2(1525, 425)
+position = Vector2(2220, 617)
 collision_mask = 0
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="AltarPlatform" unique_id=1802730532]
@@ -148,7 +139,7 @@ color = Color(0.15686275, 0.15686275, 0.15686275, 1)
 polygon = PackedVector2Array(-175, -45, 175, -45, 175, 45, -175, 45)
 
 [node name="Altar" parent="." unique_id=1521621871 instance=ExtResource("10_altar")]
-position = Vector2(1550, 380)
+position = Vector2(2221, 597)
 
 [node name="Camera2D" type="Camera2D" parent="." unique_id=691359795]
 position = Vector2(640, 360)
