@@ -13,7 +13,13 @@
 [ext_resource type="PackedScene" path="res://scenes/items/quest_marker.tscn" id="12_marker"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_ground"]
-size = Vector2(2560, 60)
+size = Vector2(1750, 60)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_pit"]
+size = Vector2(295, 60)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_ground_right"]
+size = Vector2(515, 60)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_wall"]
 size = Vector2(40, 1170)
@@ -22,7 +28,7 @@ size = Vector2(40, 1170)
 size = Vector2(987, 90)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_pogo_platform"]
-size = Vector2(140, 80)
+size = Vector2(140, 131)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_altar_platform"]
 size = Vector2(350, 90)
@@ -36,16 +42,38 @@ position = Vector2(1287, 360)
 color = Color(0.075426795, 0.0860123, 0.10365506, 1)
 polygon = PackedVector2Array(-1280, -360, 1280, -360, 1280, 360, -1280, 360)
 
-[node name="Ground" type="StaticBody2D" parent="." unique_id=2143097642]
-position = Vector2(1280, 690)
+[node name="GroundLeft" type="StaticBody2D" parent="." unique_id=2143097642]
+position = Vector2(875, 690)
 collision_mask = 0
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Ground" unique_id=638024373]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="GroundLeft" unique_id=638024373]
 shape = SubResource("RectangleShape2D_ground")
 
-[node name="Visual" type="Polygon2D" parent="Ground" unique_id=1207325149]
+[node name="Visual" type="Polygon2D" parent="GroundLeft" unique_id=1207325149]
 color = Color(0.15686275, 0.15686275, 0.15686275, 1)
-polygon = PackedVector2Array(-1280, -30, 1280, -30, 1280, 30, -1280, 30)
+polygon = PackedVector2Array(-875, -30, 875, -30, 875, 30, -875, 30)
+
+[node name="PitFloor" type="StaticBody2D" parent="." unique_id=578124910]
+position = Vector2(1897.5, 704)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="PitFloor" unique_id=338271005]
+shape = SubResource("RectangleShape2D_pit")
+
+[node name="Visual" type="Polygon2D" parent="PitFloor" unique_id=771239488]
+color = Color(0.15686275, 0.15686275, 0.15686275, 1)
+polygon = PackedVector2Array(-147.5, -30, 147.5, -30, 147.5, 30, -147.5, 30)
+
+[node name="GroundRight" type="StaticBody2D" parent="." unique_id=917263845]
+position = Vector2(2302.5, 690)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="GroundRight" unique_id=556102934]
+shape = SubResource("RectangleShape2D_ground_right")
+
+[node name="Visual" type="Polygon2D" parent="GroundRight" unique_id=209384617]
+color = Color(0.15686275, 0.15686275, 0.15686275, 1)
+polygon = PackedVector2Array(-257.5, -30, 257.5, -30, 257.5, 30, -257.5, 30)
 
 [node name="WallLeft" type="StaticBody2D" parent="." unique_id=269467515]
 position = Vector2(20, 75)
@@ -111,7 +139,7 @@ metadata/_edit_group_ = true
 position = Vector2(940, 557)
 
 [node name="DummyB" parent="." unique_id=256792845 instance=ExtResource("3_dummy")]
-position = Vector2(1030, 495)
+position = Vector2(1107, 496.00003)
 rotation = -1.0471976
 
 [node name="PogoPlatform" type="StaticBody2D" parent="." unique_id=856051452]
@@ -119,11 +147,12 @@ position = Vector2(1181, 480)
 collision_mask = 0
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="PogoPlatform" unique_id=2036215760]
+position = Vector2(0, 25.5)
 shape = SubResource("RectangleShape2D_pogo_platform")
 
 [node name="Visual" type="Polygon2D" parent="PogoPlatform" unique_id=532416296]
-position = Vector2(-1, -1.9669533e-06)
-scale = Vector2(0.564, 0.8888889)
+position = Vector2(-1, 26.000008)
+scale = Vector2(0.564, 1.4666668)
 color = Color(0.15686275, 0.15686275, 0.15686275, 1)
 polygon = PackedVector2Array(-125, -45, 125, -45, 125, 45, -125, 45)
 

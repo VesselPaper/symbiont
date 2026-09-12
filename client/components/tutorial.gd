@@ -38,7 +38,7 @@ const MARKER_TARGETS: Array[Vector2] = [
 	Vector2(830, 530),   # WEAPON：平台上尸体+剑的位置
 	Vector2(940, 540),   # ATTACK：攻击木桩（假人甲）
 	Vector2(1100, 470),  # POGO：下劈木桩（假人乙，JumpPlatform 上方）
-	Vector2(2150, 540),  # COMBAT：AltarPlatform 上战斗区（史莱姆）
+	Vector2(1890, 640),  # COMBAT：祭坛前面的浅坑（史莱姆生成在坑里）
 	Vector2(2221, 550),  # PICKUP：祭坛（肢体拾取后去献祭）
 	Vector2(2221, 550),  # SACRIFICE：祭坛
 ]
