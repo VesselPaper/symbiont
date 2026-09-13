@@ -31,7 +31,7 @@ size = Vector2(987, 90)
 size = Vector2(140, 131)
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_altar_platform"]
-size = Vector2(350, 90)
+size = Vector2(476, 90)
 
 [node name="TestArena" type="Node2D" unique_id=1599870205]
 script = ExtResource("1_arena")
@@ -165,9 +165,12 @@ position = Vector2(2220, 617)
 collision_mask = 0
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="AltarPlatform" unique_id=1802730532]
+position = Vector2(63, 0)
 shape = SubResource("RectangleShape2D_altar_platform")
 
 [node name="Visual" type="Polygon2D" parent="AltarPlatform" unique_id=3009525]
+position = Vector2(62.99999, 0)
+scale = Vector2(1.36, 1)
 color = Color(0.15686275, 0.15686275, 0.15686275, 1)
 polygon = PackedVector2Array(-175, -45, 175, -45, 175, 45, -175, 45)
 
