@@ -1,6 +1,6 @@
 fastapi>=0.115,<0.116
 uvicorn[standard]>=0.30,<0.31
-sqlalchemy>=2.0,<2.1
+sqlalchemy>=2.0.52,<2.1
 pymysql>=1.1,<1.2
 cryptography>=43,<44
 pydantic>=2.8,<3
