@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 开发规范与协作流程
+    url: https://github.com/VesselPaper/symbiont/tree/main/docs
+    about: 开工前先读《标准与规范》；任务卡模板见 docs/tasks/TASK_TEMPLATE.md
+  - name: 项目 README（快速开始 / 环境搭建）
+    url: https://github.com/VesselPaper/symbiont/blob/main/README.md
+    about: 克隆、运行游戏、环境初始化

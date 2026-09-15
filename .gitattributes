@@ -6,6 +6,9 @@
 *.tres  text eol=lf
 *.godot text eol=lf
 *.gdshader text eol=lf
+# Godot 导入元数据（4.x）：Godot 生成时固定用 LF，显式声明避免 Windows 检出后反复"变脏"
+*.import text eol=lf
+*.uid   text eol=lf
 *.md    text eol=lf
 *.py    text eol=lf
 *.sql   text eol=lf

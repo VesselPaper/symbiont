@@ -1,0 +1,22 @@
+# Dependabot：自动检查依赖更新，按周提 PR（不会自动合并）
+version: 2
+updates:
+  # 后端 Python 依赖（server/requirements.txt）
+  - package-ecosystem: "pip"
+    directory: "/server"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "server"
+
+  # GitHub Actions 工作流版本
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "ci"
