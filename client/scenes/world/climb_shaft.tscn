@@ -1,0 +1,55 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/world/climb_shaft.gd" id="1_shaft"]
+[ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="2_player"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_wall"]
+size = Vector2(40, 600)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_bottom"]
+size = Vector2(760, 40)
+
+[node name="ClimbShaft" type="Node2D"]
+script = ExtResource("1_shaft")
+
+[node name="Backdrop" type="Polygon2D" parent="."]
+z_index = -2
+color = Color(0.075426795, 0.0860123, 0.10365506, 1)
+polygon = PackedVector2Array(-400, -240, 400, -240, 400, 240, -400, 240)
+
+[node name="Terrain" type="Node2D" parent="."]
+
+[node name="WallLeft" type="StaticBody2D" parent="."]
+position = Vector2(-393, 0)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="WallLeft"]
+shape = SubResource("RectangleShape2D_wall")
+
+[node name="Visual" type="Polygon2D" parent="WallLeft"]
+color = Color(0.15686275, 0.15686275, 0.15686275, 1)
+polygon = PackedVector2Array(-20, -300, 20, -300, 20, 300, -20, 300)
+
+[node name="WallRight" type="StaticBody2D" parent="."]
+position = Vector2(393, 0)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="WallRight"]
+shape = SubResource("RectangleShape2D_wall")
+
+[node name="Visual" type="Polygon2D" parent="WallRight"]
+color = Color(0.15686275, 0.15686275, 0.15686275, 1)
+polygon = PackedVector2Array(-20, -300, 20, -300, 20, 300, -20, 300)
+
+[node name="Camera2D" type="Camera2D" parent="."]
+
+[node name="Player" parent="." instance=ExtResource("2_player")]
+position = Vector2(0, 140)
+
+[node name="BottomZone" type="Area2D" parent="."]
+position = Vector2(0, 228)
+collision_layer = 0
+collision_mask = 2
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="BottomZone"]
+shape = SubResource("RectangleShape2D_bottom")

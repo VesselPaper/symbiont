@@ -77,4 +77,61 @@ func _run_checks() -> bool:
 		push_error("[smoke] 引擎大版本非 4：%s" % str(v))
 		failed = true
 
+	# 5) 攀升竖井（M1-15）纯逻辑断言
+	if _run_climb_shaft_checks():
+		failed = true
+
+	return failed
+
+## 攀升竖井的纯逻辑断言：速度曲线（10s→5s）、生成可达性、生存目标。
+## 只加载脚本（不实例化场景），避免 --script 模式下 autoload 全局不可用的问题。
+func _run_climb_shaft_checks() -> bool:
+	var failed := false
+	var shaft_script = load("res://scripts/world/climb_shaft.gd")
+	if shaft_script == null:
+		push_error("[smoke] 无法加载 climb_shaft.gd")
+		return true
+
+	# 速度曲线：progress 0 → 可视高度/10，progress 1 → 可视高度/5，且末速 > 初速
+	var v0: float = shaft_script.fall_speed_for_progress(0.0)
+	var v1: float = shaft_script.fall_speed_for_progress(1.0)
+	var expect0: float = shaft_script.VISIBLE_HEIGHT / shaft_script.FALL_TIME_START
+	var expect1: float = shaft_script.VISIBLE_HEIGHT / shaft_script.FALL_TIME_END
+	if not is_equal_approx(v0, expect0):
+		push_error("[smoke] 攀升初速错误: %f != %f" % [v0, expect0])
+		failed = true
+	if not is_equal_approx(v1, expect1):
+		push_error("[smoke] 攀升末速错误: %f != %f" % [v1, expect1])
+		failed = true
+	if v1 <= v0:
+		push_error("[smoke] 攀升速度未随时间加快: %f -> %f" % [v0, v1])
+		failed = true
+
+	# 可达性：间距上限必须小于安全跳高
+	if shaft_script.PLATFORM_GAP_MAX > shaft_script.SAFE_JUMP_HEIGHT:
+		push_error("[smoke] 攀升平台间距超过安全跳高")
+		failed = true
+
+	# 生成规则：随机 1000 次，间距与水平偏移都在约束内
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 12345
+	var prev_x := 0.0
+	for i in range(1000):
+		var gap: float = shaft_script.random_gap(rng)
+		if gap < shaft_script.PLATFORM_GAP_MIN or gap > shaft_script.PLATFORM_GAP_MAX:
+			push_error("[smoke] 攀升间距越界: %f" % gap)
+			failed = true
+			break
+		var next_x: float = shaft_script.random_next_x(prev_x, rng)
+		if absf(next_x - prev_x) > shaft_script.PLATFORM_H_SPAN + 0.001:
+			push_error("[smoke] 攀升水平偏移越界: %f" % absf(next_x - prev_x))
+			failed = true
+			break
+		prev_x = next_x
+
+	# 生存目标
+	if not is_equal_approx(shaft_script.SURVIVE_TIME, 30.0):
+		push_error("[smoke] 攀升生存目标应为 30s: %f" % shaft_script.SURVIVE_TIME)
+		failed = true
+
 	return failed
