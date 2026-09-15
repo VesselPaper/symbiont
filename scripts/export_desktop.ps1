@@ -1,4 +1,4 @@
-# 导出 Windows 桌面版到 client/export/
+﻿# 导出 Windows 桌面版到 client/export/
 param(
     [string]$GodotExe = "D:\Applications\Godot\Godot_v4.5.1-stable_win64.exe"
 )

@@ -57,12 +57,16 @@ def export_table(conn: sqlite3.Connection, table: str, data_dir: Path) -> dict:
         rec = row_to_dict(row, cols)
         pk = str(rec.get(cols[0], "")) or f"row_{len(index)}"
         (out_dir / f"{pk}.json").write_text(
-            json.dumps(rec, ensure_ascii=False, indent=2), encoding="utf-8"
+            json.dumps(rec, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+            newline="\n",
         )
         index[pk] = {k: rec[k] for k in INDEX_FIELDS if k in rec}
 
     (out_dir / f"{table}{INDEX_SUFFIX}.json").write_text(
-        json.dumps(index, ensure_ascii=False, indent=2), encoding="utf-8"
+        json.dumps(index, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+        newline="\n",
     )
     return index
 
