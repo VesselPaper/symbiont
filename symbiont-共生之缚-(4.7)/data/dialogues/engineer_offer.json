@@ -1,0 +1,13 @@
+{
+  "id": "engineer_offer",
+  "npc_id": "engineer_master",
+  "title": "工程师的提议",
+  "lines": [
+    {
+      "speaker": "工程师",
+      "text": "别听那帮疯子。帮我修好蒸汽机，我给你蒸汽靴和更好的剑。"
+    }
+  ],
+  "next_id": "",
+  "branch": ""
+}

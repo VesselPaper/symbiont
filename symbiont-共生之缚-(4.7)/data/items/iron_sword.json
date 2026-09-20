@@ -1,0 +1,12 @@
+{
+  "id": "iron_sword",
+  "name": "铁剑",
+  "type": "weapon",
+  "desc": "地牢守尸人留下的制式铁剑。",
+  "icon": "",
+  "stats": {
+    "atk": 10
+  },
+  "obtain": "map_pickup",
+  "flags": {}
+}

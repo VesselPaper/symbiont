@@ -1,0 +1,17 @@
+{
+  "id": "intro_parasite_2",
+  "npc_id": "",
+  "title": "新生指导",
+  "lines": [
+    {
+      "speaker": "寄生体",
+      "text": "去吧，我的容器。我在祭坛边等你带回来的馈赠。"
+    },
+    {
+      "speaker": "系统",
+      "text": "按 J 攻击，按 K 交互。"
+    }
+  ],
+  "next_id": "",
+  "branch": ""
+}

@@ -1,0 +1,32 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/entities/slime.gd" id="1_slime"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_body"]
+radius = 11.0
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_contact"]
+radius = 15.0
+
+[node name="Slime" type="CharacterBody2D"]
+collision_layer = 4
+collision_mask = 1
+script = ExtResource("1_slime")
+
+[node name="Body" type="Polygon2D" parent="."]
+color = Color(0.3, 0.85, 0.45, 1)
+polygon = PackedVector2Array(-13, -2, -9, -8, 0, -11, 9, -8, 13, -2, 13, 5, 7, 10, 0, 12, -7, 10, -13, 5)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("CircleShape2D_body")
+
+[node name="ContactArea" type="Area2D" parent="."]
+collision_layer = 0
+collision_mask = 2
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="ContactArea"]
+shape = SubResource("CircleShape2D_contact")
+
+[node name="EdgeCheck" type="RayCast2D" parent="."]
+enabled = true
+target_position = Vector2(16, 16)
