@@ -1,0 +1,13 @@
+{
+  "id": "heretic_offer",
+  "npc_id": "heretic_priest",
+  "title": "异教徒的提议",
+  "lines": [
+    {
+      "speaker": "祭司",
+      "text": "成为我们的一员，接受神的赐福。你的肢体将化作武器。"
+    }
+  ],
+  "next_id": "",
+  "branch": ""
+}

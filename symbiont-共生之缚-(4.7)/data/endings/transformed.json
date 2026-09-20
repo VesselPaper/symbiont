@@ -1,0 +1,7 @@
+{
+  "id": "transformed",
+  "name": "异化结局",
+  "condition": "击败守门 Boss 且献祭次数 > 1",
+  "weight": 5,
+  "desc": "察觉自身异化，或自毁，或沦为新的守门 Boss。"
+}

@@ -17,7 +17,7 @@ compatibility/default_parent_skeleton_in_mesh_instance_3d=true
 config/name="Symbiont 共生之缚"
 config/description="类恶魔城 2D 游戏：自下而上探索深渊地牢，在献祭与人性之间抉择。"
 run/main_scene="res://scenes/world/test_arena.tscn"
-config/features=PackedStringArray("4.7", "GL Compatibility")
+config/features=PackedStringArray("4.5", "GL Compatibility")
 config/icon="res://icon.svg"
 
 [autoload]

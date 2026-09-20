@@ -1,0 +1,26 @@
+{
+  "iron_sword": {
+    "name": "铁剑",
+    "type": "weapon"
+  },
+  "wood_shield": {
+    "name": "木盾",
+    "type": "shield"
+  },
+  "grappling_hook": {
+    "name": "钩锁",
+    "type": "upgrade"
+  },
+  "steam_boots": {
+    "name": "蒸汽靴",
+    "type": "upgrade"
+  },
+  "tainted_leg": {
+    "name": "污化之腿",
+    "type": "upgrade"
+  },
+  "monster_limb": {
+    "name": "怪物肢体",
+    "type": "quest"
+  }
+}

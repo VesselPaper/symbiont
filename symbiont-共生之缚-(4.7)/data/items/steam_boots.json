@@ -1,0 +1,13 @@
+{
+  "id": "steam_boots",
+  "name": "蒸汽靴",
+  "type": "upgrade",
+  "desc": "工程师的蒸汽动力靴，跳跃可二段。",
+  "icon": "",
+  "stats": {},
+  "obtain": "faction_engineer",
+  "flags": {
+    "movement": "double_jump",
+    "faction": "engineer"
+  }
+}
