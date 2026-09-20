@@ -20,6 +20,15 @@ def test_root_meta():
     assert r.json()["docs"] == "/docs"
 
 
+def test_healthz_alias():
+    for path in ("/healthz", "/api/v1/healthz"):
+        r = client.get(path)
+        assert r.status_code == 200
+        body = r.json()
+        assert body["status"] == "ok"
+        assert body["service"] == "symbiont-server"
+
+
 def test_openapi_registers_routes():
     r = client.get("/openapi.json")
     assert r.status_code == 200
