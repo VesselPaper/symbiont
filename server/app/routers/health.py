@@ -5,6 +5,7 @@ router = APIRouter(tags=["system"])
 
 
 @router.get("/health")
+@router.get("/healthz")
 def health() -> dict:
-    """存活探针（docker-compose healthcheck 使用）。"""
+    """存活探针（docker-compose / k8s / nginx 监控统一入口）。"""
     return {"status": "ok", "service": "symbiont-server", "version": "0.1.0"}
