@@ -11,6 +11,7 @@
 [ext_resource type="PackedScene" path="res://scenes/items/altar.tscn" id="10_altar"]
 [ext_resource type="PackedScene" uid="uid://v226loe7qfs6" path="res://scenes/items/weapon_pickup.tscn" id="11_sword"]
 [ext_resource type="PackedScene" path="res://scenes/items/quest_marker.tscn" id="12_marker"]
+[ext_resource type="Script" path="res://components/arena_art.gd" id="13_arena_art"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_ground"]
 size = Vector2(2568, 60)
@@ -173,6 +174,14 @@ limit_right = 2560
 limit_bottom = 720
 script = ExtResource("9_cam")
 target_path = NodePath("../Player")
+
+[node name="BackdropArt" type="Node2D" parent="."]
+z_index = -3
+script = ExtResource("13_arena_art")
+camera_path = NodePath("../Camera2D")
+world_width = 2560.0
+world_top = -200.0
+world_bottom = 760.0
 
 [node name="DialogueBox" parent="." unique_id=1221460156 instance=ExtResource("5_dbox")]
 

@@ -1,31 +1,119 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://scripts/items/altar.gd" id="1_altar"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_altar"]
 size = Vector2(80, 44)
 
+[sub_resource type="Gradient" id="Gradient_glow"]
+offsets = PackedFloat32Array(0, 0.45, 1)
+colors = PackedColorArray(0.75, 0.55, 1, 0.85, 0.45, 0.3, 0.75, 0.35, 0.2, 0.1, 0.3, 0)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_glow"]
+gradient = SubResource("Gradient_glow")
+width = 128
+height = 128
+fill = 1
+fill_from = Vector2(0.5, 0.5)
+fill_to = Vector2(1, 0.5)
+
 [node name="Altar" type="Area2D"]
 collision_layer = 0
 collision_mask = 2
 script = ExtResource("1_altar")
 
-[node name="Pedestal" type="Polygon2D" parent="."]
-position = Vector2(0, -15)
-color = Color(0.36, 0.2, 0.48, 1)
-polygon = PackedVector2Array(-40, -15, 40, -15, 40, 15, -40, 15)
+[node name="Visual" type="Node2D" parent="."]
 
-[node name="StoneTop" type="Polygon2D" parent="."]
+[node name="Glow" type="Sprite2D" parent="Visual"]
 position = Vector2(0, -36)
-color = Color(0.28, 0.14, 0.4, 1)
-polygon = PackedVector2Array(-12, -6, 12, -6, 12, 6, -12, 6)
+modulate = Color(0.62, 0.46, 0.85, 0.30)
+scale = Vector2(0.72, 0.72)
+texture = SubResource("GradientTexture2D_glow")
+
+[node name="StepLow" type="Polygon2D" parent="Visual"]
+color = Color(0.16, 0.15, 0.20, 1)
+polygon = PackedVector2Array(-52, 2, 52, 2, 46, -6, -46, -6)
+
+[node name="StepHigh" type="Polygon2D" parent="Visual"]
+color = Color(0.21, 0.19, 0.25, 1)
+polygon = PackedVector2Array(-42, -6, 42, -6, 36, -13, -36, -13)
+
+[node name="Pedestal" type="Polygon2D" parent="Visual"]
+color = Color(0.25, 0.22, 0.31, 1)
+polygon = PackedVector2Array(-30, -13, 30, -13, 26, -32, -26, -32)
+
+[node name="PedestalShade" type="Polygon2D" parent="Visual"]
+color = Color(0.15, 0.13, 0.19, 1)
+polygon = PackedVector2Array(12, -13, 30, -13, 26, -32, 14, -32)
+
+[node name="TopSlab" type="Polygon2D" parent="Visual"]
+color = Color(0.33, 0.29, 0.39, 1)
+polygon = PackedVector2Array(-36, -32, 36, -32, 32, -39, -32, -39)
+
+[node name="Bowl" type="Polygon2D" parent="Visual"]
+color = Color(0.13, 0.10, 0.17, 1)
+polygon = PackedVector2Array(-17, -43, 17, -43, 12, -36, -12, -36)
+
+[node name="BowlRim" type="Line2D" parent="Visual"]
+width = 2.0
+default_color = Color(0.55, 0.42, 0.72, 0.9)
+points = PackedVector2Array(-18, -43, -9, -45, 9, -45, 18, -43)
+
+[node name="BowlEmber" type="Polygon2D" parent="Visual"]
+color = Color(0.65, 0.50, 0.95, 0.55)
+polygon = PackedVector2Array(-8, -42, 0, -44, 8, -42, 0, -41)
+
+[node name="RuneLeft" type="Line2D" parent="Visual"]
+width = 1.4
+default_color = Color(0.62, 0.48, 0.88, 0.7)
+points = PackedVector2Array(-20, -18, -16, -24, -20, -27)
+
+[node name="RuneRight" type="Line2D" parent="Visual"]
+width = 1.4
+default_color = Color(0.62, 0.48, 0.88, 0.7)
+points = PackedVector2Array(20, -18, 16, -24, 20, -27)
+
+[node name="CandleLeft" type="Polygon2D" parent="Visual"]
+color = Color(0.42, 0.36, 0.30, 1)
+polygon = PackedVector2Array(-46, -8, -40, -8, -40, -18, -46, -18)
+
+[node name="FlameLeft" type="Polygon2D" parent="Visual"]
+position = Vector2(-43, -22)
+color = Color(1.0, 0.72, 0.38, 0.9)
+polygon = PackedVector2Array(-2, 2, -1, -2, 0, -5, 1, -2, 2, 2, 0, 4)
+
+[node name="CandleRight" type="Polygon2D" parent="Visual"]
+color = Color(0.42, 0.36, 0.30, 1)
+polygon = PackedVector2Array(40, -8, 46, -8, 46, -18, 40, -18)
+
+[node name="FlameRight" type="Polygon2D" parent="Visual"]
+position = Vector2(43, -22)
+color = Color(1.0, 0.72, 0.38, 0.9)
+polygon = PackedVector2Array(-2, 2, -1, -2, 0, -5, 1, -2, 2, 2, 0, 4)
+
+[node name="BoneA" type="Polygon2D" parent="Visual"]
+position = Vector2(-26, 1)
+color = Color(0.62, 0.60, 0.55, 0.85)
+polygon = PackedVector2Array(-8, -2, 8, -3, 10, 0, -6, 2)
+
+[node name="BoneB" type="Polygon2D" parent="Visual"]
+position = Vector2(24, 2)
+color = Color(0.55, 0.54, 0.50, 0.8)
+polygon = PackedVector2Array(-7, -3, 7, -1, 6, 2, -8, 1)
+
+[node name="Light" type="PointLight2D" parent="Visual"]
+position = Vector2(0, -38)
+color = Color(0.60, 0.45, 0.85, 1)
+energy = 0.45
+texture_scale = 0.75
+texture = SubResource("GradientTexture2D_glow")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 position = Vector2(0, -15)
 shape = SubResource("RectangleShape2D_altar")
 
 [node name="HintLabel" type="Label" parent="."]
-position = Vector2(-80, -74)
+position = Vector2(-80, -78)
 size = Vector2(160, 24)
 horizontal_alignment = 1
 text = "按 K 献祭"

@@ -42,6 +42,23 @@ INSERT INTO dialogues (id, npc_id, title, lines, next_id, branch) VALUES
    '[{"speaker": "工程师", "text": "别听那帮疯子。帮我修好蒸汽机，我给你蒸汽靴和更好的剑。"}]',
    '', '');
 
+-- ---------- 对话 · 第一层 锈钟回廊（M2 剧情） ----------
+-- 结构：进入时播 floor1_enter，链到 floor1_bell；中段经过断钟触发 floor1_bell（不重复）；
+-- 祭坛前触发 floor1_altar；出口门前触发 floor1_gate。
+INSERT INTO dialogues (id, npc_id, title, lines, next_id, branch) VALUES
+  ('floor1_enter', '', '锈钟回廊',
+   '[{"speaker": "系统", "text": "第一层 · 锈钟回廊"}, {"speaker": "寄生体", "text": "往下，一直往下。钟早就停了，可你听——还有东西在敲。"}, {"speaker": "寄生体", "text": "这里死过很多人。他们的骨头还热着，够你走很远。"}]',
+   '', ''),
+  ('floor1_bell', '', '断绳',
+   '[{"speaker": "寄生体", "text": "那口钟是异教徒挂上去的。钟声能压住下面的东西，可惜绳子断了。"}, {"speaker": "寄生体", "text": "听见了吗？钟底下有东西在啃同类的骨头。"}]',
+   '', ''),
+  ('floor1_altar', '', '第二座祭坛',
+   '[{"speaker": "寄生体", "text": "又一座祭坛。把手伸进去，我给你新的力量。"}, {"speaker": "寄生体", "text": "别怕疼。疼是活着的人才有的东西。"}]',
+   '', ''),
+  ('floor1_gate', '', '通往上一层',
+   '[{"speaker": "寄生体", "text": "上去就是第二层。别急着走——先把这里吃干净。"}, {"speaker": "寄生体", "text": "你越强，我越像你。"}]',
+   '', '');
+
 -- ---------- 结局 ----------
 INSERT INTO endings (id, name, condition, weight, desc) VALUES
   ('refuse_die',   '拒绝献祭（死）', '新手教程中选择拒绝献祭', 1, '隐藏结局：宁死不屈，游戏结束。'),

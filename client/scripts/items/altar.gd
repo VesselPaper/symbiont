@@ -19,9 +19,13 @@ const HINT_SUCCESS := "献祭已成"
 const HINT_NO_LIMB := "你手上没有肢体"
 
 @onready var _hint_label: Label = $HintLabel
+@onready var _glow: Sprite2D = $Visual/Glow
+@onready var _flame_left: Polygon2D = $Visual/FlameLeft
+@onready var _flame_right: Polygon2D = $Visual/FlameRight
 
 var _player_in_range := false
 var _feedback_timer := 0.0
+var _anim_time := 0.0
 
 func _ready() -> void:
 	body_entered.connect(_on_body_entered)
@@ -40,6 +44,14 @@ func _process(delta: float) -> void:
 		_feedback_timer -= delta
 		if _feedback_timer <= 0.0:
 			_update_hint()
+	# 祭坛呼吸光 + 烛火抖动（纯表现，不影响献祭逻辑）
+	_anim_time += delta
+	if _glow != null:
+		_glow.modulate.a = 0.30 + sin(_anim_time * 1.6) * 0.05
+	var flicker := sin(_anim_time * 17.0) * 0.12 + sin(_anim_time * 29.0) * 0.06
+	for flame in [_flame_left, _flame_right]:
+		if flame != null:
+			flame.scale = Vector2(1.0 + flicker * 0.4, 1.0 + flicker)
 
 func _unhandled_input(event: InputEvent) -> void:
 	# 反向测试（规范第 6 条）：只有 interact(K) 的按下沿才触发献祭，

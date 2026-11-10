@@ -1,4 +1,4 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://scripts/player/player.gd" id="1_player"]
 
@@ -11,14 +11,142 @@ size = Vector2(64, 56)
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_down"]
 size = Vector2(64, 28)
 
+[sub_resource type="Gradient" id="Gradient_eye"]
+offsets = PackedFloat32Array(0, 1)
+colors = PackedColorArray(1, 1, 1, 0.9, 1, 1, 1, 0)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_eye"]
+gradient = SubResource("Gradient_eye")
+width = 64
+height = 64
+fill = 1
+fill_from = Vector2(0.5, 0.5)
+fill_to = Vector2(1, 0.5)
+
 [node name="Player" type="CharacterBody2D" groups=["player"]]
 collision_layer = 2
 collision_mask = 1
 script = ExtResource("1_player")
 
-[node name="Body" type="Polygon2D" parent="."]
-color = Color(0.85, 0.9, 0.95, 1)
-polygon = PackedVector2Array(-8, -14, 8, -14, 8, 14, -8, 14)
+[node name="Body" type="Node2D" parent="."]
+
+[node name="Cape" type="Polygon2D" parent="Body"]
+color = Color(0.028, 0.038, 0.05, 1)
+polygon = PackedVector2Array(-5, -8, -11, 0, -15, 10, -9, 13, -8, 6, -4, -2)
+
+[node name="Cloak" type="Polygon2D" parent="Body"]
+color = Color(0.055, 0.072, 0.09, 1)
+polygon = PackedVector2Array(-6, -9, 6, -9, 11, 2, 15, 12, 8, 10, 2, 14, -5, 12, -12, 4)
+
+[node name="CloakShade" type="Polygon2D" parent="Body"]
+color = Color(0.032, 0.044, 0.056, 1)
+polygon = PackedVector2Array(-6, -9, -3, -2, 0, 8, -2, 14, -5, 12, -12, 4)
+
+[node name="CloakRim" type="Line2D" parent="Body"]
+width = 1.2
+default_color = Color(0.28, 0.42, 0.44, 0.8)
+points = PackedVector2Array(-7, -6, -10.4, 2.4, -11.6, 10)
+
+[node name="Torso" type="Polygon2D" parent="Body"]
+color = Color(0.13, 0.16, 0.19, 1)
+polygon = PackedVector2Array(-5, -7, 5, -7, 6, 4, 3, 9, -3, 9, -6, 4)
+
+[node name="Belt" type="Polygon2D" parent="Body"]
+color = Color(0.10, 0.08, 0.07, 1)
+polygon = PackedVector2Array(-5.5, 2.2, 5.5, 2.2, 5.2, 4.2, -5.2, 4.2)
+
+[node name="Hood" type="Polygon2D" parent="Body"]
+color = Color(0.21, 0.28, 0.31, 1)
+polygon = PackedVector2Array(-8, -6, -9, -12, -4, -16, 1, -17, 6, -15, 9, -10, 8, -5, 3, -7, -3, -7)
+
+[node name="HoodVoid" type="Polygon2D" parent="Body"]
+color = Color(0.015, 0.022, 0.03, 1)
+polygon = PackedVector2Array(-5, -6, -6, -11, -2, -14.5, 1, -15, 4, -13.5, 5, -9, 4, -6)
+
+[node name="HoodRim" type="Line2D" parent="Body"]
+width = 1.4
+default_color = Color(0.42, 0.58, 0.60, 0.9)
+points = PackedVector2Array(-8, -10, -3, -16, 1, -17)
+
+[node name="Cowl" type="Line2D" parent="Body"]
+width = 1.2
+default_color = Color(0.18, 0.26, 0.28, 0.9)
+points = PackedVector2Array(-8, -6.5, -4, -4.5, 1, -4.5, 6, -6)
+
+[node name="Eye" type="Polygon2D" parent="Body"]
+color = Color(0.52, 0.96, 0.88, 1)
+polygon = PackedVector2Array(1.5, -10, 4, -9.2, 1.5, -8.4, 0.8, -9.2)
+
+[node name="EyeGlow" type="PointLight2D" parent="Body"]
+position = Vector2(2.6, -9.3)
+color = Color(0.45, 1, 0.86, 1)
+energy = 0.35
+texture_scale = 0.3
+texture = SubResource("GradientTexture2D_eye")
+
+[node name="ArmPivot" type="Node2D" parent="Body"]
+position = Vector2(1, -6)
+
+[node name="Sleeve" type="Polygon2D" parent="Body/ArmPivot"]
+color = Color(0.11, 0.13, 0.15, 1)
+polygon = PackedVector2Array(-2.5, -2, 2.5, -2, 5.5, 7, 2, 8, -1, 2)
+
+[node name="SleeveRim" type="Line2D" parent="Body/ArmPivot"]
+width = 1.0
+default_color = Color(0.24, 0.32, 0.34, 0.8)
+points = PackedVector2Array(-2, -1, -0.5, 3, 1.6, 7)
+
+[node name="Hand" type="Polygon2D" parent="Body/ArmPivot"]
+position = Vector2(4, 7)
+color = Color(0.26, 0.33, 0.35, 1)
+polygon = PackedVector2Array(-2.2, -1.6, 1.8, -1.8, 2.6, 0, 1.6, 1.8, -2.2, 1.6)
+
+[node name="SwordPivot" type="Node2D" parent="Body/ArmPivot"]
+position = Vector2(4, 7)
+rotation = 0.35
+
+[node name="Grip" type="Polygon2D" parent="Body/ArmPivot/SwordPivot"]
+color = Color(0.20, 0.13, 0.10, 1)
+polygon = PackedVector2Array(-7, -1.2, -1, -1.2, -1, 1.2, -7, 1.2)
+
+[node name="GripWrap" type="Line2D" parent="Body/ArmPivot/SwordPivot"]
+width = 0.8
+default_color = Color(0.32, 0.24, 0.18, 1)
+points = PackedVector2Array(-6.4, -1, -5.2, 1, -4, -1, -2.8, 1, -1.6, -1)
+
+[node name="Pommel" type="Polygon2D" parent="Body/ArmPivot/SwordPivot"]
+color = Color(0.34, 0.38, 0.40, 1)
+polygon = PackedVector2Array(-9.4, -1.8, -7.4, -1.8, -7, 0, -7.4, 1.8, -9.4, 1.8, -9.8, 0)
+
+[node name="Guard" type="Polygon2D" parent="Body/ArmPivot/SwordPivot"]
+color = Color(0.38, 0.44, 0.46, 1)
+polygon = PackedVector2Array(-1.4, -3.4, 1.4, -3.4, 1.8, 0, 1.4, 3.4, -1.4, 3.4, -1.8, 0)
+
+[node name="Blade" type="Polygon2D" parent="Body/ArmPivot/SwordPivot"]
+color = Color(0.60, 0.68, 0.73, 1)
+polygon = PackedVector2Array(1.4, -1.6, 24, -1.2, 30, 0, 24, 1.2, 1.4, 1.6)
+
+[node name="BladeFuller" type="Line2D" parent="Body/ArmPivot/SwordPivot"]
+width = 1.0
+default_color = Color(0.30, 0.36, 0.40, 1)
+points = PackedVector2Array(3, 0, 23, 0)
+
+[node name="BladeEdge" type="Line2D" parent="Body/ArmPivot/SwordPivot"]
+width = 1.2
+default_color = Color(0.86, 0.94, 0.95, 0.9)
+points = PackedVector2Array(2.4, -1.35, 29, 0)
+
+[node name="SlashArc" type="Line2D" parent="Body"]
+position = Vector2(1, -6)
+width = 4.0
+default_color = Color(0.75, 0.95, 1, 0.85)
+visible = false
+
+[node name="SlashDown" type="Line2D" parent="Body"]
+position = Vector2(5, 8)
+width = 3.2
+default_color = Color(0.75, 0.95, 1, 0.8)
+visible = false
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("RectangleShape2D_body")

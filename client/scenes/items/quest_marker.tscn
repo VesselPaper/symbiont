@@ -1,20 +1,61 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://scripts/items/quest_marker.gd" id="1_qm"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_trigger"]
 size = Vector2(40, 40)
 
+[sub_resource type="Gradient" id="Gradient_glow"]
+offsets = PackedFloat32Array(0, 0.5, 1)
+colors = PackedColorArray(0.85, 1, 0.98, 0.85, 0.55, 0.9, 0.85, 0.30, 0.3, 0.55, 0.55, 0)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_glow"]
+gradient = SubResource("Gradient_glow")
+width = 128
+height = 128
+fill = 1
+fill_from = Vector2(0.5, 0.5)
+fill_to = Vector2(1, 0.5)
+
 [node name="QuestMarker" type="Node2D"]
 script = ExtResource("1_qm")
 
+[node name="Glow" type="Sprite2D" parent="."]
+modulate = Color(0.75, 1, 0.95, 0.22)
+scale = Vector2(0.42, 0.42)
+texture = SubResource("GradientTexture2D_glow")
+
 [node name="Halo" type="Polygon2D" parent="."]
-color = Color(1, 1, 1, 0.2)
-polygon = PackedVector2Array(-8, 0, 0, -8, 8, 0, 0, 8)
+color = Color(0.8, 1, 0.95, 0.10)
+polygon = PackedVector2Array(-14, 0, 0, -14, 14, 0, 0, 14)
+
+[node name="Ring" type="Line2D" parent="."]
+width = 1.6
+default_color = Color(0.78, 0.96, 0.92, 0.55)
+
+[node name="RingInner" type="Line2D" parent="."]
+width = 1.0
+default_color = Color(0.90, 1, 0.98, 0.35)
+
+[node name="ShardA" type="Polygon2D" parent="."]
+color = Color(0.85, 1, 0.97, 0.85)
+polygon = PackedVector2Array(-1.2, -3, 1.2, -3, 0, 1)
+
+[node name="ShardB" type="Polygon2D" parent="."]
+color = Color(0.85, 1, 0.97, 0.6)
+polygon = PackedVector2Array(-1.0, -2.4, 1.0, -2.4, 0, 0.8)
+
+[node name="ShardC" type="Polygon2D" parent="."]
+color = Color(0.85, 1, 0.97, 0.5)
+polygon = PackedVector2Array(-0.8, -2, 0.8, -2, 0, 0.6)
 
 [node name="Body" type="Polygon2D" parent="."]
-color = Color(1, 1, 1, 0.6)
-polygon = PackedVector2Array(-4, 0, 0, -4, 4, 0, 0, 4)
+color = Color(0.92, 1, 0.99, 0.95)
+polygon = PackedVector2Array(-4.5, 0, 0, -4.5, 4.5, 0, 0, 4.5)
+
+[node name="Core" type="Polygon2D" parent="Body"]
+color = Color(1, 1, 1, 1)
+polygon = PackedVector2Array(-1.6, 0, 0, -1.6, 1.6, 0, 0, 1.6)
 
 [node name="TriggerArea" type="Area2D" parent="."]
 collision_layer = 0

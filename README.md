@@ -19,7 +19,7 @@
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│  client/  Godot 4.5 客户端（纯 GDScript）                │
+│  client/  Godot 4.7 客户端（纯 GDScript）                │
 │  autoload 单例: EventBus / GameManager / DataDB /        │
 │  SaveSystem / Settings / Network（离线优先）             │
 │  scenes / scripts / components / data(JSON)              │
@@ -42,7 +42,7 @@
 **数据驱动**：游戏静态数据源在 `database/game_data`（SQLite，schema+seed 即课程"数据库脚本文件"），
 经 `tools/db_export.py` 导出为 `client/data/*.json`，运行时由 `DataDB` 单例加载。改数据 = 改 SQL → 重新导出，不碰代码。
 
-**课程交付**：`docs/` 下 00–07 七份文档对齐老师要求（功能分析/接口设计/详细设计/部署文档/操作说明/源文件说明/数据库脚本），周报在 `docs/weekly/`。
+**课程交付**：`doc/` 下 00–07 七份文档对齐老师要求（功能分析/接口设计/详细设计/部署文档/操作说明/源文件说明/数据库脚本）。
 
 ## 三、快速开始
 
@@ -54,6 +54,8 @@
 
 就这 3 步，其他都不用管。
 
+当前可玩内容：新手教学（移动 → 跳跃 → 拿剑 → 攻击 → 下劈 → 战斗 → 献祭）→ 教学完成后走进地图右侧的门，进入第一层「锈钟回廊」（入口 / 钟厅 / 台阶 / 祭坛厅 / 层门）。如果只想看第一层，在教学关里按 F2 直接跳过去。角色已有待机/走路/跳跃/挥砍/下劈/受击/倒地/复活动作，史莱姆、木桩、祭坛、铁剑和指引光都换成了代码生成的正式建模。
+
 ## 四、团队协作：成员同步与提交指南
 
 代码都放在 GitHub 上。组员只需要记住两句话：**开工前先更新本地，干完活开分支发 PR**。照着下面的步骤复制命令就行。
@@ -64,15 +66,19 @@
 
 1. 打开电脑上的"命令提示符"（开始菜单搜 cmd）或 PowerShell
 2. 运行下面这行命令，回车（会自动把整个项目下载到当前文件夹）：
+
 ```
 git clone https://github.com/VesselPaper/symbiont.git
 ```
+
 3. 如果提示"git 不是内部或外部命令"：先到 https://git-scm.com 下载安装 Git（一直点下一步装完），再重开一个窗口重新运行
 4. 进入项目文件夹并初始化环境：
+
 ```
 cd symbiont
 scripts\setup.ps1
 ```
+
 5. 打开 `client/project.godot`，按 F5 就能运行游戏
 
 ⚠️ 如果你的电脑上**已经有一个旧版本的 symbiont 文件夹**：不要在里面改东西，直接删掉它，再按上面第 1 步重新 clone 一份新的。
@@ -80,9 +86,11 @@ scripts\setup.ps1
 ### 每次开工前：更新本地仓库（把线上最新代码拉到电脑）
 
 在项目文件夹里运行：
+
 ```
 git pull
 ```
+
 看到 `Already up to date` 就是已经最新，看到 `Updating` 就是在更新。
 
 ### 干完活：开分支 + 发 PR（不要直接推 main）
@@ -120,13 +128,13 @@ git push -u origin feature/你的任务
 ## 五、项目结构
 
 ```
-client/     Godot 4.5 工程（autoload/scenes/scripts/components/data/assets/tests）
+client/     Godot 4.7 工程（autoload/scenes/scripts/components/data/assets/tests）
 server/     FastAPI 后端（账号/存档/埋点/排行榜）
 database/   数据库工程（服务器 MySQL schema + 游戏内容库 SQLite）
 tools/      工具（build_game_data.py / db_export.py 及测试）
 deploy/     docker 部署（mysql8 + server + game-web nginx）
 art/        建模库源文件（概念图/精灵源/瓦片源/UI 源/音频源）
-docs/       课程文档（00-07）+ GDD/任务卡/周报
+doc/        课程文档（00-07）+ GDD/任务卡/周报
 scripts/    构建与发布脚本
 webadmin/   （stretch）管理看板
 ```

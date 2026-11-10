@@ -35,11 +35,29 @@ var _tween: Tween
 
 @onready var _body: Polygon2D = $Body
 @onready var _trigger_area: Area2D = $TriggerArea
+@onready var _glow: Sprite2D = $Glow
+@onready var _ring: Line2D = $Ring
+@onready var _ring_inner: Line2D = $RingInner
+@onready var _shards: Array[Polygon2D] = [$ShardA, $ShardB, $ShardC]
 
 func _ready() -> void:
 	_trigger_area.body_entered.connect(_on_body_entered)
+	_ring.points = _circle_points(11.0, 28)
+	_ring_inner.points = _circle_points(6.5, 16)
+	# 未激活时整体压暗，教程轮到它才亮起来（软隔离的视觉提示）
+	modulate = Color(0.75, 0.85, 0.85, 0.55)
 
 func _process(delta: float) -> void:
+	_time += delta
+	# 外环顺时针、内环逆时针慢慢转，三片碎晶绕着核心飘
+	_ring.rotation = _time * 0.7
+	_ring_inner.rotation = -_time * 1.1
+	for i in range(_shards.size()):
+		var angle := _time * 1.5 + float(i) * TAU / 3.0
+		_shards[i].position = Vector2(cos(angle), sin(angle)) * 15.0
+		_shards[i].rotation = -angle + PI * 0.5
+	if active:
+		_glow.modulate.a = 0.22 + sin(_time * 3.0) * 0.06
 	# 飞行中不悬浮（位置由 Tween 接管）；到达后按新基准点继续上下浮动
 	if _tween != null and _tween.is_valid() and _tween.is_running():
 		return
@@ -54,6 +72,7 @@ func _process(delta: float) -> void:
 ## 激活光点（软隔离核心）：教程到对应环才调，之前接触无效
 func activate() -> void:
 	active = true
+	modulate = Color(1, 1, 1, 1)
 	_trigger_area.monitoring = true
 
 ## 飞到下一个引导点：Tween 平滑移动（约 MOVE_DURATION 秒），到达后重置触发标记、
@@ -108,3 +127,11 @@ func _flash() -> void:
 	var tween := create_tween()
 	tween.tween_property(_body, "scale", Vector2(FLASH_SCALE, FLASH_SCALE), FLASH_SCALE_UP_TIME)
 	tween.tween_property(_body, "scale", Vector2.ONE, FLASH_SCALE_DOWN_TIME)
+
+## 圆环采样点（Line2D 只能画折线，分段多一点才像圆）
+func _circle_points(radius: float, steps: int) -> PackedVector2Array:
+	var pts := PackedVector2Array()
+	for i in range(steps + 1):
+		var angle := float(i) / float(steps) * TAU
+		pts.append(Vector2(cos(angle), sin(angle)) * radius)
+	return pts

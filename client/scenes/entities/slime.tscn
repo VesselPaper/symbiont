@@ -13,9 +13,49 @@ collision_layer = 4
 collision_mask = 1
 script = ExtResource("1_slime")
 
-[node name="Body" type="Polygon2D" parent="."]
-color = Color(0.3, 0.85, 0.45, 1)
-polygon = PackedVector2Array(-13, -2, -9, -8, 0, -11, 9, -8, 13, -2, 13, 5, 7, 10, 0, 12, -7, 10, -13, 5)
+[node name="Visual" type="Node2D" parent="."]
+
+[node name="Shadow" type="Polygon2D" parent="Visual"]
+position = Vector2(0, 11)
+color = Color(0.02, 0.03, 0.03, 0.35)
+polygon = PackedVector2Array(-12, 0, -7, -3, 0, -4, 7, -3, 12, 0, 7, 3, 0, 4, -7, 3)
+
+[node name="Body" type="Polygon2D" parent="Visual"]
+color = Color(0.25, 0.50, 0.36, 1)
+polygon = PackedVector2Array(-13, -1, -10, -7, -4, -11, 3, -12, 9, -9, 13, -3, 13, 4, 9, 9, 2, 12, -5, 11, -11, 7)
+
+[node name="BodyShade" type="Polygon2D" parent="Visual"]
+color = Color(0.15, 0.32, 0.24, 1)
+polygon = PackedVector2Array(-11, 4, -5, 9, 2, 11, 9, 8, 13, 4, 9, 10, 1, 12, -6, 10)
+
+[node name="Highlight" type="Polygon2D" parent="Visual"]
+color = Color(0.55, 0.78, 0.55, 0.55)
+polygon = PackedVector2Array(-8, -6, -3, -10, 2, -10, -2, -7, -6, -3)
+
+[node name="Rim" type="Line2D" parent="Visual"]
+width = 1.2
+default_color = Color(0.60, 0.85, 0.62, 0.55)
+points = PackedVector2Array(-10, -7, -4, -11, 3, -12, 9, -9)
+
+[node name="EyeLeft" type="Polygon2D" parent="Visual"]
+position = Vector2(-4, -3)
+color = Color(0.03, 0.06, 0.05, 1)
+polygon = PackedVector2Array(-2, -2.5, 2, -2.5, 2, 2.5, -2, 2.5)
+
+[node name="EyeRight" type="Polygon2D" parent="Visual"]
+position = Vector2(4, -3)
+color = Color(0.03, 0.06, 0.05, 1)
+polygon = PackedVector2Array(-2, -2.5, 2, -2.5, 2, 2.5, -2, 2.5)
+
+[node name="EyeGlint" type="Polygon2D" parent="Visual"]
+position = Vector2(4.8, -3.8)
+color = Color(0.75, 0.95, 0.80, 0.9)
+polygon = PackedVector2Array(-0.8, -1, 0.8, -1, 0.8, 1, -0.8, 1)
+
+[node name="Mouth" type="Line2D" parent="Visual"]
+width = 1.0
+default_color = Color(0.05, 0.10, 0.08, 0.9)
+points = PackedVector2Array(-2.5, 4, 0, 5.2, 2.5, 4)
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("CircleShape2D_body")

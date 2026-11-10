@@ -32,6 +32,8 @@ const CONTACT_DAMAGE_COOLDOWN := 0.8 # 两次接触伤害的最小间隔（防�
 # ---- 受击表现 ----
 const FLASH_TIME := 0.1              # 受击闪红时长
 const HIT_FLASH_COLOR := Color(1.0, 0.3, 0.3)
+const DEATH_ANIM_TIME := 0.28        # 死亡压扁淡出时长（尸体消失前）
+const SQUASH_SPEED := 7.0            # 巡逻时的软体挤压频率
 
 const LIMB_PICKUP_SCENE := preload("res://scenes/items/limb_pickup.tscn")
 
@@ -45,8 +47,15 @@ var _contact_cooldown := 0.0
 var _flash_timer := 0.0
 var _base_color: Color
 var _is_dying := false
+var _death_timer := 0.0
+var _anim_time := 0.0
+var _blink_timer := 2.8      # 下次眨眼倒计时
+var _blink_time := 0.0       # 当前眨眼剩余
 
-@onready var _body: Polygon2D = $Body
+@onready var _visual: Node2D = $Visual
+@onready var _body: Polygon2D = $Visual/Body
+@onready var _eye_left: Polygon2D = $Visual/EyeLeft
+@onready var _eye_right: Polygon2D = $Visual/EyeRight
 @onready var _contact_area: Area2D = $ContactArea
 @onready var _edge_check: RayCast2D = $EdgeCheck
 
@@ -70,6 +79,32 @@ func _physics_process(delta: float) -> void:
 
 func _process(delta: float) -> void:
 	_update_flash(delta)
+	_update_visual(delta)
+
+## 软体表现：移动时挤压 / 拉伸，偶尔眨眼；死亡时压扁淡出再掉肢体
+func _update_visual(delta: float) -> void:
+	_anim_time += delta
+	if _is_dying:
+		if _death_timer > 0.0:
+			_death_timer -= delta
+			var p := 1.0 - maxf(_death_timer, 0.0) / DEATH_ANIM_TIME
+			_visual.scale = Vector2(float(_facing) * (1.0 + 0.45 * p), 1.0 - 0.85 * p)
+			_visual.modulate = Color(1, 1, 1, 1.0 - p)
+			if _death_timer <= 0.0:
+				_finish_death()
+		return
+	_blink_timer -= delta
+	if _blink_timer <= 0.0:
+		_blink_time = 0.09
+		_blink_timer = 2.6 + float(int(_anim_time * 13.0) % 9) * 0.18
+	if _blink_time > 0.0:
+		_blink_time -= delta
+	var eyes_open := _blink_time <= 0.0
+	_eye_left.visible = eyes_open
+	_eye_right.visible = eyes_open
+	var speed_factor := 9.0 if _is_chasing else 6.0
+	var squash := sin(_anim_time * speed_factor) * 0.045
+	_visual.scale = Vector2(float(_facing) * (1.0 + squash), 1.0 - squash)
 
 # ---- 数据驱动属性 ----
 
@@ -169,13 +204,19 @@ func _die() -> void:
 	if _is_dying:
 		return
 	_is_dying = true
+	_death_timer = DEATH_ANIM_TIME
 	EventBus.enemy_killed.emit(self, global_position)
 	# 埋点：史莱姆被击倒（M1-02 要求；玩家被碰扣血由 player_hurt 触发，不在此重复埋）
 	EventBus.log_event("slime_killed", {"pos": global_position})
-	# 死亡发生在玩家攻击命中的物理回调中；此时实例化带碰撞的 Area2D(肢体拾取物)
-	# 会触发 "Can't change state while flushing queries" 错误，必须用 call_deferred 延后
-	_spawn_limb_pickup.call_deferred()
-	queue_free.call_deferred()
+	# 肢体与销毁等到压扁动画放完再做（见 _finish_death），别在受击回调里改物理状态
+	_contact_area.set_deferred("monitoring", false)
+
+func _finish_death() -> void:
+	if not is_inside_tree():
+		return
+	_death_timer = 0.0
+	_spawn_limb_pickup()
+	queue_free()
 
 func _spawn_limb_pickup() -> void:
 	var pickup := LIMB_PICKUP_SCENE.instantiate()

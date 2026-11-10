@@ -3,7 +3,8 @@ extends CharacterBody2D
 ##
 ## 职责：水平移动、跳跃（coyote time + jump buffer，固定跳高）、
 ## 地面横砍 / 空中下砍（pogo：加速下落+踩敌反弹）、受击无敌帧与击退、死亡重生。
-## 视觉为占位方块（Polygon2D），美术资源到位后替换节点即可。
+## 视觉是代码拼的兜帽剪影（Polygon2D 分件 + 一点眼光），不依赖贴图；
+## 待机时轻微上下起伏、移动时颤步，朝向靠 Body.scale.x 翻转。
 ##
 ## 数值先用脚本顶部常量占位，M2 迁入数据文件（见 docs/02 §2.3）。
 
@@ -39,6 +40,13 @@ const INVINCIBLE_TIME := 0.5    # 受击无敌时长（期间闪烁表现）
 const KNOCKBACK_HORIZONTAL := 260.0
 const KNOCKBACK_UPWARD := -220.0
 
+# ---- 动画时长（表现层，不影响手感数值）----
+const ATTACK_ANIM_TIME := 0.28  # 一次挥砍的完整动作时长（判定仍只有 0.12s）
+const HURT_ANIM_TIME := 0.25    # 受击缩身时长
+const DEATH_ANIM_TIME := 0.85  # 倒地到复活的总时长
+const REVIVE_ANIM_TIME := 0.4   # 复活起身时长
+const WEAPON_FLASH_TIME := 0.35 # 刚捡到剑时的亮一下
+
 var hp := MAX_HP
 var has_weapon := false                    # M1-10：是否已拾取铁剑；没武器时按 J 静默无效
 var _facing := 1                            # 1 面朝右，-1 面朝左
@@ -56,8 +64,21 @@ var _hit_this_swing: Array[Node2D] = []     # 本次挥砍已命中的目标，�
 var _invincible_timer := 0.0
 var _input_locked := false      # 对话期间锁输入：不能移动/跳跃/攻击/下砍（见 _on_dialogue_*）
 var _spawn_point := Vector2.ZERO
+var _anim_time := 0.0           # 视觉动画时钟（待机起伏 / 走步颤步），与物理无关
+var _attack_anim_timer := 0.0   # 挥砍动作剩余时间（表现，不影响 0.12s 判定）
+var _attack_anim_kind := 0      # 0 = 横砍，1 = 下劈
+var _hurt_timer := 0.0          # 受击缩身剩余时间
+var _death_timer := 0.0         # 倒地剩余时间，走完才复活
+var _revive_timer := 0.0        # 复活起身剩余时间
+var _weapon_flash_timer := 0.0  # 捡剑亮光
 
-@onready var _body: Polygon2D = $Body
+@onready var _body: Node2D = $Body
+@onready var _cloak: Polygon2D = $Body/Cloak
+@onready var _cape: Polygon2D = $Body/Cape
+@onready var _arm: Node2D = $Body/ArmPivot
+@onready var _sword: Node2D = $Body/ArmPivot/SwordPivot
+@onready var _slash: Line2D = $Body/SlashArc
+@onready var _slash_down: Line2D = $Body/SlashDown
 @onready var _hitbox_side: Area2D = $HitboxSide
 @onready var _hitbox_down: Area2D = $HitboxDown
 @onready var _hitbox_side_visual: Polygon2D = $HitboxSide/Visual
@@ -73,6 +94,10 @@ func _ready() -> void:
 	var hb_shape_node := $HitboxDown/CollisionShape2D as CollisionShape2D
 	if hb_shape_node != null:
 		_hitbox_down_shape = hb_shape_node.shape as RectangleShape2D
+	# 挥砍残影的弧线点一次算好，后面只改透明度和显隐（每帧重算没必要）
+	_slash.points = _make_arc(Vector2.ZERO, 26.0, 10.0, -1.7, 0.95, 10)
+	_slash_down.points = _make_arc(Vector2.ZERO, 24.0, 8.0, 0.15, 2.95, 8)
+	_sword.visible = has_weapon
 	# 对话开始锁输入、整段播完解锁（对话期间角色不能操作）
 	EventBus.dialogue_started.connect(_on_dialogue_started)
 	EventBus.dialogue_finished.connect(_on_dialogue_finished)
@@ -81,6 +106,14 @@ func _ready() -> void:
 
 func _physics_process(delta: float) -> void:
 	_update_jump_timers(delta)
+	# 倒地 / 复活起身期间不接受操作，只保留重力与碰撞（表现走完再交还控制权）
+	if _is_dead or _revive_timer > 0.0:
+		velocity.x = move_toward(velocity.x, 0.0, 900.0 * delta)
+		_apply_gravity(delta)
+		move_and_slide()
+		_update_attack_state(delta)
+		_update_hitbox_pose()
+		return
 	if _input_locked:
 		# 对话锁输入：不响应移动/跳跃/攻击/下砍，只保留重力与碰撞（角色正常站立/落地）
 		if _pogo_active:
@@ -110,9 +143,25 @@ func _on_dialogue_finished(_dialogue_id: String) -> void:
 func _on_item_picked(item_id: String, _count: int) -> void:
 	if item_id == "iron_sword":
 		has_weapon = true
+		_sword.visible = true
+		_weapon_flash_timer = WEAPON_FLASH_TIME
 
 func _process(delta: float) -> void:
 	_update_invincibility(delta)
+	_update_anim_timers(delta)
+	_update_visual_anim(delta)
+
+## 表现层计时：挥砍 / 受击 / 捡剑亮光 / 倒地到复活
+func _update_anim_timers(delta: float) -> void:
+	_attack_anim_timer = maxf(_attack_anim_timer - delta, 0.0)
+	_hurt_timer = maxf(_hurt_timer - delta, 0.0)
+	_weapon_flash_timer = maxf(_weapon_flash_timer - delta, 0.0)
+	_revive_timer = maxf(_revive_timer - delta, 0.0)
+	if _death_timer > 0.0:
+		_death_timer -= delta
+		if _death_timer <= 0.0:
+			_death_timer = 0.0
+			_respawn()
 
 # ---- 水平移动 ----
 
@@ -132,6 +181,137 @@ func _update_facing() -> void:
 	var direction := Input.get_axis("move_left", "move_right")
 	if direction != 0.0:
 		_facing = 1 if direction > 0.0 else -1
+	# 镜像在 _update_visual_anim 里和缩放一起设：这里只记朝向，
+	# 否则会覆盖走路/倒地动画的 scale
+
+## 视觉动画：按状态摆姿势（全部是代码拼件，不动物理）
+##   地面站立 → 呼吸起伏；跑动 → 颠步 + 摆臂；空中 → 披风后掀；
+##   横砍 → 抬臂蓄力再甩下去 + 弧线残影；下劈 → 剑指地 + 竖弧；
+##   受击 → 缩身抖一下；倒地 → 侧倒淡出；复活 → 从地上撑起来。
+func _update_visual_anim(delta: float) -> void:
+	_anim_time += delta
+	if _body == null:
+		return
+	var body_y := 0.0
+	var body_rot := 0.0
+	var body_scale := Vector2(1.0, 1.0)
+	var arm_rot := 0.55
+	var sword_rot := 0.35
+	var cloak_rot := 0.0
+	var tint := Color(1, 1, 1, 1)
+	_slash.visible = false
+	_slash_down.visible = false
+
+	if _death_timer > 0.0:
+		# 倒地：前 40% 快速侧倒，后面保持，等计时结束复活
+		var p := 1.0 - _death_timer / DEATH_ANIM_TIME
+		var fall := minf(1.0, p * 2.2)
+		fall = fall * fall
+		body_rot = 1.5 * fall
+		body_y = 5.0 * fall
+		body_scale = Vector2(1.0 + 0.10 * fall, 1.0 - 0.08 * fall)
+		arm_rot = 1.1
+		sword_rot = 1.35
+		tint = Color(1, 1, 1, 1.0 - 0.35 * fall)
+	elif _revive_timer > 0.0:
+		# 复活：从侧倒姿态回正，先蹲一下再站直
+		var p := 1.0 - _revive_timer / REVIVE_ANIM_TIME
+		var up := p * p
+		body_rot = 1.5 * (1.0 - up)
+		body_y = 5.0 * (1.0 - up) - 6.0 * sin(p * PI)
+		body_scale = Vector2(0.9 + 0.1 * up, 0.85 + 0.15 * up)
+		arm_rot = lerpf(1.1, 0.55, up)
+		sword_rot = lerpf(1.35, 0.35, up)
+		tint = Color(1, 1, 1, up)
+	else:
+		if _pogo_active:
+			# 下劈：剑尖朝地，身体略前倾；弧线只在判定窗口内亮，之后收掉
+			arm_rot = 1.45
+			sword_rot = 1.55
+			_slash_down.visible = _attack_anim_timer > 0.0
+			_slash_down.modulate = Color(1, 1, 1, 0.7 * minf(1.0, _attack_anim_timer / 0.2))
+		elif _attack_anim_timer > 0.0:
+			var p := 1.0 - _attack_anim_timer / ATTACK_ANIM_TIME
+			if _attack_anim_kind == 1:
+				# 下劈动作（判定已结束也把动作收完）
+				arm_rot = 1.45
+				sword_rot = 1.55
+				_slash_down.visible = p < 0.7
+				_slash_down.modulate = Color(1, 1, 1, maxf(0.0, 0.75 - p))
+			elif p < 0.28:
+				# 蓄力：手臂抬到脑后
+				var q := p / 0.28
+				arm_rot = lerpf(0.55, -1.15, q)
+				sword_rot = lerpf(0.35, -0.70, q)
+			elif p < 0.60:
+				# 挥出：手臂从后上方甩到身前，同时亮出弧线残影
+				var q := (p - 0.28) / 0.32
+				var swing := q * q
+				arm_rot = lerpf(-1.15, 0.95, swing)
+				sword_rot = lerpf(-0.70, 0.60, swing)
+				_slash.visible = true
+				_slash.modulate = Color(1, 1, 1, sin(q * PI) * 0.9)
+			else:
+				# 收招：慢慢回到持剑站姿
+				var q := (p - 0.60) / 0.40
+				arm_rot = lerpf(0.95, 0.55, q)
+				sword_rot = lerpf(0.60, 0.35, q)
+				_slash.visible = true
+				_slash.modulate = Color(1, 1, 1, (1.0 - q) * 0.5)
+		elif not is_on_floor():
+			# 跳跃上行：手向后收，披风向上掀；下落：手略前伸
+			if velocity.y < 0.0:
+				arm_rot = -0.40
+				sword_rot = -0.10
+				body_scale.y = 1.05
+				cloak_rot = -0.18
+			else:
+				arm_rot = 0.30
+				sword_rot = 0.55
+				body_scale.y = 0.96
+				cloak_rot = 0.12
+		elif absf(velocity.x) > 30.0:
+			# 走路：颠步 + 手臂前后摆，披风滞后
+			var step := sin(_anim_time * 12.0)
+			body_y = -absf(step) * 1.4
+			arm_rot = 0.55 + step * 0.22
+			cloak_rot = -0.10 + step * 0.05
+		else:
+			# 待机：呼吸起伏，剑尖轻晃
+			var breath := sin(_anim_time * 2.0)
+			body_y = breath * 0.8
+			arm_rot = 0.55 + breath * 0.04
+			sword_rot = 0.35 + breath * 0.03
+		# 受击：短暂缩身 + 泛红，叠加在其它状态上
+		if _hurt_timer > 0.0:
+			var k := _hurt_timer / HURT_ANIM_TIME
+			body_rot += sin(_hurt_timer * 45.0) * 0.18 * k
+			tint = tint.lerp(Color(1.0, 0.62, 0.62, 1.0), 0.5 * k)
+
+	_body.position = Vector2(0, body_y)
+	_body.rotation = body_rot
+	_body.scale = Vector2(float(_facing) * body_scale.x, body_scale.y)
+	_body.modulate = tint
+	_arm.rotation = arm_rot
+	_sword.rotation = sword_rot
+	_cloak.rotation = cloak_rot
+	_cape.rotation = cloak_rot * 1.4
+	# 没武器就空手：手里不画剑；刚捡到时亮一下
+	_sword.visible = has_weapon
+	if _weapon_flash_timer > 0.0:
+		_sword.modulate = Color(1.8, 1.9, 1.6, 1.0)
+	else:
+		_sword.modulate = Color(1, 1, 1, 1)
+
+## 生成一条弧线（残影用）：圆心 + 半径 + 起止角 + 分段数
+func _make_arc(center: Vector2, radius: float, width: float, from_angle: float, to_angle: float, steps: int) -> PackedVector2Array:
+	var pts := PackedVector2Array()
+	for i in range(steps + 1):
+		var t := float(i) / float(steps)
+		var angle := lerpf(from_angle, to_angle, t)
+		var r := radius - width * 0.5 * sin(t * PI)
+		pts.append(center + Vector2(cos(angle), sin(angle)) * r)
+	return pts
 
 # ---- 跳跃 ----
 
@@ -177,6 +357,8 @@ func _start_side_slash() -> void:
 	_attack_dir = _facing  # 锁定出手朝向
 	_attack_cooldown_timer = ATTACK_COOLDOWN
 	_attack_active_timer = ATTACK_ACTIVE_TIME
+	_attack_anim_timer = ATTACK_ANIM_TIME
+	_attack_anim_kind = 0
 	_hit_this_swing.clear()
 	_hitbox_side.monitoring = true
 	_hitbox_down.monitoring = false
@@ -186,6 +368,8 @@ func _start_side_slash() -> void:
 func _start_pogo() -> void:
 	_attack_dir = _facing  # 锁定出手朝向
 	_pogo_active = true
+	_attack_anim_timer = ATTACK_ANIM_TIME + 0.1
+	_attack_anim_kind = 1
 	_hit_this_swing.clear()
 	_hitbox_side.monitoring = false
 	_hitbox_down.monitoring = true
@@ -319,6 +503,7 @@ func take_damage(amount: int, source: Node = null) -> void:
 			knock_dir = source_dir
 	velocity.x = knock_dir * KNOCKBACK_HORIZONTAL
 	velocity.y = KNOCKBACK_UPWARD
+	_hurt_timer = HURT_ANIM_TIME
 	if hp <= 0:
 		_die()
 
@@ -326,9 +511,18 @@ func _die() -> void:
 	if _is_dead:
 		return
 	_is_dead = true
+	# 先倒地、再复活：给表现留时间，不然死亡瞬间就闪回出生点看不见动作
+	_death_timer = DEATH_ANIM_TIME
+	# 死亡动作期间不要继承受击无敌的闪烁，否则倒地会一闪一闪
+	_invincible_timer = 0.0
+	_body.visible = true
+	velocity = Vector2(0, -140.0)
+	_pogo_active = false
+	_pogo_requested = false
+	_hitbox_side.set_deferred("monitoring", false)
+	_hitbox_down.set_deferred("monitoring", false)
+	_hit_this_swing.clear()
 	EventBus.player_died.emit()
-	# 测试切片：死亡立即回出生点满血复活（正式死亡/游戏结束流程在 M2 定稿）
-	_respawn()
 
 func _respawn() -> void:
 	global_position = _spawn_point
@@ -337,21 +531,28 @@ func _respawn() -> void:
 	_is_dead = false
 	_attack_cooldown_timer = 0.0
 	_attack_active_timer = 0.0
+	_attack_anim_timer = 0.0
 	_pogo_active = false
 	_pogo_end_lag_timer = 0.0
 	_pogo_requested = false
 	_input_locked = false
+	_hurt_timer = 0.0
 	_hitbox_side.monitoring = false
 	_hitbox_down.monitoring = false
 	_hit_this_swing.clear()
-	# 复活给满无敌时长，避免卡在受击点原地连续掉血
+	# 复活给满无敌时长 + 起身动作，避免卡在受击点原地连续掉血
 	_invincible_timer = INVINCIBLE_TIME
+	_revive_timer = REVIVE_ANIM_TIME
 	_body.visible = true
 
 func _update_invincibility(delta: float) -> void:
 	if _invincible_timer <= 0.0:
 		return
 	_invincible_timer -= delta
+	# 复活起身期间不闪烁：本来是淡入动作，再闪两下会像鬼畜
+	if _revive_timer > 0.0:
+		_body.visible = true
+		return
 	if _invincible_timer <= 0.0:
 		_invincible_timer = 0.0
 		_body.visible = true

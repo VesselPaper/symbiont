@@ -1,0 +1,47 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/world/floor1.gd" id="1_level"]
+[ext_resource type="Script" path="res://components/abyss_backdrop.gd" id="2_backdrop"]
+[ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="3_player"]
+[ext_resource type="Script" path="res://scripts/world/camera_follow.gd" id="4_cam"]
+[ext_resource type="PackedScene" path="res://scenes/ui/dialogue_box.tscn" id="5_dbox"]
+[ext_resource type="Script" path="res://components/dialogue.gd" id="6_dlg"]
+[ext_resource type="PackedScene" path="res://scenes/items/altar.tscn" id="7_altar"]
+[ext_resource type="PackedScene" path="res://scenes/items/weapon_pickup.tscn" id="8_sword"]
+
+[node name="Floor1" type="Node2D"]
+script = ExtResource("1_level")
+
+[node name="Backdrop" type="Node2D" parent="."]
+z_index = -3
+script = ExtResource("2_backdrop")
+camera_path = NodePath("../Camera2D")
+world_width = 2900.0
+world_top = -200.0
+world_bottom = 760.0
+
+[node name="Player" parent="." instance=ExtResource("3_player")]
+position = Vector2(140, 560)
+
+[node name="Camera2D" type="Camera2D" parent="."]
+limit_left = 0
+limit_top = 0
+limit_right = 2900
+limit_bottom = 1200
+script = ExtResource("4_cam")
+target_path = NodePath("../Player")
+player_screen_offset = 60.0
+
+[node name="DialogueBox" parent="." instance=ExtResource("5_dbox")]
+
+[node name="Dialogue" type="Node" parent="."]
+script = ExtResource("6_dlg")
+ui_path = NodePath("../DialogueBox")
+
+[node name="Altar" parent="." instance=ExtResource("7_altar")]
+position = Vector2(2600, 596)
+
+[node name="WeaponPickup" parent="." instance=ExtResource("8_sword")]
+position = Vector2(330, 604)
+rotation = 0.35
+

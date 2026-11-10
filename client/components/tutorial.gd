@@ -184,6 +184,10 @@ func _on_sacrifice_done(_sacrifice_id: String, _total_count: int) -> void:
 	_done_hint_timer = DONE_HINT_DURATION
 	_show_bubble(DONE_BUBBLE_TEXT)
 
+## 教程是否已跑完（献祭完成）。场景用它决定下一层的门开不开。
+func is_completed() -> bool:
+	return _step == Step.DONE
+
 ## 进入下一步：先推进再显示对应环提示；到 DONE 由献祭流程接管
 func _advance() -> void:
 	_step += 1

@@ -1,0 +1,59 @@
+[gd_scene load_steps=10 format=3]
+
+[ext_resource type="Script" path="res://tests/art_stage.gd" id="1_stage"]
+[ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="2_player"]
+[ext_resource type="PackedScene" path="res://scenes/entities/slime.tscn" id="3_slime"]
+[ext_resource type="PackedScene" path="res://scenes/entities/dummy_target.tscn" id="4_dummy"]
+[ext_resource type="PackedScene" path="res://scenes/items/altar.tscn" id="5_altar"]
+[ext_resource type="PackedScene" path="res://scenes/items/quest_marker.tscn" id="6_marker"]
+[ext_resource type="PackedScene" path="res://scenes/items/weapon_pickup.tscn" id="7_sword"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_floor"]
+size = Vector2(1600, 40)
+
+[node name="ArtStage" type="Node2D"]
+script = ExtResource("1_stage")
+
+[node name="Background" type="Polygon2D" parent="."]
+color = Color(1, 1, 1, 1)
+polygon = PackedVector2Array(-200, 100, 1700, 100, 1700, 800, -200, 800)
+vertex_colors = PackedColorArray(0.07, 0.09, 0.11, 1, 0.07, 0.09, 0.11, 1, 0.02, 0.025, 0.03, 1, 0.02, 0.025, 0.03, 1)
+
+[node name="Floor" type="StaticBody2D" parent="."]
+position = Vector2(800, 700)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Floor"]
+shape = SubResource("RectangleShape2D_floor")
+
+[node name="Visual" type="Polygon2D" parent="Floor"]
+color = Color(0.16, 0.18, 0.19, 1)
+polygon = PackedVector2Array(-800, -20, 800, -20, 800, 20, -800, 20)
+
+[node name="Rim" type="Line2D" parent="Floor"]
+width = 2.0
+default_color = Color(0.42, 0.55, 0.56, 0.75)
+points = PackedVector2Array(-790, -19, 790, -19)
+
+[node name="Player" parent="." instance=ExtResource("2_player")]
+position = Vector2(200, 662)
+
+[node name="Slime" parent="." instance=ExtResource("3_slime")]
+position = Vector2(330, 662)
+
+[node name="Dummy" parent="." instance=ExtResource("4_dummy")]
+position = Vector2(470, 667)
+
+[node name="Sword" parent="." instance=ExtResource("7_sword")]
+position = Vector2(640, 676)
+rotation = 0.55
+
+[node name="Altar" parent="." instance=ExtResource("5_altar")]
+position = Vector2(780, 680)
+
+[node name="QuestMarker" parent="." instance=ExtResource("6_marker")]
+position = Vector2(900, 560)
+
+[node name="Camera2D" type="Camera2D" parent="."]
+position = Vector2(400, 560)
+zoom = Vector2(4, 4)
