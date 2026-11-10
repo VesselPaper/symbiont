@@ -10,12 +10,15 @@ const OUT_DIR := "res://shots"
 const SETTLE := 0.55  # 瞬移后等相机跟上、物理落稳的时间
 
 ## 瞬移目标和抓图时间（秒）。y 取地面顶面减去半个角色高（14），避免穿地。
+## move 时瞬移，shot 时抓图，中间留时间让相机吸附/落稳。
 const STOPS := [
-	{"t": 0.30, "pos": Vector2(900.0, 666.0), "shot": "floor1_shelf"},
-	{"t": 1.15, "pos": Vector2(1600.0, 746.0), "shot": "floor1_bell"},
-	{"t": 2.00, "pos": Vector2(2260.0, 646.0), "shot": "floor1_steps"},
-	{"t": 2.85, "pos": Vector2(2600.0, 586.0), "shot": "floor1_altar"},
-	{"t": 3.70, "pos": Vector2(2820.0, 586.0), "shot": "floor1_gate"},
+	{"move": 0.05, "shot": 0.40, "pos": Vector2(80.0, 646.0), "shot_name": "floor1_a"},
+	{"move": 0.55, "shot": 1.25, "pos": Vector2(80.0, 646.0), "shot_name": "floor1_b", "show_dialogue": true},
+	{"move": 1.60, "shot": 2.10, "pos": Vector2(900.0, 666.0), "shot_name": "floor1_shelf"},
+	{"move": 2.55, "shot": 3.05, "pos": Vector2(1600.0, 746.0), "shot_name": "floor1_bell"},
+	{"move": 3.50, "shot": 4.00, "pos": Vector2(2260.0, 646.0), "shot_name": "floor1_steps"},
+	{"move": 4.45, "shot": 4.95, "pos": Vector2(2600.0, 586.0), "shot_name": "floor1_altar"},
+	{"move": 5.40, "shot": 5.90, "pos": Vector2(2820.0, 586.0), "shot_name": "floor1_gate"},
 ]
 
 var _elapsed := 0.0
@@ -39,11 +42,13 @@ func _process(delta: float) -> bool:
 		quit(0)
 		return true
 	var stop: Dictionary = STOPS[_index]
-	if _elapsed >= stop["t"]:
+	if _elapsed >= stop["move"]:
 		_player.global_position = stop["pos"]
+		# UI 显隐要提前一帧以上设置，直接 set + 立刻抓图会抓到上一帧
 		if _dbox != null:
-			_dbox.visible = false
-		_save(str(stop["shot"]) + ".png")
+			_dbox.visible = bool(stop.get("show_dialogue", false))
+	if _elapsed >= stop["shot"]:
+		_save(str(stop["shot_name"]) + ".png")
 		_index += 1
 	return false
 

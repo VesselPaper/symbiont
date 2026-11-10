@@ -3,67 +3,88 @@
 [ext_resource type="Script" path="res://scripts/ui/dialogue_box.gd" id="1_script"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
-content_margin_left = 22.0
-content_margin_top = 12.0
-content_margin_right = 22.0
-content_margin_bottom = 12.0
-bg_color = Color(0.035, 0.042, 0.056, 0.9)
+content_margin_left = 24.0
+content_margin_top = 10.0
+content_margin_right = 24.0
+content_margin_bottom = 10.0
+bg_color = Color(0.022, 0.03, 0.04, 0.93)
 border_width_left = 2
 border_width_top = 2
 border_width_right = 2
 border_width_bottom = 2
-border_color = Color(0.18, 0.26, 0.28, 0.55)
-corner_radius_top_left = 8
-corner_radius_top_right = 8
-corner_radius_bottom_right = 8
-corner_radius_bottom_left = 8
+border_color = Color(0.23, 0.35, 0.36, 0.7)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+shadow_color = Color(0, 0, 0, 0.35)
+shadow_size = 7
+shadow_offset = Vector2(0, 4)
 
 [node name="DialogueBox" type="CanvasLayer"]
 script = ExtResource("1_script")
 
 [node name="Panel" type="PanelContainer" parent="."]
 visible = false
-anchor_top = 1.0
+anchor_left = 0.0
+anchor_top = 0.0
 anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = 90.0
-offset_top = -154.0
-offset_right = -90.0
-offset_bottom = -26.0
-grow_vertical = 0
+anchor_bottom = 0.0
+offset_left = 110.0
+offset_top = 18.0
+offset_right = -110.0
+offset_bottom = 150.0
+grow_horizontal = 2
 mouse_filter = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
+
+[node name="Accent" type="ColorRect" parent="."]
+anchor_left = 0.0
+anchor_top = 0.0
+anchor_right = 0.0
+anchor_bottom = 0.0
+offset_left = 110.0
+offset_top = 18.0
+offset_right = 114.0
+offset_bottom = 150.0
+mouse_filter = 2
+color = Color(0.34, 0.55, 0.55, 0.9)
 
 [node name="Margin" type="MarginContainer" parent="Panel"]
 layout_mode = 2
 
 [node name="VBox" type="VBoxContainer" parent="Panel/Margin"]
 layout_mode = 2
-theme_override_constants/separation = 4
+theme_override_constants/separation = 3
 
 [node name="SpeakerLabel" type="Label" parent="Panel/Margin/VBox"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.82, 0.6, 0.95, 1)
-theme_override_font_sizes/font_size = 18
+theme_override_colors/font_color = Color(0.78, 0.66, 0.95, 1)
+theme_override_font_sizes/font_size = 17
 text = "寄生体"
+
+[node name="SpeakerRule" type="ColorRect" parent="Panel/Margin/VBox"]
+custom_minimum_size = Vector2(0, 1)
+layout_mode = 2
+color = Color(0.28, 0.42, 0.43, 0.55)
 
 [node name="TextLabel" type="Label" parent="Panel/Margin/VBox"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 21
+theme_override_font_sizes/font_size = 20
 autowrap_mode = 3
 
 [node name="ContinueHint" type="Label" parent="."]
 visible = false
-anchor_top = 1.0
+anchor_left = 1.0
+anchor_top = 0.0
 anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = -190.0
-offset_top = -58.0
-offset_right = -100.0
-offset_bottom = -38.0
+anchor_bottom = 0.0
+offset_left = -250.0
+offset_top = 126.0
+offset_right = -116.0
+offset_bottom = 146.0
 grow_horizontal = 0
-grow_vertical = 0
-theme_override_colors/font_color = Color(0.75, 0.75, 0.8, 0.9)
-theme_override_font_sizes/font_size = 15
+theme_override_colors/font_color = Color(0.64, 0.70, 0.72, 0.9)
+theme_override_font_sizes/font_size = 14
 text = "按 K 继续"
 horizontal_alignment = 2

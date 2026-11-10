@@ -17,12 +17,15 @@ extends Node
 ## 全部播完 emit dialogue_finished(入口 id)。next_id 链式衔接是内部流程，不重复
 ## 广播 started，保证 started / finished 成对，便于监听方配对。
 ##
-## 不锁玩家输入：对话期间移动/攻击照常（锁定输入留给 M2 讨论）。
+## 输入锁：player.gd 监听 dialogue_started / dialogue_finished 自己锁和解锁，
+## 对话组件不直接碰玩家输入。锁输入期间玩家水平速度归零，不会滑行。
 
 const INTERACT_ACTION := "interact"
 
 ## 对话 UI 节点（dialogue_box）；留空则只走逻辑不显示
 @export var ui_path: NodePath
+## 玩家节点路径；留空则从 "player" 分组里找。空中触发时用它判断是否落地
+@export var player_path: NodePath
 ## 打字机速度（字符/秒）
 @export var type_chars_per_sec := 40.0
 
@@ -34,18 +37,41 @@ var _active := false
 var _line_index := 0
 var _visible_chars := 0.0     # 打字机已显示字符数
 var _line_done := false       # 当前条是否已完整显示
+var _pending_id := ""         # 空中触发时挂起的对话 id，落地后再播
+var _player: Node2D
 
 func _ready() -> void:
 	if ui_path != NodePath(""):
 		_ui = get_node_or_null(ui_path)
 		if _ui == null:
 			push_warning("dialogue: 找不到 ui_path=%s，本组件只走逻辑不显示" % ui_path)
+	_player = _resolve_player()
+	EventBus.player_died.connect(_on_player_died)
+
+func _resolve_player() -> Node2D:
+	if _player != null and is_instance_valid(_player):
+		return _player
+	if player_path != NodePath(""):
+		_player = get_node_or_null(player_path) as Node2D
+	if _player == null:
+		_player = get_tree().get_first_node_in_group("player") as Node2D
+	return _player
+
+func _on_player_died() -> void:
+	# 玩家在挂起期间掉坑死亡：丢掉这次对话，别等复活后突然弹出来
+	_pending_id = ""
 
 func is_playing() -> bool:
-	return _active
+	return _active or _pending_id != ""
 
 ## 播放一段对话（入口）。播放中再次调用视为重新开始。
 func play(dialogue_id: String) -> void:
+	# 空中触发先挂起：等玩家落地再开始，避免对话锁输入时角色还在坠落
+	var p := _resolve_player()
+	if p != null and not p.is_on_floor():
+		_pending_id = dialogue_id
+		return
+	_pending_id = ""
 	_entry_dialogue_id = dialogue_id
 	_start(dialogue_id, true)
 
@@ -90,6 +116,15 @@ func _set_continue_hint(show: bool) -> void:
 	_ui.set_continue_hint(show)
 
 func _process(delta: float) -> void:
+	# 空中挂起的对话：玩家落地的那一帧开始播
+	if _pending_id != "":
+		var p := _resolve_player()
+		if p != null and p.is_on_floor():
+			var pending := _pending_id
+			_pending_id = ""
+			_entry_dialogue_id = pending
+			_start(pending, true)
+			return
 	if not _active or _line_done:
 		return
 	var line: Dictionary = _queue[_line_index]

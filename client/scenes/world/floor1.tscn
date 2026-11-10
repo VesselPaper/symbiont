@@ -1,4 +1,4 @@
-[gd_scene format=3]
+﻿[gd_scene format=3]
 
 [ext_resource type="Script" path="res://scripts/world/floor1.gd" id="1_level"]
 [ext_resource type="Script" path="res://components/abyss_backdrop.gd" id="2_backdrop"]
@@ -30,7 +30,7 @@ limit_right = 2900
 limit_bottom = 1200
 script = ExtResource("4_cam")
 target_path = NodePath("../Player")
-player_screen_offset = 60.0
+player_screen_offset = 56.0
 
 [node name="DialogueBox" parent="." instance=ExtResource("5_dbox")]
 

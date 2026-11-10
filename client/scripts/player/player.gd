@@ -123,13 +123,16 @@ func _physics_process(delta: float) -> void:
 		_update_hitbox_pose()
 		return
 	if _input_locked:
-		# 对话锁输入：不响应移动/跳跃/攻击/下砍，只保留重力与碰撞（角色正常站立/落地）
+		# 对话锁输入：水平速度立刻归零，避免走路触发对话后角色继续滑行掉下悬崖；
+		# 空中触发时只保留重力，落到地面就停住（对话组件会等落地再开始）
+		velocity.x = 0.0
 		if _pogo_active:
 			_end_pogo()
 		_apply_gravity(delta)
 		move_and_slide()
 		_update_attack_state(delta)
 		_update_hitbox_pose()
+		_update_visual_anim(delta)
 		return
 	_handle_jump()
 	_try_start_attack()
