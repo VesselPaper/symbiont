@@ -17,7 +17,7 @@ const FONT_PATH := "res://assets/fonts/NotoSansCJKsc-Regular.otf"
 @onready var _accent: ColorRect = $Accent
 @onready var _speaker_label: Label = $Panel/Margin/VBox/SpeakerLabel
 @onready var _text_label: Label = $Panel/Margin/VBox/TextLabel
-@onready var _continue_hint: Label = $ContinueHint
+@onready var _continue_hint: Label = $Panel/Margin/VBox/ContinueHint
 
 func _ready() -> void:
 	var font := load(FONT_PATH) as Font
