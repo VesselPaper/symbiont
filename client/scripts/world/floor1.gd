@@ -1,33 +1,45 @@
 extends Node2D
 ## 第一层 · 锈钟回廊（M2 关卡）
 ##
-## 教学关之后的第一张正式地图。地形全部由本脚本按 P L A T F O R M S 数据生成，
+## 教学关之后的第一张正式地图。地形全部由本脚本按 PLATFORMS 数据生成，
 ## 改关卡形状只改下面那几张表，不用在编辑器里拖节点。
 ##
-## 路线：入口平台 → 断口 → 下沉台阶 → 钟厅（吊钟/锁链/史莱姆）→ 上行台阶 → 祭坛厅 → 层门
+## 路线：入口平台 → 断口 → 下沉台阶 → 钟厅（吊钟/锁链/史莱姆）→ 上行台阶 → 祭坛厅
+##       → 断桥 → 遗物廊 → 层门厅 → 层门
 ##
-## 剧情三段各挂一个 Area2D 触发器，踩进去播对话，每个只播一次（靠 GameManager 旗标去重）：
-##   钟厅 → floor1_bell    祭坛前 → floor1_altar    层门前 → floor1_gate
+## 剧情五段各挂一个 Area2D 触发器，踩进去播对话，每个只播一次（靠 GameManager 旗标去重）：
+##   钟厅 → floor1_bell    祭坛前 → floor1_altar    断桥 → floor1_bridge
+##   遗物廊 → floor1_relic  层门前 → floor1_gate
 ## 进场景 0.6 秒后播 floor1_enter。
 ##
 ## 视觉：背景交给 Backdrop（components/abyss_backdrop.gd），地形是石块 + 顶部亮边，
 ## 吊钟、锁链、灯火都在 _build_props 里生成。
 
 ## 地形：x, 顶面 y, 宽, 厚（顶面是玩家站的那条线）
+## M2-04 扩建：祭坛厅向右接断桥、遗物廊、层门厅，整体从 2900 拉到 4540。
+## 断口保留 120px 间距，给跳跃留余地；平台之间不是等宽等高的方块，下面视觉会削成岩体。
 const PLATFORMS: Array[Dictionary] = [
 	{"rect": Rect2(0, 620, 620, 90), "stone": 0.0},        # 入口平台
 	{"rect": Rect2(760, 680, 300, 90), "stone": 0.15},     # 断口对岸（低一级）
 	{"rect": Rect2(1120, 760, 780, 130), "stone": 0.0},    # 钟厅地面
 	{"rect": Rect2(1960, 720, 200, 90), "stone": 0.2},     # 上行台阶一
 	{"rect": Rect2(2160, 660, 200, 90), "stone": 0.35},    # 上行台阶二
-	{"rect": Rect2(2380, 600, 520, 120), "stone": 0.1},    # 祭坛厅
+	{"rect": Rect2(2380, 600, 670, 120), "stone": 0.1},    # 祭坛厅（向右延伸接断桥）
+	{"rect": Rect2(3170, 600, 140, 100), "stone": 0.3},    # 断桥对岸
+	{"rect": Rect2(3430, 640, 260, 120), "stone": 0.0},    # 遗物廊（低一级）
+	{"rect": Rect2(3810, 620, 180, 100), "stone": 0.2},    # 遗物廊出口
+	{"rect": Rect2(4110, 600, 360, 110), "stone": 0.1},    # 层门厅
 	{"rect": Rect2(-80, 300, 80, 900), "stone": 0.0},      # 左边界墙
-	{"rect": Rect2(2900, 300, 80, 900), "stone": 0.0},     # 右边界墙
+	{"rect": Rect2(4540, 300, 80, 900), "stone": 0.0},     # 右边界墙
 ]
 
 const SPAWN_POINT := Vector2(140, 560)
 const SLIME_SCENE := preload("res://scenes/entities/slime.tscn")
-const SLIME_SPAWNS: Array[Vector2] = [Vector2(1350, 720), Vector2(1780, 720)]
+## 敌人离剧情触发器至少 260px：钟厅左右各一只，遗物廊出口一只。
+## 对话时 dialogue.gd 还会把 enemy 分组整体冻结，双保险。
+const SLIME_SPAWNS: Array[Vector2] = [
+	Vector2(1240, 720), Vector2(2000, 706), Vector2(3900, 620)
+]
 
 ## 摄像机参数与教学关一致：垂直视野 = 15 倍角色身高
 const VIEW_HEIGHT_IN_CHARACTERS := 15.0
@@ -92,12 +104,17 @@ func _build_platforms() -> void:
 		body.add_child(col)
 		var visual := Polygon2D.new()
 		visual.name = "Visual"
-		visual.polygon = PackedVector2Array([
-			Vector2(-rect.size.x * 0.5, -rect.size.y * 0.5),
-			Vector2(rect.size.x * 0.5, -rect.size.y * 0.5),
-			Vector2(rect.size.x * 0.5, rect.size.y * 0.5),
-			Vector2(-rect.size.x * 0.5, rect.size.y * 0.5),
-		])
+		# 顶面保持一条能站人的直线，侧面和底部削成不规则岩体；
+		# 边界墙（宽 80）仍用矩形，避免墙体露缝。
+		if rect.size.x > 100.0:
+			visual.polygon = _rock_silhouette(rect, i)
+		else:
+			visual.polygon = PackedVector2Array([
+				Vector2(-rect.size.x * 0.5, -rect.size.y * 0.5),
+				Vector2(rect.size.x * 0.5, -rect.size.y * 0.5),
+				Vector2(rect.size.x * 0.5, rect.size.y * 0.5),
+				Vector2(-rect.size.x * 0.5, rect.size.y * 0.5),
+			])
 		# 每块石头颜色略有差别，避免一整片死板的灰
 		visual.color = STONE_COLOR.lightened(float(spec["stone"]) * 0.25)
 		body.add_child(visual)
@@ -127,13 +144,39 @@ func _build_platforms() -> void:
 		body.add_child(shade)
 		# 石缝 / 苔痕 / 碎石：只在能站的大平台上加，边界墙不用
 		if rect.size.x >= 120.0:
-			_add_platform_detail(body, rect)
+			_add_platform_detail(body, rect, i)
 		holder.add_child(body)
 
-## 平台表面装饰：竖向石缝 + 顶角苔痕 + 两块碎石
-## 都是纯装饰，不参与碰撞，也不影响 PLATFORMS 数据
-func _add_platform_detail(body: StaticBody2D, rect: Rect2) -> void:
+## 平台侧面/底部的岩体轮廓：顶点都在碰撞矩形外或贴边，顶面两个点与碰撞顶线重合。
+## 不用随机数，按平台序号错开缺口，保证每局长得一样，也方便截图对比。
+func _rock_silhouette(rect: Rect2, index: int) -> PackedVector2Array:
+	var half := rect.size.x * 0.5
+	var h := rect.size.y
+	var top := -h * 0.5
+	var bottom := h * 0.5
+	var notch := 4.0 + float(index % 3) * 4.0
+	var bulge := 3.0 + float(index % 2) * 5.0
+	return PackedVector2Array([
+		Vector2(-half, top),
+		Vector2(half, top),
+		Vector2(half - 1.0, top + 9.0),
+		Vector2(half + bulge, top + 26.0),
+		Vector2(half - notch, top + 50.0),
+		Vector2(half - 2.0, top + 68.0),
+		Vector2(half - 16.0, bottom - 8.0),
+		Vector2(half - 32.0, bottom + 5.0),
+		Vector2(8.0, bottom + 9.0),
+		Vector2(-half + 30.0, bottom + 3.0),
+		Vector2(-half + 7.0, bottom - 16.0),
+		Vector2(-half - bulge, top + 58.0),
+		Vector2(-half + notch, top + 24.0),
+	])
+
+## 平台表面装饰：竖向石缝 + 顶角苔痕 + 碎石 + 底部支撑岩块。
+## 都是纯装饰，不参与碰撞，也不影响 PLATFORMS 数据。
+func _add_platform_detail(body: StaticBody2D, rect: Rect2, variant: int) -> void:
 	var top := -rect.size.y * 0.5
+	var bottom := rect.size.y * 0.5
 	var half_w := rect.size.x * 0.5
 	var seam_color := Color(0.040, 0.052, 0.062, 0.55)
 	var x := 70.0
@@ -158,6 +201,27 @@ func _add_platform_detail(body: StaticBody2D, rect: Rect2) -> void:
 			Vector2(sx + 16.0, top + 12.0), Vector2(sx + 4.0, top + 14.0),
 		])
 		body.add_child(moss)
+	# 底部支撑岩块：不是一整条平滑底边，隔一段垂一块，像从岩壁上凿出来的路
+	for k in range(2):
+		var sx := -half_w + rect.size.x * (0.18 + 0.36 * k) + float(variant % 3) * 5.0
+		var support := Polygon2D.new()
+		support.color = STONE_DARK.lightened(0.04 + 0.02 * k)
+		support.polygon = PackedVector2Array([
+			Vector2(sx, top + 42.0), Vector2(sx + 38.0, top + 50.0),
+			Vector2(sx + 30.0, bottom + 16.0), Vector2(sx + 4.0, bottom + 8.0),
+		])
+		body.add_child(support)
+	# 长裂缝：从顶面往下斜着裂，打断"一整块石头"的平板感
+	var crack := Line2D.new()
+	crack.width = 1.1
+	crack.default_color = Color(0.020, 0.028, 0.034, 0.65)
+	crack.points = PackedVector2Array([
+		Vector2(-half_w + 30.0 + variant * 9.0, top + 8.0),
+		Vector2(-half_w + 42.0 + variant * 9.0, top + 26.0),
+		Vector2(-half_w + 38.0 + variant * 9.0, top + 46.0),
+	])
+	body.add_child(crack)
+
 	# 碎石：贴着顶面几块大小不一的石头，破掉完美的直线
 	for i in range(2):
 		var r := Polygon2D.new()
@@ -245,10 +309,15 @@ func _build_props() -> void:
 	banner_rim.points = PackedVector2Array([Vector2(1452, 372), Vector2(1502, 384)])
 	props.add_child(banner_rim)
 
-	# 层门：两根柱子 + 门楣 + 一条冷光缝
+	# 扩建区：断桥、遗物廊、层门厅的物件；都在 Props 层，不挡玩家也不参与碰撞
+	_build_ruin_props(props)
+	_add_light(props, Vector2(3550, 585), Color(1.0, 0.72, 0.44), 0.42, 2.0)
+	_add_light(props, Vector2(4320, 545), Color(0.58, 0.86, 0.92), 0.55, 2.4)
+
+	# 层门：两根柱子 + 门楣 + 一条冷光缝。扩建后门移到地图最右的层门厅。
 	var gate := Node2D.new()
 	gate.name = "GateFrame"
-	gate.position = Vector2(2835, 600)
+	gate.position = Vector2(4390, 600)
 	props.add_child(gate)
 	for dx in [-58.0, 58.0]:
 		var post := Polygon2D.new()
@@ -268,6 +337,142 @@ func _build_props() -> void:
 	seam.default_color = Color(0.42, 0.72, 0.76, 0.55)
 	seam.points = PackedVector2Array([Vector2(0, -173), Vector2(0, -6)])
 	gate.add_child(seam)
+
+## 扩建区物件：断桥的垂绳/塌板、遗物廊的壁龛与石棺、层门厅的立柱。
+## 全部是背景层装饰，玩家脚下仍只认 PLATFORMS 的矩形碰撞。
+func _build_ruin_props(parent: Node) -> void:
+	# 四个 120px 断口各挂两组断绳和几块垂板，让"这里过不去"一眼能看出来
+	for spec in [
+		{"x1": 3050.0, "x2": 3170.0, "y": 600.0},
+		{"x1": 3310.0, "x2": 3430.0, "y": 600.0},
+		{"x1": 3690.0, "x2": 3810.0, "y": 640.0},
+		{"x1": 3990.0, "x2": 4110.0, "y": 620.0},
+	]:
+		var x1: float = spec["x1"]
+		var x2: float = spec["x2"]
+		var y: float = spec["y"]
+		for side_x in [x1 + 6.0, x2 - 6.0]:
+			var rope := Line2D.new()
+			rope.width = 2.2
+			rope.default_color = Color(0.16, 0.18, 0.16, 0.9)
+			var dir := 1.0 if side_x < (x1 + x2) * 0.5 else -1.0
+			rope.points = PackedVector2Array([
+				Vector2(side_x, y - 6.0),
+				Vector2(side_x + dir * 18.0, y + 26.0),
+				Vector2(side_x + dir * 8.0, y + 70.0),
+			])
+			parent.add_child(rope)
+		# 断板：斜插在断口里，不横跨整个缺口，避免看起来像能走
+		for i in range(2):
+			var plank := Polygon2D.new()
+			plank.color = Color(0.12, 0.13, 0.12, 0.95)
+			var px := x1 + 42.0 + i * 34.0
+			plank.position = Vector2(px, y + 24.0 + i * 18.0)
+			plank.rotation = -0.45 + i * 0.7
+			plank.polygon = PackedVector2Array([
+				Vector2(-16, -3), Vector2(16, -3), Vector2(16, 3), Vector2(-16, 3),
+			])
+			parent.add_child(plank)
+			var edge := Line2D.new()
+			edge.width = 1.0
+			edge.default_color = Color(0.34, 0.34, 0.28, 0.55)
+			edge.position = plank.position
+			edge.rotation = plank.rotation
+			edge.points = PackedVector2Array([Vector2(-15, -2), Vector2(15, -2)])
+			parent.add_child(edge)
+		# 断口底部淡紫雾，提示下面是空的
+		var mist := Polygon2D.new()
+		mist.color = Color(0.16, 0.12, 0.20, 0.10)
+		mist.polygon = _ellipse(Vector2((x1 + x2) * 0.5, y + 70.0), Vector2(52.0, 18.0), 20)
+		parent.add_child(mist)
+
+	# 遗物廊：三座壁龛，中间放石棺；暗示这里曾经是收殓尸骨的地方
+	var shrine_base := 640.0
+	for i in range(3):
+		var x := 3470.0 + i * 78.0
+		for dx in [0.0, 50.0]:
+			var col := Polygon2D.new()
+			col.color = Color(0.085, 0.10, 0.11)
+			col.polygon = PackedVector2Array([
+				Vector2(x + dx, shrine_base), Vector2(x + dx, shrine_base - 128),
+				Vector2(x + dx + 12, shrine_base - 128), Vector2(x + dx + 12, shrine_base),
+			])
+			parent.add_child(col)
+		var arch := Polygon2D.new()
+		arch.color = Color(0.10, 0.12, 0.13)
+		var pts := PackedVector2Array()
+		var cx := x + 31.0
+		var r := 31.0
+		for k in range(13):
+			var a := PI * (1.0 - float(k) / 12.0)
+			pts.append(Vector2(cx + cos(a) * r, shrine_base - 128 - sin(a) * r))
+		for k in range(13):
+			var a := PI * (1.0 - float(k) / 12.0)
+			pts.append(Vector2(cx + cos(a) * (r - 9.0), shrine_base - 128 - sin(a) * (r - 9.0)))
+		arch.polygon = pts
+		parent.add_child(arch)
+		# 龛里的骨堆/小罐
+		var urn := Polygon2D.new()
+		urn.color = Color(0.24, 0.26, 0.23)
+		urn.polygon = PackedVector2Array([
+			Vector2(cx - 10, shrine_base - 8), Vector2(cx - 7, shrine_base - 26),
+			Vector2(cx + 7, shrine_base - 26), Vector2(cx + 10, shrine_base - 8),
+		])
+		parent.add_child(urn)
+		for b in range(3):
+			var bone := Line2D.new()
+			bone.width = 1.6
+			bone.default_color = Color(0.52, 0.52, 0.44, 0.65)
+			bone.points = PackedVector2Array([
+				Vector2(cx - 8 + b * 6, shrine_base - 5),
+				Vector2(cx - 4 + b * 6, shrine_base - 12 - b * 2),
+			])
+			parent.add_child(bone)
+
+	# 中间石棺：遗物廊的视觉中心，盖板斜着滑开，露出一点内里
+	var casket := Polygon2D.new()
+	casket.color = Color(0.12, 0.14, 0.15)
+	casket.polygon = PackedVector2Array([
+		Vector2(3535, 640), Vector2(3535, 600), Vector2(3605, 600),
+		Vector2(3605, 640), Vector2(3596, 648), Vector2(3544, 648),
+	])
+	parent.add_child(casket)
+	var lid := Polygon2D.new()
+	lid.color = Color(0.20, 0.22, 0.22)
+	lid.position = Vector2(3568, 590)
+	lid.rotation = -0.13
+	lid.polygon = PackedVector2Array([
+		Vector2(-36, -5), Vector2(36, -7), Vector2(38, 3), Vector2(-34, 5),
+	])
+	parent.add_child(lid)
+	var casket_line := Line2D.new()
+	casket_line.width = 1.2
+	casket_line.default_color = Color(0.36, 0.39, 0.36, 0.8)
+	casket_line.points = PackedVector2Array([Vector2(3539, 607), Vector2(3601, 607)])
+	parent.add_child(casket_line)
+
+	# 层门厅：门两侧各一根断柱，柱头挂一盏冷灯，和地图尽头的门呼应
+	for dx in [-120.0, 140.0]:
+		var pillar := Polygon2D.new()
+		pillar.color = Color(0.075, 0.09, 0.10)
+		var px: float = 4390.0 + float(dx)
+		pillar.polygon = PackedVector2Array([
+			Vector2(px - 18, 600), Vector2(px - 18, 390), Vector2(px - 8, 366),
+			Vector2(px + 8, 370), Vector2(px + 18, 394), Vector2(px + 18, 600),
+		])
+		parent.add_child(pillar)
+	var chain := Line2D.new()
+	chain.width = 2.0
+	chain.default_color = Color(0.11, 0.12, 0.13)
+	chain.points = PackedVector2Array([Vector2(4390, 270), Vector2(4384, 360), Vector2(4390, 420)])
+	parent.add_child(chain)
+	var censer := Polygon2D.new()
+	censer.color = Color(0.24, 0.28, 0.27)
+	censer.polygon = PackedVector2Array([
+		Vector2(4376, 420), Vector2(4404, 420), Vector2(4400, 436), Vector2(4380, 436),
+	])
+	parent.add_child(censer)
+
 
 ## 入口区装饰：头顶断链、一盏挂灯、脚边碎石。
 ## 这一片是玩家开局唯一看得到的画面，必须有东西可看，不能只有一块灰平台。
@@ -357,6 +562,13 @@ func _radial_texture() -> GradientTexture2D:
 	tex.height = 256
 	return tex
 
+func _ellipse(center: Vector2, radii: Vector2, steps: int) -> PackedVector2Array:
+	var pts := PackedVector2Array()
+	for i in range(steps):
+		var a := TAU * float(i) / float(steps)
+		pts.append(center + Vector2(cos(a) * radii.x, sin(a) * radii.y))
+	return pts
+
 # ---------- 触发器 ----------
 
 func _build_triggers() -> void:
@@ -365,7 +577,9 @@ func _build_triggers() -> void:
 	add_child(holder)
 	_add_trigger(holder, "BellTrigger", Rect2(1490, 600, 240, 180), "bell", "floor1_bell")
 	_add_trigger(holder, "AltarTrigger", Rect2(2470, 470, 250, 160), "altar", "floor1_altar")
-	_add_trigger(holder, "GateTrigger", Rect2(2780, 400, 110, 210), "gate", "floor1_gate")
+	_add_trigger(holder, "BridgeTrigger", Rect2(3000, 470, 160, 210), "bridge", "floor1_bridge")
+	_add_trigger(holder, "RelicTrigger", Rect2(3450, 490, 220, 230), "relic", "floor1_relic")
+	_add_trigger(holder, "GateTrigger", Rect2(4300, 390, 150, 230), "gate", "floor1_gate")
 
 func _add_trigger(parent: Node, node_name: String, rect: Rect2, key: String, dialogue_id: String) -> void:
 	var area := Area2D.new()
@@ -393,10 +607,10 @@ func _build_kill_zone() -> void:
 	area.name = "KillZone"
 	area.collision_layer = 0
 	area.collision_mask = 2
-	area.position = Vector2(1450, 1240)
+	area.position = Vector2(2300, 1240)
 	var col := CollisionShape2D.new()
 	var shape := RectangleShape2D.new()
-	shape.size = Vector2(3200, 200)
+	shape.size = Vector2(4800, 200)
 	col.shape = shape
 	area.add_child(col)
 	area.body_entered.connect(func(body: Node2D) -> void:

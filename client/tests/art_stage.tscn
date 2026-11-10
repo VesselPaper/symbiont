@@ -1,4 +1,4 @@
-[gd_scene load_steps=10 format=3]
+[gd_scene load_steps=11 format=3]
 
 [ext_resource type="Script" path="res://tests/art_stage.gd" id="1_stage"]
 [ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="2_player"]
@@ -7,6 +7,7 @@
 [ext_resource type="PackedScene" path="res://scenes/items/altar.tscn" id="5_altar"]
 [ext_resource type="PackedScene" path="res://scenes/items/quest_marker.tscn" id="6_marker"]
 [ext_resource type="PackedScene" path="res://scenes/items/weapon_pickup.tscn" id="7_sword"]
+[ext_resource type="PackedScene" path="res://scenes/items/limb_pickup.tscn" id="8_limb"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_floor"]
 size = Vector2(1600, 40)
@@ -47,6 +48,9 @@ position = Vector2(470, 667)
 [node name="Sword" parent="." instance=ExtResource("7_sword")]
 position = Vector2(640, 676)
 rotation = 0.55
+
+[node name="Limb" parent="." instance=ExtResource("8_limb")]
+position = Vector2(700, 678)
 
 [node name="Altar" parent="." instance=ExtResource("5_altar")]
 position = Vector2(780, 680)

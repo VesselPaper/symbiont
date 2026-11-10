@@ -41,11 +41,14 @@ const KNOCKBACK_HORIZONTAL := 260.0
 const KNOCKBACK_UPWARD := -220.0
 
 # ---- 动画时长（表现层，不影响手感数值）----
-const ATTACK_ANIM_TIME := 0.28  # 一次挥砍的完整动作时长（判定仍只有 0.12s）
+const ATTACK_ANIM_TIME := 0.42  # 一次挥砍的完整动作时长（判定仍只有 0.12s；组长反馈 0.28 太短）
 const HURT_ANIM_TIME := 0.25    # 受击缩身时长
 const DEATH_ANIM_TIME := 0.85  # 倒地到复活的总时长
 const REVIVE_ANIM_TIME := 0.4   # 复活起身时长
 const WEAPON_FLASH_TIME := 0.35 # 刚捡到剑时的亮一下
+## 横砍白色弧线的半径：判定框是 64px 宽，弧线视觉要接近边缘，不能只到 26px。
+const SLASH_ARC_RADIUS := 48.0
+const SLASH_DOWN_RADIUS := 34.0
 
 var hp := MAX_HP
 var has_weapon := false                    # M1-10：是否已拾取铁剑；没武器时按 J 静默无效
@@ -97,8 +100,15 @@ func _ready() -> void:
 	if hb_shape_node != null:
 		_hitbox_down_shape = hb_shape_node.shape as RectangleShape2D
 	# 挥砍残影的弧线点一次算好，后面只改透明度和显隐（每帧重算没必要）
-	_slash.points = _make_arc(Vector2.ZERO, 26.0, 10.0, -1.7, 0.95, 10)
-	_slash_down.points = _make_arc(Vector2.ZERO, 24.0, 8.0, 0.15, 2.95, 8)
+	# 弧线中心略向前，半径 48，视觉末端接近 64px 横砍判定框边缘；线宽加粗成白色刀光
+	_slash.position = Vector2(8, -6)
+	_slash.width = 5.5
+	_slash.default_color = Color(0.94, 1.0, 1.0, 0.95)
+	_slash.points = _make_arc(Vector2.ZERO, SLASH_ARC_RADIUS, 12.0, -1.65, 1.0, 12)
+	_slash_down.position = Vector2(5, 8)
+	_slash_down.width = 4.0
+	_slash_down.default_color = Color(0.94, 1.0, 1.0, 0.9)
+	_slash_down.points = _make_arc(Vector2.ZERO, SLASH_DOWN_RADIUS, 9.0, 0.15, 2.95, 10)
 	_sword.visible = has_weapon
 	_build_fx()
 	# 对话开始锁输入、整段播完解锁（对话期间角色不能操作）
@@ -250,26 +260,27 @@ func _update_visual_anim(delta: float) -> void:
 				sword_rot = 1.55
 				_slash_down.visible = p < 0.7
 				_slash_down.modulate = Color(1, 1, 1, maxf(0.0, 0.75 - p))
-			elif p < 0.28:
+			elif p < 0.26:
 				# 蓄力：手臂抬到脑后
-				var q := p / 0.28
+				var q := p / 0.26
 				arm_rot = lerpf(0.55, -1.15, q)
 				sword_rot = lerpf(0.35, -0.70, q)
-			elif p < 0.60:
-				# 挥出：手臂从后上方甩到身前，同时亮出弧线残影
-				var q := (p - 0.28) / 0.32
+			elif p < 0.78:
+				# 挥出：手臂从后上方甩到身前，同时亮出弧线残影；
+				# 弧线保留到收招前，避免动作加长后刀光只在开头闪一下
+				var q := (p - 0.26) / 0.52
 				var swing := q * q
 				arm_rot = lerpf(-1.15, 0.95, swing)
 				sword_rot = lerpf(-0.70, 0.60, swing)
 				_slash.visible = true
-				_slash.modulate = Color(1, 1, 1, sin(q * PI) * 0.9)
+				_slash.modulate = Color(1, 1, 1, sin(minf(q, 0.9) * PI) * 0.95)
 			else:
 				# 收招：慢慢回到持剑站姿
-				var q := (p - 0.60) / 0.40
+				var q := (p - 0.78) / 0.22
 				arm_rot = lerpf(0.95, 0.55, q)
 				sword_rot = lerpf(0.60, 0.35, q)
 				_slash.visible = true
-				_slash.modulate = Color(1, 1, 1, (1.0 - q) * 0.5)
+				_slash.modulate = Color(1, 1, 1, (1.0 - q) * 0.55)
 		elif not is_on_floor():
 			# 跳跃上行：手向后收，披风向上掀；下落：手略前伸
 			if velocity.y < 0.0:

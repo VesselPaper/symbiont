@@ -8,6 +8,7 @@ const SLIME := preload("res://scenes/entities/slime.tscn")
 
 var _elapsed := 0.0
 var _started := false
+var _warmup := 0
 var _index := 0
 var _arena: Node
 var _player: Node2D
@@ -25,6 +26,11 @@ var _moved: Array[bool] = [false, false, false, false]
 
 func _process(delta: float) -> bool:
 	if not _started:
+		# --script 模式下 EventBus 等 autoload 要等几帧才进入脚本编译域；
+		# 过早 load 场景会让 slime/limb 的脚本报 "Identifier not found: EventBus"
+		_warmup += 1
+		if _warmup < 10:
+			return false
 		_started = true
 		DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(OUT_DIR))
 		_arena = load(SCENE).instantiate()

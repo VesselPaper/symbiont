@@ -1,4 +1,4 @@
-﻿[gd_scene format=3]
+[gd_scene format=3]
 
 [ext_resource type="Script" path="res://scripts/world/floor1.gd" id="1_level"]
 [ext_resource type="Script" path="res://components/abyss_backdrop.gd" id="2_backdrop"]
@@ -16,7 +16,7 @@ script = ExtResource("1_level")
 z_index = -3
 script = ExtResource("2_backdrop")
 camera_path = NodePath("../Camera2D")
-world_width = 2900.0
+world_width = 4600.0
 world_top = -200.0
 world_bottom = 760.0
 
@@ -26,7 +26,7 @@ position = Vector2(140, 560)
 [node name="Camera2D" type="Camera2D" parent="."]
 limit_left = 0
 limit_top = 0
-limit_right = 2900
+limit_right = 4600
 limit_bottom = 1200
 script = ExtResource("4_cam")
 target_path = NodePath("../Player")

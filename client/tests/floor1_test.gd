@@ -37,11 +37,11 @@ func _run_checks() -> void:
 		_failed = true
 		return
 
-	# 地形：8 块平台/边界墙
+	# 地形：12 块平台/边界墙（M2-04 扩建后：入口、钟厅、台阶、祭坛、断桥、遗物廊、层门厅 + 两墙）
 	var terrain := _level.get_node_or_null("Terrain")
 	_check(terrain != null, "缺少 Terrain 节点")
 	if terrain != null:
-		_check(terrain.get_child_count() == 8, "地形数量应为 8，实际 %d" % terrain.get_child_count())
+		_check(terrain.get_child_count() == 12, "地形数量应为 12，实际 %d" % terrain.get_child_count())
 		var first := terrain.get_child(0) as StaticBody2D
 		_check(first != null, "地形子节点不是 StaticBody2D")
 		if first != null:
@@ -49,18 +49,28 @@ func _run_checks() -> void:
 			var rim := first.get_child(1) as Polygon2D
 			_check(rim != null, "平台缺少顶面亮边")
 
-	# 触发器：钟/祭坛/层门
+	# 触发器：钟厅/祭坛/断桥/遗物廊/层门
 	var triggers := _level.get_node_or_null("Triggers")
 	_check(triggers != null, "缺少 Triggers")
 	if triggers != null:
-		_check(triggers.get_child_count() == 3, "触发器应为 3 个，实际 %d" % triggers.get_child_count())
+		_check(triggers.get_child_count() == 5, "触发器应为 5 个，实际 %d" % triggers.get_child_count())
+		for trigger_name in ["BellTrigger", "AltarTrigger", "BridgeTrigger", "RelicTrigger", "GateTrigger"]:
+			_check(triggers.get_node_or_null(trigger_name) != null, "缺少触发器 %s" % trigger_name)
 
 	# 掉出地图的重伤区
 	_check(_level.get_node_or_null("KillZone") != null, "缺少 KillZone")
 
 	# 敌人
 	var enemies := _level.get_node_or_null("Enemies")
-	_check(enemies != null and enemies.get_child_count() == 2, "史莱姆应为 2 只")
+	_check(enemies != null and enemies.get_child_count() == 3, "史莱姆应为 3 只")
+	# 剧情触发器周围不放怪：每个触发器和最近史莱姆至少隔 200px
+	if enemies != null and triggers != null:
+		for trigger in triggers.get_children():
+			var trigger_pos: Vector2 = (trigger as Node2D).global_position
+			for enemy in enemies.get_children():
+				var enemy_pos: Vector2 = (enemy as Node2D).global_position
+				_check(trigger_pos.distance_to(enemy_pos) >= 200.0,
+					"%s 周围 %dpx 内有史莱姆 %s" % [trigger.name, int(trigger_pos.distance_to(enemy_pos)), enemy.name])
 
 	# 场景物件：钟、灯、门
 	var props := _level.get_node_or_null("Props")
@@ -82,7 +92,7 @@ func _run_checks() -> void:
 	var db := root.get_node_or_null("/root/DataDB")
 	_check(db != null, "缺少 DataDB")
 	if db != null:
-		for dialogue_id in ["floor1_enter", "floor1_bell", "floor1_altar", "floor1_gate"]:
+		for dialogue_id in ["floor1_enter", "floor1_bell", "floor1_altar", "floor1_bridge", "floor1_relic", "floor1_gate"]:
 			var row: Dictionary = db.get_dialogue(dialogue_id)
 			_check(not row.is_empty(), "对话 %s 不在数据表里" % dialogue_id)
 			_check(row.has("lines") and (row["lines"] as Array).size() > 0, "对话 %s 没有台词" % dialogue_id)

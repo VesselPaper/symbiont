@@ -14,15 +14,19 @@ const SETTLE := 0.55  # 瞬移后等相机跟上、物理落稳的时间
 const STOPS := [
 	{"move": 0.05, "shot": 0.40, "pos": Vector2(80.0, 646.0), "shot_name": "floor1_a"},
 	{"move": 0.55, "shot": 1.25, "pos": Vector2(80.0, 646.0), "shot_name": "floor1_b", "show_dialogue": true},
-	{"move": 1.60, "shot": 2.10, "pos": Vector2(900.0, 666.0), "shot_name": "floor1_shelf"},
+	{"move": 1.60, "shot": 2.10, "pos": Vector2(900.0, 557.0), "shot_name": "floor1_shelf"},
 	{"move": 2.55, "shot": 3.05, "pos": Vector2(1600.0, 746.0), "shot_name": "floor1_bell"},
 	{"move": 3.50, "shot": 4.00, "pos": Vector2(2260.0, 646.0), "shot_name": "floor1_steps"},
 	{"move": 4.45, "shot": 4.95, "pos": Vector2(2600.0, 586.0), "shot_name": "floor1_altar"},
-	{"move": 5.40, "shot": 5.90, "pos": Vector2(2820.0, 586.0), "shot_name": "floor1_gate"},
+	{"move": 5.40, "shot": 5.90, "pos": Vector2(2950.0, 586.0), "shot_name": "floor1_bridge"},
+	{"move": 6.35, "shot": 6.85, "pos": Vector2(3560.0, 626.0), "shot_name": "floor1_relic"},
+	{"move": 7.30, "shot": 7.80, "pos": Vector2(3900.0, 606.0), "shot_name": "floor1_foyer"},
+	{"move": 8.25, "shot": 8.75, "pos": Vector2(4390.0, 586.0), "shot_name": "floor1_gate"},
 ]
 
 var _elapsed := 0.0
 var _started := false
+var _warmup := 0
 var _index := 0
 var _level: Node
 var _player: Node2D
@@ -30,6 +34,10 @@ var _dbox: CanvasLayer
 
 func _process(delta: float) -> bool:
 	if not _started:
+		# 等 autoload 进入 --script 编译域，避免场景里的 EventBus 引用编译失败
+		_warmup += 1
+		if _warmup < 10:
+			return false
 		_started = true
 		DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(OUT_DIR))
 		_level = load(SCENE).instantiate()

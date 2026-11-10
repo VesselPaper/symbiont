@@ -62,12 +62,20 @@ var _blink_time := 0.0       # 当前眨眼剩余
 func _ready() -> void:
 	# 玩家攻击判定通过 damageable 分组识别可受击目标（见 player.gd _apply_hit）
 	add_to_group("damageable")
+	# 对话组件按 enemy 分组冻结敌人，避免剧情播放时被巡逻怪贴脸扣血
+	add_to_group("enemy")
 	_load_stats()
 	_base_color = _body.color
 	_contact_area.body_entered.connect(_on_contact_area_body_entered)
 	_aim_edge_ray()
 	# 复用 EventBus 现成信号：敌人登场广播，M2 的生成特效 / 计数可直接订阅
-	EventBus.enemy_spawned.emit(self)
+	# 用 /root 查找而不是全局标识符：--script 测试加载场景时也能正常工作
+	var bus := _event_bus()
+	if bus != null:
+		bus.enemy_spawned.emit(self)
+
+func _event_bus() -> Node:
+	return get_node_or_null("/root/EventBus")
 
 func _physics_process(delta: float) -> void:
 	_contact_cooldown = maxf(_contact_cooldown - delta, 0.0)
@@ -109,7 +117,9 @@ func _update_visual(delta: float) -> void:
 # ---- 数据驱动属性 ----
 
 func _load_stats() -> void:
-	var data := DataDB.get_enemy(ENEMY_ID)
+	# 同样用 /root 查找，避免 --script 测试加载场景时把 DataDB 当成未声明标识符
+	var data_db := get_node_or_null("/root/DataDB")
+	var data: Dictionary = data_db.get_enemy(ENEMY_ID) if data_db != null else {}
 	if data.is_empty():
 		push_warning("Slime: DataDB 缺少敌人数据 %s，使用安全默认值 hp=%d speed=%f attack=%d" % [ENEMY_ID, DEFAULT_HP, DEFAULT_SPEED, DEFAULT_ATTACK_DAMAGE])
 		hp = DEFAULT_HP
@@ -205,9 +215,11 @@ func _die() -> void:
 		return
 	_is_dying = true
 	_death_timer = DEATH_ANIM_TIME
-	EventBus.enemy_killed.emit(self, global_position)
-	# 埋点：史莱姆被击倒（M1-02 要求；玩家被碰扣血由 player_hurt 触发，不在此重复埋）
-	EventBus.log_event("slime_killed", {"pos": global_position})
+	var bus := _event_bus()
+	if bus != null:
+		bus.enemy_killed.emit(self, global_position)
+		# 埋点：史莱姆被击倒（M1-02 要求；玩家被碰扣血由 player_hurt 触发，不在此重复埋）
+		bus.log_event("slime_killed", {"pos": global_position})
 	# 肢体与销毁等到压扁动画放完再做（见 _finish_death），别在受击回调里改物理状态
 	_contact_area.set_deferred("monitoring", false)
 	_spawn_death_burst()

@@ -271,6 +271,7 @@ func _dress_terrain() -> void:
 			continue
 		_add_top_rim(body, col)
 		_add_seams_and_moss(body, col)
+		_add_edge_chunks(body, col)
 
 func _add_top_rim(body: StaticBody2D, col: CollisionShape2D) -> void:
 	var shape := col.shape as RectangleShape2D
@@ -339,6 +340,38 @@ func _add_seams_and_moss(body: StaticBody2D, col: CollisionShape2D) -> void:
 			Vector2(mx + _rng.randf_range(4.0, 14.0), top_y - _rng.randf_range(3.0, 7.0)),
 		])
 		body.add_child(moss)
+
+func _add_edge_chunks(body: StaticBody2D, col: CollisionShape2D) -> void:
+	# 平台边缘的小碎石和垂根：把"一整条矩形边"打散，学生试玩时不会觉得地形是硬拼的
+	var shape := col.shape as RectangleShape2D
+	if shape == null:
+		return
+	var half_w := shape.size.x * 0.5
+	var top_y := col.position.y - shape.size.y * 0.5
+	var bottom := col.position.y + shape.size.y * 0.5
+	for side in [-1, 1]:
+		var base_x: float = col.position.x + float(side) * (half_w - 8.0)
+		for k in range(2):
+			var chunk := Polygon2D.new()
+			chunk.color = STONE_GROUND.darkened(_rng.randf_range(0.0, 0.18))
+			var w := _rng.randf_range(5.0, 10.0)
+			var h := _rng.randf_range(3.0, 7.0)
+			chunk.polygon = PackedVector2Array([
+				Vector2(base_x, top_y + 1.0), Vector2(base_x + side * w, top_y + 2.0),
+				Vector2(base_x + side * (w - 2.0), top_y + h), Vector2(base_x, top_y + h + 1.0),
+			])
+			body.add_child(chunk)
+		# 垂根/苔须：从平台底部往下挂，纯装饰，不参与碰撞
+		for k in range(3):
+			var vx: float = base_x + _rng.randf_range(-12.0, 12.0)
+			var vine := Line2D.new()
+			vine.width = 1.0
+			vine.default_color = Color(0.030, 0.050, 0.042, 0.65)
+			vine.points = PackedVector2Array([
+				Vector2(vx, bottom - 2.0),
+				Vector2(vx + _rng.randf_range(-5.0, 5.0), bottom + _rng.randf_range(8.0, 22.0)),
+			])
+			body.add_child(vine)
 
 func _add_wall_rim(body: StaticBody2D, body_name: String) -> void:
 	# 墙的内侧画一条竖直冷光，跟地面的顶面亮边呼应

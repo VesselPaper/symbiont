@@ -33,5 +33,7 @@ func _on_body_entered(body: Node2D) -> void:
 	# mask=2 只探测玩家；has_method 兜底防御（只有玩家挂 take_damage）
 	if not body.has_method("take_damage"):
 		return
-	EventBus.item_picked.emit(item_id, 1)
+	var bus := get_node_or_null("/root/EventBus")
+	if bus != null:
+		bus.item_picked.emit(item_id, 1)
 	queue_free()

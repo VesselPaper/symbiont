@@ -39,6 +39,7 @@ var _visible_chars := 0.0     # 打字机已显示字符数
 var _line_done := false       # 当前条是否已完整显示
 var _pending_id := ""         # 空中触发时挂起的对话 id，落地后再播
 var _player: Node2D
+var _frozen_enemies: Array[Node] = []  # 对话期间被冻结的敌人，结束时按原 process_mode 恢复
 
 func _ready() -> void:
 	if ui_path != NodePath(""):
@@ -47,6 +48,10 @@ func _ready() -> void:
 			push_warning("dialogue: 找不到 ui_path=%s，本组件只走逻辑不显示" % ui_path)
 	_player = _resolve_player()
 	EventBus.player_died.connect(_on_player_died)
+
+func _exit_tree() -> void:
+	# 切场景/测试释放时别把敌人的 process_mode 永远留在 DISABLED
+	_unfreeze_enemies()
 
 func _resolve_player() -> Node2D:
 	if _player != null and is_instance_valid(_player):
@@ -60,6 +65,25 @@ func _resolve_player() -> Node2D:
 func _on_player_died() -> void:
 	# 玩家在挂起期间掉坑死亡：丢掉这次对话，别等复活后突然弹出来
 	_pending_id = ""
+	_unfreeze_enemies()
+
+## 对话期间让敌人"时间停止"：只冻结敌人的 process/physics，不暂停整棵树。
+## 暂停整棵树会把 UI 计时、测试协程和后续场景计时一起停掉；这里只停会攻击玩家的角色。
+func _freeze_enemies() -> void:
+	_unfreeze_enemies()
+	for enemy in get_tree().get_nodes_in_group("enemy"):
+		if enemy == null or not is_instance_valid(enemy) or not enemy.is_inside_tree():
+			continue
+		enemy.set_meta("dialogue_prev_process_mode", enemy.process_mode)
+		enemy.process_mode = Node.PROCESS_MODE_DISABLED
+		_frozen_enemies.append(enemy)
+
+func _unfreeze_enemies() -> void:
+	for enemy in _frozen_enemies:
+		if enemy != null and is_instance_valid(enemy):
+			enemy.process_mode = int(enemy.get_meta("dialogue_prev_process_mode", Node.PROCESS_MODE_INHERIT))
+			enemy.remove_meta("dialogue_prev_process_mode")
+	_frozen_enemies.clear()
 
 func is_playing() -> bool:
 	return _active or _pending_id != ""
@@ -86,9 +110,12 @@ func _start(dialogue_id: String, emit_started: bool) -> void:
 		return
 	_queue = (data["lines"] as Array).duplicate()
 	_next_id = str(data.get("next_id", ""))
+	var was_active := _active
 	_active = true
 	if emit_started:
 		EventBus.dialogue_started.emit(dialogue_id)
+		if not was_active:
+			_freeze_enemies()
 	_show_line(0)
 
 func _show_line(index: int) -> void:
@@ -173,4 +200,5 @@ func _finish() -> void:
 	_set_continue_hint(false)
 	if _ui != null:
 		_ui.hide_box()
+	_unfreeze_enemies()
 	EventBus.dialogue_finished.emit(_entry_dialogue_id)
