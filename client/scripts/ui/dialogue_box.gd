@@ -14,6 +14,7 @@ extends CanvasLayer
 const FONT_PATH := "res://assets/fonts/NotoSansCJKsc-Regular.otf"
 
 @onready var _panel: PanelContainer = $Panel
+@onready var _accent: ColorRect = $Accent
 @onready var _speaker_label: Label = $Panel/Margin/VBox/SpeakerLabel
 @onready var _text_label: Label = $Panel/Margin/VBox/TextLabel
 @onready var _continue_hint: Label = $ContinueHint
@@ -31,9 +32,11 @@ func _ready() -> void:
 
 func show_box() -> void:
 	_panel.visible = true
+	_accent.visible = true
 
 func hide_box() -> void:
 	_panel.visible = false
+	_accent.visible = false
 	# 提示随对话框一起隐藏，防止对话框消失后"按 K 继续"残留
 	_continue_hint.visible = false
 
