@@ -66,8 +66,17 @@ func _process(delta: float) -> void:
 	if not _base_captured:
 		_base_y = position.y
 		_base_captured = true
-	_time += delta
 	position.y = _base_y + sin(_time * float_speed) * float_amplitude
+
+## 教程结束：淡出并彻底关掉触发，避免光点永远停在祭坛/墙里
+func retire() -> void:
+	active = false
+	_trigger_area.set_deferred("monitoring", false)
+	if _tween != null and _tween.is_valid():
+		_tween.kill()
+	var tween := create_tween()
+	tween.tween_property(self, "modulate:a", 0.0, 0.5)
+	tween.tween_callback(hide)
 
 ## 激活光点（软隔离核心）：教程到对应环才调，之前接触无效
 func activate() -> void:

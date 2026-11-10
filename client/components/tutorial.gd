@@ -31,16 +31,19 @@ const WEAPON_FLASH_DURATION := 1.2
 const DONE_HINT_DURATION := 1.0
 
 ## 每步引导光点的目标位置（M1-12 单个光点；M1-13 按组长新布局更新：
-## JumpPlatform x713~1650 顶571、PogoPlatform x1111~1251 顶440、AltarPlatform x2045~2395 顶572）
+## JumpPlatform x713~1700 顶571、PogoPlatform x1111~1251 顶440、
+## AltarPlatform x2045~2521 顶572、PitFloor x1673~2071 顶587。
+## 高度按"玩家站在该地面时脚底=地面顶、身体中心=地面顶-13"来定，
+## 光点停在头顶上方一点，既在视野里又能被 40x40 触发区碰到，不埋进平台/祭坛。
 const MARKER_TARGETS: Array[Vector2] = [
-	Vector2(475, 640),   # MOVE：地面移动目标点
-	Vector2(750, 540),   # JUMP：跳上 JumpPlatform（左缘 713 内侧上方）
-	Vector2(830, 530),   # WEAPON：平台上尸体+剑的位置
-	Vector2(940, 540),   # ATTACK：攻击木桩（假人甲）
-	Vector2(1100, 470),  # POGO：下劈木桩（假人乙，JumpPlatform 上方）
-	Vector2(1870, 550),  # COMBAT：祭坛前面的坑区（PitFloor 顶 587，史莱姆生成处）
-	Vector2(2221, 550),  # PICKUP：祭坛（肢体拾取后去献祭）
-	Vector2(2221, 550),  # SACRIFICE：祭坛
+	Vector2(475, 628),   # MOVE：地面移动目标点（地面顶 659，停在脚上方 31px）
+	Vector2(750, 528),   # JUMP：跳上 JumpPlatform（顶 571，停在鞋底上方 43px）
+	Vector2(830, 528),   # WEAPON：平台上尸体+剑的位置（剑 y549，光点在其上方 21px）
+	Vector2(940, 508),   # ATTACK：攻击木桩（假人甲头顶上方，不埋进稻草人）
+	Vector2(1180, 404),  # POGO：下劈木桩（PogoPlatform 顶 440，停在台面上方）
+	Vector2(1870, 552),  # COMBAT：祭坛前面的坑区（PitFloor 顶 587，史莱姆生成处）
+	Vector2(2221, 498),  # PICKUP：祭坛（停在石碗上方，不穿进祭坛模型）
+	Vector2(2221, 498),  # SACRIFICE：祭坛（同点，献祭完成后光点淡出）
 ]
 
 ## 教学假人节点名（test_arena 内的实例名，见 test_arena.tscn）
@@ -183,6 +186,8 @@ func _on_sacrifice_done(_sacrifice_id: String, _total_count: int) -> void:
 	_step = Step.DONE
 	_done_hint_timer = DONE_HINT_DURATION
 	_show_bubble(DONE_BUBBLE_TEXT)
+	# 教程结束不再需要指路，光点在祭坛上方淡出，避免永远停在场景里
+	_retire_marker()
 
 ## 教程是否已跑完（献祭完成）。场景用它决定下一层的门开不开。
 func is_completed() -> bool:
@@ -233,6 +238,11 @@ func _activate_marker(marker: Node) -> void:
 func _move_marker_to(target_pos: Vector2) -> void:
 	if _marker != null and is_instance_valid(_marker) and _marker.has_method("move_to"):
 		_marker.move_to(target_pos)
+
+## 教程结束：让光点淡出并关掉触发，别把光留在祭坛模型里
+func _retire_marker() -> void:
+	if _marker != null and is_instance_valid(_marker) and _marker.has_method("retire"):
+		_marker.retire()
 
 # ---- 检测 ----
 

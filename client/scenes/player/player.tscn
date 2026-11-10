@@ -159,10 +159,6 @@ monitoring = false
 [node name="CollisionShape2D" type="CollisionShape2D" parent="HitboxSide"]
 shape = SubResource("RectangleShape2D_side")
 
-[node name="Visual" type="Polygon2D" parent="HitboxSide"]
-color = Color(0.6, 0.8, 1, 0.45)
-polygon = PackedVector2Array(-32, -28, 32, -28, 32, 28, -32, 28)
-
 [node name="HitboxDown" type="Area2D" parent="."]
 collision_layer = 0
 collision_mask = 4
@@ -170,7 +166,3 @@ monitoring = false
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="HitboxDown"]
 shape = SubResource("RectangleShape2D_down")
-
-[node name="Visual" type="Polygon2D" parent="HitboxDown"]
-color = Color(0.6, 0.8, 1, 0.45)
-polygon = PackedVector2Array(-32, -14, 32, -14, 32, 14, -32, 14)

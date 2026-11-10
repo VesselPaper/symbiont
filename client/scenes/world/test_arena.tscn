@@ -91,7 +91,7 @@ color = Color(0.15686275, 0.15686275, 0.15686275, 1)
 polygon = PackedVector2Array(-20, -585, 20, -585, 20, 585, -20, 585)
 
 [node name="guide_mark" parent="." unique_id=1284384026 instance=ExtResource("12_marker")]
-position = Vector2(475, 640)
+position = Vector2(475, 628)
 marker_id = "guide_mark"
 
 [node name="Player" parent="." unique_id=791723823 instance=ExtResource("2_player")]

@@ -85,8 +85,6 @@ var _spark: CPUParticles2D      # 命中火花
 @onready var _slash_down: Line2D = $Body/SlashDown
 @onready var _hitbox_side: Area2D = $HitboxSide
 @onready var _hitbox_down: Area2D = $HitboxDown
-@onready var _hitbox_side_visual: Polygon2D = $HitboxSide/Visual
-@onready var _hitbox_down_visual: Polygon2D = $HitboxDown/Visual
 var _hitbox_down_shape: RectangleShape2D  # 下劈命中查询用（M1-13，见 _query_pogo_target）
 
 func _ready() -> void:
@@ -528,9 +526,7 @@ func _update_hitbox_pose() -> void:
 	# 横砍/下砍判定框按"攻击锁定朝向"定位：攻击中按反方向键只改移动，不改变已出手的攻击方向
 	_hitbox_side.position = Vector2(SIDE_HITBOX_OFFSET.x * _attack_dir, SIDE_HITBOX_OFFSET.y)
 	_hitbox_down.position = Vector2(POGO_HITBOX_OFFSET.x * _attack_dir, POGO_HITBOX_OFFSET.y)
-	# 占位阶段把判定框可视层与开关绑定，便于在编辑器中观察攻击范围
-	_hitbox_side_visual.visible = _hitbox_side.monitoring
-	_hitbox_down_visual.visible = _hitbox_down.monitoring
+	# 判定框只在逻辑层生效；挥砍反馈由 SlashArc / SlashDown 两条弧线承担，不再画调试矩形
 
 func _on_hitbox_side_body_entered(body: Node2D) -> void:
 	_apply_hit(body)
