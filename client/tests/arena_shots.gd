@@ -17,10 +17,11 @@ var _last_t := 0.0
 const STOPS := [
 	{"move": 0.20, "shot": 0.75, "pos": Vector2(300.0, 647.0), "name": "arena_entry"},
 	{"move": 1.15, "shot": 1.70, "pos": Vector2(880.0, 555.0), "name": "arena_combat"},
-	{"move": 2.10, "shot": 2.65, "pos": Vector2(2150.0, 558.0), "name": "arena_altar"},
+	{"move": 1.90, "shot": 2.45, "pos": Vector2(1800.0, 560.0), "name": "arena_pit"},
+	{"move": 2.85, "shot": 3.40, "pos": Vector2(2150.0, 558.0), "name": "arena_altar"},
 ]
 
-var _moved: Array[bool] = [false, false, false]
+var _moved: Array[bool] = [false, false, false, false]
 
 func _process(delta: float) -> bool:
 	if not _started:
