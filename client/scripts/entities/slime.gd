@@ -210,6 +210,36 @@ func _die() -> void:
 	EventBus.log_event("slime_killed", {"pos": global_position})
 	# 肢体与销毁等到压扁动画放完再做（见 _finish_death），别在受击回调里改物理状态
 	_contact_area.set_deferred("monitoring", false)
+	_spawn_death_burst()
+
+## 死亡时炸一簇绿色孢子；粒子挂在父节点上，史莱姆本体压扁消失后还能飘完
+func _spawn_death_burst() -> void:
+	var parent := get_parent()
+	if parent == null:
+		return
+	var p := CPUParticles2D.new()
+	p.amount = 16
+	p.lifetime = 0.45
+	p.one_shot = true
+	p.explosiveness = 1.0
+	p.direction = Vector2(0, -1)
+	p.spread = 180.0
+	p.gravity = Vector2(0, 70)
+	p.initial_velocity_min = 40.0
+	p.initial_velocity_max = 105.0
+	p.scale_amount_min = 0.5
+	p.scale_amount_max = 1.5
+	p.color = Color(0.55, 0.90, 0.58, 0.85)
+	var img := Image.create(4, 4, false, Image.FORMAT_RGBA8)
+	for y in range(4):
+		for x in range(4):
+			var d := Vector2(x - 1.5, y - 1.5).length() / 2.0
+			img.set_pixel(x, y, Color(1, 1, 1, clampf(1.0 - d, 0.0, 1.0)))
+	p.texture = ImageTexture.create_from_image(img)
+	p.global_position = global_position
+	parent.add_child(p)
+	p.emitting = true
+	get_tree().create_timer(0.7).timeout.connect(p.queue_free)
 
 func _finish_death() -> void:
 	if not is_inside_tree():

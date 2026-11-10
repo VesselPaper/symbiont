@@ -71,6 +71,10 @@ var _hurt_timer := 0.0          # 受击缩身剩余时间
 var _death_timer := 0.0         # 倒地剩余时间，走完才复活
 var _revive_timer := 0.0        # 复活起身剩余时间
 var _weapon_flash_timer := 0.0  # 捡剑亮光
+var _last_air_vy := 0.0         # 离地时的下落速度，用来判断落地扬尘的力度
+var _was_on_floor := false
+var _dust: CPUParticles2D       # 落地扬尘
+var _spark: CPUParticles2D      # 命中火花
 
 @onready var _body: Node2D = $Body
 @onready var _cloak: Polygon2D = $Body/Cloak
@@ -98,6 +102,7 @@ func _ready() -> void:
 	_slash.points = _make_arc(Vector2.ZERO, 26.0, 10.0, -1.7, 0.95, 10)
 	_slash_down.points = _make_arc(Vector2.ZERO, 24.0, 8.0, 0.15, 2.95, 8)
 	_sword.visible = has_weapon
+	_build_fx()
 	# 对话开始锁输入、整段播完解锁（对话期间角色不能操作）
 	EventBus.dialogue_started.connect(_on_dialogue_started)
 	EventBus.dialogue_finished.connect(_on_dialogue_finished)
@@ -106,6 +111,11 @@ func _ready() -> void:
 
 func _physics_process(delta: float) -> void:
 	_update_jump_timers(delta)
+	# 记录离地时的下落速度：落地那一帧用来看要不要扬尘（轻落脚不扬）
+	if is_on_floor():
+		_last_air_vy = 0.0
+	else:
+		_last_air_vy = maxf(_last_air_vy, velocity.y)
 	# 倒地 / 复活起身期间不接受操作，只保留重力与碰撞（表现走完再交还控制权）
 	if _is_dead or _revive_timer > 0.0:
 		velocity.x = move_toward(velocity.x, 0.0, 900.0 * delta)
@@ -149,6 +159,7 @@ func _on_item_picked(item_id: String, _count: int) -> void:
 func _process(delta: float) -> void:
 	_update_invincibility(delta)
 	_update_anim_timers(delta)
+	_update_landing_dust()
 	_update_visual_anim(delta)
 
 ## 表现层计时：挥砍 / 受击 / 捡剑亮光 / 倒地到复活
@@ -302,6 +313,66 @@ func _update_visual_anim(delta: float) -> void:
 		_sword.modulate = Color(1.8, 1.9, 1.6, 1.0)
 	else:
 		_sword.modulate = Color(1, 1, 1, 1)
+
+## 打击火花：命中点炸一小簇冷白点，补足"打到了"的反馈（不加任何判定）
+func _spawn_hit_spark(pos: Vector2) -> void:
+	if _spark == null:
+		return
+	_spark.global_position = pos
+	_spark.restart()
+	_spark.emitting = true
+
+## 落地扬尘：只有下落速度够快才扬，轻跳落地不出尘
+func _update_landing_dust() -> void:
+	var on_floor := is_on_floor()
+	if on_floor and not _was_on_floor and _last_air_vy > 260.0 and _dust != null:
+		_dust.global_position = global_position + Vector2(0, 13)
+		_dust.restart()
+		_dust.emitting = true
+	_was_on_floor = on_floor
+
+func _build_fx() -> void:
+	var fx := Node2D.new()
+	fx.name = "Fx"
+	fx.z_index = 1
+	add_child(fx)
+	_dust = _make_burst(Color(0.36, 0.39, 0.39, 0.65), 10, 0.45, 34.0, 170.0, -30.0, 0.5, 1.6)
+	_dust.name = "LandingDust"
+	fx.add_child(_dust)
+	_spark = _make_burst(Color(0.80, 0.95, 1.0, 0.95), 12, 0.26, 120.0, 180.0, 180.0, 0.4, 1.2)
+	_spark.name = "HitSpark"
+	var spark_mat := CanvasItemMaterial.new()
+	spark_mat.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
+	_spark.material = spark_mat
+	fx.add_child(_spark)
+
+func _make_burst(color: Color, amount: int, lifetime: float, speed: float, spread: float, gravity: float, scale_min: float, scale_max: float) -> CPUParticles2D:
+	var p := CPUParticles2D.new()
+	p.amount = amount
+	p.lifetime = lifetime
+	p.one_shot = true
+	p.emitting = false
+	p.explosiveness = 0.95
+	p.direction = Vector2(0, -1)
+	p.spread = spread
+	p.gravity = Vector2(0, gravity)
+	p.initial_velocity_min = speed * 0.5
+	p.initial_velocity_max = speed
+	p.scale_amount_min = scale_min
+	p.scale_amount_max = scale_max
+	p.color = color
+	p.texture = _dot_texture()
+	p.local_coords = false
+	return p
+
+func _dot_texture() -> ImageTexture:
+	var img := Image.create(4, 4, false, Image.FORMAT_RGBA8)
+	for y in range(4):
+		for x in range(4):
+			var d := Vector2(x - 1.5, y - 1.5).length() / 2.0
+			var a := clampf(1.0 - d, 0.0, 1.0)
+			img.set_pixel(x, y, Color(1, 1, 1, a))
+	return ImageTexture.create_from_image(img)
 
 ## 生成一条弧线（残影用）：圆心 + 半径 + 起止角 + 分段数
 func _make_arc(center: Vector2, radius: float, width: float, from_angle: float, to_angle: float, steps: int) -> PackedVector2Array:
@@ -486,6 +557,7 @@ func _apply_hit(body: Node2D) -> void:
 	_hit_this_swing.append(body)
 	if body.has_method("take_damage"):
 		body.take_damage(ATTACK_DAMAGE)
+	_spawn_hit_spark(body.global_position)
 
 # ---- 受击 / 死亡 ----
 

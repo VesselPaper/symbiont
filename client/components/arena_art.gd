@@ -381,33 +381,14 @@ func _dress_props() -> void:
 		chain.points = pts
 		props.add_child(chain)
 	# 出生点左边一盏吊灯：给入口一点暖光，玩家一睁眼能看到路
-	var lantern := Node2D.new()
-	lantern.name = "EntryLantern"
-	lantern.position = Vector2(232.0, 552.0)
-	props.add_child(lantern)
-	var cage := Polygon2D.new()
-	cage.color = Color(0.16, 0.15, 0.13, 1)
-	cage.polygon = PackedVector2Array([
-		Vector2(-7, -10), Vector2(7, -10), Vector2(9, 8), Vector2(-9, 8)
-	])
-	lantern.add_child(cage)
-	var glass := Polygon2D.new()
-	glass.color = Color(1.0, 0.66, 0.34, 0.95)
-	glass.polygon = PackedVector2Array([Vector2(-4, -6), Vector2(4, -6), Vector2(3, 5), Vector2(-3, 5)])
-	lantern.add_child(glass)
-	var halo := Sprite2D.new()
-	halo.texture = _radial_texture()
-	halo.modulate = Color(1.0, 0.66, 0.34, 0.30)
-	halo.scale = Vector2(0.40, 0.40)
-	halo.position = Vector2(0, 2)
-	lantern.add_child(halo)
-	var light := PointLight2D.new()
-	light.texture = _radial_texture()
-	light.color = Color(1.0, 0.70, 0.44)
-	light.energy = 0.32
-	light.texture_scale = 1.2
-	light.position = Vector2(0, 2)
-	lantern.add_child(light)
+	_add_lantern(props, Vector2(232.0, 552.0), 210.0, 0.40, 0.34)
+	# 中段和祭坛区再挂两盏，给长走廊一点暖色路标（不挡路，只在背景层）
+	_add_lantern(props, Vector2(760.0, 505.0), 210.0, 0.34, 0.26)
+	_add_lantern(props, Vector2(1500.0, 512.0), 210.0, 0.30, 0.22)
+	_add_lantern(props, Vector2(2060.0, 500.0), 210.0, 0.32, 0.24)
+	# 两根立在台面上的断柱：近景有高有低，画面才不是一条水平线
+	_add_broken_pillar(props, 140.0, 660.0, 340.0, 48.0)
+	_add_broken_pillar(props, 1960.0, 660.0, 300.0, 42.0)
 	# 碎石：平台边角和地面散几块，别让地面是一条直线
 	for i in range(6):
 		var rock := Polygon2D.new()
@@ -438,6 +419,79 @@ func _dress_props() -> void:
 			corpse.add_child(rib)
 
 # ---------- 小工具 ----------
+
+## 吊灯：一根锁链 + 铁笼 + 暖色玻璃 + 光晕 + 点光；入口那盏最亮，往深处逐渐弱
+func _add_lantern(parent: Node2D, pos: Vector2, chain_top: float, halo_strength: float, light_energy: float) -> void:
+	var chain := Line2D.new()
+	chain.width = 2.2
+	chain.default_color = Color(0.13, 0.14, 0.15, 0.95)
+	var pts := PackedVector2Array()
+	var y := chain_top
+	while y < pos.y - 10.0:
+		pts.append(Vector2(pos.x + (3.0 if int(y) % 4 == 0 else -3.0), y))
+		y += 14.0
+	chain.points = pts
+	parent.add_child(chain)
+
+	var lantern := Node2D.new()
+	lantern.position = pos
+	parent.add_child(lantern)
+	var cage := Polygon2D.new()
+	cage.color = Color(0.16, 0.15, 0.13, 1)
+	cage.polygon = PackedVector2Array([
+		Vector2(-7, -10), Vector2(7, -10), Vector2(9, 8), Vector2(-9, 8)
+	])
+	lantern.add_child(cage)
+	var glass := Polygon2D.new()
+	glass.color = Color(1.0, 0.66, 0.34, 0.95)
+	glass.polygon = PackedVector2Array([Vector2(-4, -6), Vector2(4, -6), Vector2(3, 5), Vector2(-3, 5)])
+	lantern.add_child(glass)
+	var halo := Sprite2D.new()
+	halo.texture = _radial_texture()
+	halo.modulate = Color(1.0, 0.66, 0.34, halo_strength)
+	halo.scale = Vector2(0.38, 0.38)
+	halo.position = Vector2(0, 2)
+	lantern.add_child(halo)
+	var light := PointLight2D.new()
+	light.texture = _radial_texture()
+	light.color = Color(1.0, 0.70, 0.44)
+	light.energy = light_energy
+	light.texture_scale = 1.3
+	light.position = Vector2(0, 2)
+	lantern.add_child(light)
+
+## 断柱：立在台面上的残柱，断口用两三段折线，左侧一条轮廓光
+func _add_broken_pillar(parent: Node2D, x: float, base_y: float, height: float, width: float) -> void:
+	var half := width * 0.5
+	var pillar := Polygon2D.new()
+	pillar.color = Color(0.165, 0.185, 0.195, 1)
+	pillar.polygon = PackedVector2Array([
+		Vector2(x - half, base_y - 6.0), Vector2(x - half, base_y - height),
+		Vector2(x - half + 8.0, base_y - height + 14.0),
+		Vector2(x + half - 7.0, base_y - height - 10.0),
+		Vector2(x + half, base_y - height + 4.0),
+		Vector2(x + half, base_y - 6.0),
+	])
+	parent.add_child(pillar)
+	var rim := Line2D.new()
+	rim.width = 1.8
+	rim.default_color = Color(0.30, 0.40, 0.42, 0.40)
+	rim.points = PackedVector2Array([
+		Vector2(x - half + 1.0, base_y - 16.0),
+		Vector2(x - half + 1.0, base_y - height + 10.0),
+	])
+	parent.add_child(rim)
+	# 柱脚碎石，避免柱子像插进地板里
+	for i in range(2):
+		var rock := Polygon2D.new()
+		rock.color = Color(0.12, 0.14, 0.15, 0.95)
+		var s := 7.0 + 4.0 * i
+		rock.polygon = PackedVector2Array([
+			Vector2(-s, 0), Vector2(-s * 0.4, -s * 0.8),
+			Vector2(s * 0.6, -s * 0.5), Vector2(s, 0),
+		])
+		rock.position = Vector2(x - half + 4.0 + 10.0 * i, base_y - 4.0)
+		parent.add_child(rock)
 
 func _ellipse(rx: float, ry: float, segments: int) -> PackedVector2Array:
 	var pts := PackedVector2Array()
