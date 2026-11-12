@@ -1,0 +1,15 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/entities/spore_shooter.gd" id="1_shooter"]
+
+[sub_resource type="CircleShape2D" id="Shape_shooter"]
+radius = 14.0
+
+[node name="SporeShooter" type="CharacterBody2D"]
+collision_layer = 4
+collision_mask = 1
+script = ExtResource("1_shooter")
+
+[node name="Shape" type="CollisionShape2D" parent="."]
+shape = SubResource("Shape_shooter")
+position = Vector2(0, 2)

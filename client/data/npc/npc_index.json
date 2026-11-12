@@ -6,5 +6,9 @@
   "engineer_master": {
     "name": "工程师",
     "faction": "engineer"
+  },
+  "watchman": {
+    "name": "守钟人",
+    "faction": ""
   }
 }

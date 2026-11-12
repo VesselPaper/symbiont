@@ -11,11 +11,21 @@ var state: GameState = GameState.BOOT
 var sacrifice_count: int = 0          # 献祭次数（结局结算依据，见 GDD）
 var monster_limb_count: int = 0       # 怪物肢体持有数（拾取记账、献祭消耗，见 M1-04）
 var current_floor: String = "floor_1"
+var has_weapon: bool = false          # 跨层/复活保留铁剑；不能只存在 Player 实例里
+var has_steam_boots: bool = false     # 蒸汽靴（二段跳）；宝箱开启后跨层/复活保留
 var faction: String = ""              # "" / "heretic" / "engineer"（第二层抉择）
 var flags: Dictionary = {}            # 通用剧情旗标（flag_<名称> = true）
 
 func _ready() -> void:
 	state = GameState.MAIN_MENU
+	# M4-05：音频总监挂在 GameManager 下，不新增 autoload，避免打乱单例顺序。
+	# 无头回归不创建（AudioServer 是 dummy，退出时会留下资源占用报告）。
+	if DisplayServer.get_name() != "headless" and OS.get_environment("SYMBIONT_NO_AUDIO") != "1":
+		var audio_scene := load("res://scenes/audio/audio_director.tscn") as PackedScene
+		if audio_scene != null:
+			var audio := audio_scene.instantiate()
+			audio.name = "AudioDirector"
+			add_child(audio)
 	# M1-04：肢体拾取物广播 item_picked 时统一记账；只认 monster_limb，避免误加其它物品
 	EventBus.item_picked.connect(_on_item_picked)
 
@@ -23,6 +33,13 @@ func _ready() -> void:
 func _on_item_picked(item_id: String, count: int) -> void:
 	if item_id == "monster_limb":
 		add_monster_limb(count)
+
+## 业务脚本统一通过 GameManager 播一次性音效；AudioDirector 不在就不响，不阻断逻辑。
+## volume_db 是相对基准的增减，pitch 用于同一种脚步/受击声的细微变化。
+func play_sfx(sfx_name: String, volume_db: float = 0.0, pitch: float = 1.0) -> void:
+	var audio := get_node_or_null("AudioDirector")
+	if audio != null and audio.has_method("play_sfx"):
+		audio.call("play_sfx", sfx_name, volume_db, pitch)
 
 ## 增加肢体持有数（n 为拾取数量，通常为 1）
 func add_monster_limb(n: int) -> void:
@@ -39,6 +56,8 @@ func start_new_game() -> void:
 	sacrifice_count = 0
 	monster_limb_count = 0
 	current_floor = "floor_1"
+	has_weapon = false
+	has_steam_boots = false
 	faction = ""
 	flags.clear()
 	_change_state(GameState.PLAYING)
@@ -67,6 +86,8 @@ func to_dict() -> Dictionary:
 		"sacrifice_count": sacrifice_count,
 		"monster_limb_count": monster_limb_count,
 		"current_floor": current_floor,
+		"has_weapon": has_weapon,
+		"has_steam_boots": has_steam_boots,
 		"faction": faction,
 		"flags": flags,
 	}
@@ -75,5 +96,7 @@ func from_dict(data: Dictionary) -> void:
 	sacrifice_count = int(data.get("sacrifice_count", 0))
 	monster_limb_count = int(data.get("monster_limb_count", 0))
 	current_floor = str(data.get("current_floor", "floor_1"))
+	has_weapon = bool(data.get("has_weapon", false))
+	has_steam_boots = bool(data.get("has_steam_boots", false))
 	faction = str(data.get("faction", ""))
 	flags = data.get("flags", {})

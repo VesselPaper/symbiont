@@ -14,6 +14,7 @@ signal player_moved_between_floors(floor_id: String)
 # ---- 战斗 ----
 signal enemy_spawned(enemy: Node)
 signal enemy_killed(enemy: Node, position: Vector2)
+signal boss_encounter_started(boss_id: String)
 signal boss_defeated(boss_id: String)
 
 # ---- 物品 / 献祭 ----

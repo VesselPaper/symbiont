@@ -28,7 +28,7 @@ item_id = "iron_sword"
 float_amplitude = 0.0
 
 [node name="Visuals" type="Node2D" parent="." unique_id=1009140819]
-position = Vector2(0, -6)
+position = Vector2(0, -1)
 
 [node name="Glow" type="Sprite2D" parent="Visuals"]
 position = Vector2(10, 0)

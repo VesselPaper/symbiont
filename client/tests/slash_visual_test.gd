@@ -22,6 +22,8 @@ func _process(_delta: float) -> bool:
 	if not _started:
 		_started = true
 		var slash: Line2D = _player.get_node("Body/SlashArc")
+		var glow: Line2D = _player.get_node_or_null("Body/SlashGlow") as Line2D
+		var core: Line2D = _player.get_node_or_null("Body/SlashCore") as Line2D
 		var hitbox: Area2D = _player.get_node("HitboxSide")
 		var hitbox_shape := (hitbox.get_node("CollisionShape2D") as CollisionShape2D).shape as RectangleShape2D
 		var consts: Dictionary = _player.get_script().get_script_constant_map()
@@ -29,9 +31,9 @@ func _process(_delta: float) -> bool:
 		var max_x := 0.0
 		for p in slash.points:
 			max_x = maxf(max_x, p.x)
-		print("[slash] anim=%.2fs radius_points=%.1f hitbox_w=%.1f line_w=%.1f color=%s" % [
+		print("[slash] anim=%.2fs radius_points=%.1f hitbox_w=%.1f line_w=%.1f glow_w=%.1f core_w=%.1f" % [
 			anim_time, max_x, hitbox_shape.size.x,
-			slash.width, str(slash.default_color)])
+			slash.width, glow.width if glow != null else -1.0, core.width if core != null else -1.0])
 		if anim_time < 0.40:
 			push_error("[slash] FAIL 挥砍动作仍太短")
 			_failed = true
@@ -43,6 +45,19 @@ func _process(_delta: float) -> bool:
 			_failed = true
 		if slash.width < 5.0:
 			push_error("[slash] FAIL 刀光太细")
+			_failed = true
+		if glow == null or core == null:
+			push_error("[slash] FAIL 缺少外层柔光/内层白芯")
+			_failed = true
+		elif glow.width < 12.0 or core.width > 2.5:
+			push_error("[slash] FAIL 刀光层次比例不对")
+			_failed = true
+		if slash.gradient == null or slash.width_curve == null:
+			push_error("[slash] FAIL 主刀光没有渐变/宽度曲线")
+			_failed = true
+		var ring: Line2D = _player.get_node_or_null("Fx/HitRing") as Line2D
+		if ring == null:
+			push_error("[slash] FAIL 缺少命中扩散环")
 			_failed = true
 		# 不依赖帧数：把动作放到挥砍中段，直接刷新一次视觉，检查弧线确实亮起
 		_player.set("_attack_anim_timer", 0.25)

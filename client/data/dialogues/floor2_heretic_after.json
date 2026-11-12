@@ -1,0 +1,17 @@
+{
+  "id": "floor2_heretic_after",
+  "npc_id": "heretic_priest",
+  "title": "圣坛上的规矩",
+  "lines": [
+    {
+      "speaker": "祭司",
+      "text": "神不说话。祂只在你献上东西时，轻轻动一下。"
+    },
+    {
+      "speaker": "祭司",
+      "text": "上面的人把门守得很紧。他们怕的不是你，是你身后那位。"
+    }
+  ],
+  "next_id": "",
+  "branch": ""
+}

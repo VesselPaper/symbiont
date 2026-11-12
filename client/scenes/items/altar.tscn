@@ -113,6 +113,7 @@ position = Vector2(0, -15)
 shape = SubResource("RectangleShape2D_altar")
 
 [node name="HintLabel" type="Label" parent="."]
+z_index = 5
 position = Vector2(-80, -78)
 size = Vector2(160, 24)
 horizontal_alignment = 1

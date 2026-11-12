@@ -26,7 +26,9 @@ func _process(delta: float) -> bool:
 		_opened = true
 		var tutorial := _arena.get_node("Tutorial")
 		tutorial.set("_step", 8)  # 等价于献祭完成（DONE）
-		_player.global_position = Vector2(2380, 645)
+		# 站到层门前面：门的位置由 STAGE 表定（M4-19 拉宽后在整张地图最右）
+		var door := _arena.get_node("NextFloorDoor") as Node2D
+		_player.global_position = Vector2(door.global_position.x - 70.0, 645)
 	if not _shot and _elapsed >= 1.00:
 		_shot = true
 		var dbox := _arena.get_node("DialogueBox") as CanvasLayer

@@ -1,0 +1,21 @@
+{
+  "id": "floor2_heretic_offer",
+  "npc_id": "heretic_priest",
+  "title": "祭司的提议",
+  "lines": [
+    {
+      "speaker": "祭司",
+      "text": "孩子，你身上有神的味道。不是香水，是血里长出来的那种。"
+    },
+    {
+      "speaker": "祭司",
+      "text": "工程师给你铁，我给你肉。铁会锈，肉会记得怎么长回来。"
+    },
+    {
+      "speaker": "祭司",
+      "text": "让我把你的腿接上神性。跳得一样高，可你会听见落地时骨头在唱歌。"
+    }
+  ],
+  "next_id": "",
+  "branch": ""
+}

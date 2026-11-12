@@ -18,4 +18,19 @@ client/data/<表>/*.json           (Godot 运行时由 DataDB 加载)
 
 **铁律**：`client/data/` 下的 JSON 是生成物，禁止手改。改数据 = 改 SQL → 重新导出。
 
+音频生成：
+
+```
+tools/audio_synth.py      合成底层（滤波/模态钟/拨弦/合唱/和弦垫）
+      │
+tools/generate_audio.py   曲目与音效定义
+      │  python tools/generate_audio.py
+      │  python tools/generate_audio.py --sfx-only   # 只改音效时省时间
+      ▼
+client/assets/audio/*.wav + *.import
+```
+
+- `audio_audit.py`：打印时长、峰值、RMS、频谱分布、循环接缝；用带 numpy 的 Python 跑，只做客观体检。
+- 生成后必须让 Godot 重新导入：`--headless --editor --path client --quit`。
+
 后续可在此增加：`asset_audit.py`（素材引用完整性检查）、AI 精灵图处理脚本等。

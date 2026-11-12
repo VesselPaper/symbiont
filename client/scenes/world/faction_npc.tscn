@@ -1,0 +1,14 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/faction_npc.gd" id="1_npc"]
+
+[sub_resource type="CircleShape2D" id="Shape_npc"]
+radius = 58.0
+
+[node name="FactionNPC" type="Area2D" groups=["faction_npc"]]
+collision_layer = 0
+collision_mask = 2
+script = ExtResource("1_npc")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("Shape_npc")

@@ -1,0 +1,19 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/objective_hud.gd" id="1_hud"]
+
+[node name="ObjectiveHUD" type="Node2D"]
+z_index = 6
+script = ExtResource("1_hud")
+
+[node name="Label" type="Label" parent="."]
+position = Vector2(-260, -30)
+size = Vector2(520, 60)
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 2
+theme_override_colors/font_color = Color(0.70, 0.88, 0.84, 0.58)
+theme_override_colors/font_outline_color = Color(0.02, 0.035, 0.038, 0.72)
+theme_override_constants/outline_size = 3
+theme_override_font_sizes/font_size = 20
+text = "目标"

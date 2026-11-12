@@ -1,0 +1,17 @@
+{
+  "id": "floor2_engineer_after",
+  "npc_id": "engineer_master",
+  "title": "工坊里的规矩",
+  "lines": [
+    {
+      "speaker": "工程师",
+      "text": "别把炉门关死。留一条缝，压力才有地方去。"
+    },
+    {
+      "speaker": "工程师",
+      "text": "上面那扇门后是守门的东西。它不怕火，也不怕蒸汽。"
+    }
+  ],
+  "next_id": "",
+  "branch": ""
+}

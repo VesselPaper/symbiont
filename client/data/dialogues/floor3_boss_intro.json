@@ -1,0 +1,21 @@
+{
+  "id": "floor3_boss_intro",
+  "npc_id": "gatekeeper_boss",
+  "title": "上一任容器",
+  "lines": [
+    {
+      "speaker": "守门者",
+      "text": "又来了一个。你身上有它的味道，比我当年还重。"
+    },
+    {
+      "speaker": "守门者",
+      "text": "我数过。走到这里的每一个人，都以为自己能出去。"
+    },
+    {
+      "speaker": "守门者",
+      "text": "门归我守。你要过去，就把我剩下的这点东西也拿走吧。"
+    }
+  ],
+  "next_id": "",
+  "branch": ""
+}

@@ -1,0 +1,15 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/watchman.gd" id="1_watch"]
+
+[sub_resource type="RectangleShape2D" id="Shape_watch"]
+size = Vector2(104, 108)
+
+[node name="Watchman" type="Area2D"]
+collision_layer = 0
+collision_mask = 2
+script = ExtResource("1_watch")
+
+[node name="Shape" type="CollisionShape2D" parent="."]
+shape = SubResource("Shape_watch")
+position = Vector2(0, -18)

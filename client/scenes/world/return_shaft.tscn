@@ -1,0 +1,14 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/return_shaft.gd" id="1_shaft"]
+
+[sub_resource type="CircleShape2D" id="Shape_shaft"]
+radius = 58.0
+
+[node name="ReturnShaft" type="Area2D"]
+collision_layer = 0
+collision_mask = 2
+script = ExtResource("1_shaft")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("Shape_shaft")

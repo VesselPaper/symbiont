@@ -7,7 +7,6 @@
 [ext_resource type="PackedScene" path="res://scenes/ui/dialogue_box.tscn" id="5_dbox"]
 [ext_resource type="Script" path="res://components/dialogue.gd" id="6_dlg"]
 [ext_resource type="PackedScene" path="res://scenes/items/altar.tscn" id="7_altar"]
-[ext_resource type="PackedScene" path="res://scenes/items/weapon_pickup.tscn" id="8_sword"]
 
 [node name="Floor1" type="Node2D"]
 script = ExtResource("1_level")
@@ -16,7 +15,7 @@ script = ExtResource("1_level")
 z_index = -3
 script = ExtResource("2_backdrop")
 camera_path = NodePath("../Camera2D")
-world_width = 4600.0
+world_width = 6160.0
 world_top = -200.0
 world_bottom = 760.0
 
@@ -26,7 +25,7 @@ position = Vector2(140, 560)
 [node name="Camera2D" type="Camera2D" parent="."]
 limit_left = 0
 limit_top = 0
-limit_right = 4600
+limit_right = 6160
 limit_bottom = 1200
 script = ExtResource("4_cam")
 target_path = NodePath("../Player")
@@ -39,9 +38,5 @@ script = ExtResource("6_dlg")
 ui_path = NodePath("../DialogueBox")
 
 [node name="Altar" parent="." instance=ExtResource("7_altar")]
-position = Vector2(2600, 596)
-
-[node name="WeaponPickup" parent="." instance=ExtResource("8_sword")]
-position = Vector2(330, 604)
-rotation = 0.35
+position = Vector2(3460, 596)
 

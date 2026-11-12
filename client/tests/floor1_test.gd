@@ -37,11 +37,11 @@ func _run_checks() -> void:
 		_failed = true
 		return
 
-	# 地形：12 块平台/边界墙（M2-04 扩建后：入口、钟厅、台阶、祭坛、断桥、遗物廊、层门厅 + 两墙）
+	# 地形：13 块平台/边界墙（M4-08 后段扩建：入口、钟厅、台阶、祭坛、断桥、遗物廊、层门厅两段 + 两墙）
 	var terrain := _level.get_node_or_null("Terrain")
 	_check(terrain != null, "缺少 Terrain 节点")
 	if terrain != null:
-		_check(terrain.get_child_count() == 12, "地形数量应为 12，实际 %d" % terrain.get_child_count())
+		_check(terrain.get_child_count() == 13, "地形数量应为 13，实际 %d" % terrain.get_child_count())
 		var first := terrain.get_child(0) as StaticBody2D
 		_check(first != null, "地形子节点不是 StaticBody2D")
 		if first != null:
@@ -57,12 +57,41 @@ func _run_checks() -> void:
 		for trigger_name in ["BellTrigger", "AltarTrigger", "BridgeTrigger", "RelicTrigger", "GateTrigger"]:
 			_check(triggers.get_node_or_null(trigger_name) != null, "缺少触发器 %s" % trigger_name)
 
+	# 机关与守钟人（M2-06）：骨门初始挡路，钟绳/NPC 在骨门左侧
+	var mechanisms := _level.get_node_or_null("Mechanisms")
+	_check(mechanisms != null, "缺少 Mechanisms")
+	if mechanisms != null:
+		_check(mechanisms.get_node_or_null("BoneGate") != null, "缺少 BoneGate")
+		_check(mechanisms.get_node_or_null("BellMechanism") != null, "缺少 BellMechanism")
+		_check(mechanisms.get_node_or_null("Watchman") != null, "缺少 Watchman")
+		var gate := mechanisms.get_node_or_null("BoneGate") as StaticBody2D
+		if gate != null:
+			_check(gate.collision_layer == 1, "骨门初始应挡住玩家")
+			_check(gate.get_node_or_null("Shape") != null, "骨门缺少碰撞形状")
+
+	# M4-04：层门只路过播一次，不再挂 K；只保留祭坛这个关键机制提示
+	var inspect := _level.get_node_or_null("InspectPoints")
+	_check(inspect != null, "缺少 InspectPoints")
+	if inspect != null:
+		_check(inspect.get_child_count() == 1, "调查点应为 1 个（只留祭坛），实际 %d" % inspect.get_child_count())
+		_check(inspect.get_node_or_null("AltarInspect") != null, "缺少祭坛调查点")
+		_check(inspect.get_node_or_null("GateInspect") == null, "层门不应再有重复 K 调查点")
+
 	# 掉出地图的重伤区
 	_check(_level.get_node_or_null("KillZone") != null, "缺少 KillZone")
 
-	# 敌人
+	# M3-01：层门后接真正的第二层，门缝判定和黑场遮罩都要在
+	_check(_level.get_node_or_null("Floor2Entry") != null, "缺少第二层入口判定")
+	var transition := _level.get_node_or_null("Floor2Transition")
+	_check(transition != null, "缺少第二层转场层")
+	if transition != null:
+		_check(transition.get_node_or_null("Fade") != null, "缺少转场黑幕")
+		_check(transition.get_node_or_null("FloorName") != null, "缺少第二层层名")
+
+	# 敌人（M4-18：钟厅不给怪，只剩钟厅之后的两只史莱姆 + 一只孢子射手）
 	var enemies := _level.get_node_or_null("Enemies")
-	_check(enemies != null and enemies.get_child_count() == 3, "史莱姆应为 3 只")
+	_check(enemies != null and enemies.get_child_count() == 3, "敌人应为 2 只史莱姆 + 1 只孢子射手")
+	_check(enemies != null and enemies.get_node_or_null("SporeShooter") != null, "缺少 SporeShooter")
 	# 剧情触发器周围不放怪：每个触发器和最近史莱姆至少隔 200px
 	if enemies != null and triggers != null:
 		for trigger in triggers.get_children():
@@ -92,7 +121,7 @@ func _run_checks() -> void:
 	var db := root.get_node_or_null("/root/DataDB")
 	_check(db != null, "缺少 DataDB")
 	if db != null:
-		for dialogue_id in ["floor1_enter", "floor1_bell", "floor1_altar", "floor1_bridge", "floor1_relic", "floor1_gate"]:
+		for dialogue_id in ["floor1_enter", "floor1_bell", "floor1_altar", "floor1_bridge", "floor1_relic", "floor1_gate", "floor1_watchman", "floor1_watchman_after", "floor1_bell_ring"]:
 			var row: Dictionary = db.get_dialogue(dialogue_id)
 			_check(not row.is_empty(), "对话 %s 不在数据表里" % dialogue_id)
 			_check(row.has("lines") and (row["lines"] as Array).size() > 0, "对话 %s 没有台词" % dialogue_id)

@@ -1,0 +1,17 @@
+{
+  "id": "floor1_watchman_after",
+  "npc_id": "watchman",
+  "title": "钟响之后",
+  "lines": [
+    {
+      "speaker": "守钟人",
+      "text": "听见了吗？它在钟肚子里翻身。"
+    },
+    {
+      "speaker": "守钟人",
+      "text": "骨门开了。你欠下面的东西一笔债，记得还。"
+    }
+  ],
+  "next_id": "",
+  "branch": ""
+}

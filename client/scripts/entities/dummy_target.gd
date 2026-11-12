@@ -14,6 +14,10 @@ const HIT_FLASH_COLOR := Color(1.0, 0.45, 0.35)
 
 var active := false                     # M1-10：未激活时受击无效（软隔离）
 var hp := MAX_HP
+## 木桩固定在地上不位移，但重量仍影响玩家攻击反作用力（打桩也会被顶退）。
+var knockback_weight := 2.0
+## 被打中时用什么材质声（player 按这个名字取 hit_<材质>）
+var hit_material := "wood"
 var _flash_timer := 0.0
 var _swing_tween: Tween
 

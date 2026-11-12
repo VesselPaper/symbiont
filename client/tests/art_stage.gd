@@ -5,11 +5,12 @@ extends Node2D
 
 const OUT_DIR := "res://shots"
 
-@onready var _cam: Camera2D = $Camera2D
 @onready var _player: Node2D = $Player
 @onready var _marker: Node2D = $QuestMarker
 @onready var _slime: Node2D = $Slime
 @onready var _dummy: Node2D = $Dummy
+@onready var _altar: Node2D = $Altar
+@onready var _cam: Camera2D = $Camera2D
 
 func _ready() -> void:
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(OUT_DIR))
@@ -42,11 +43,25 @@ func _ready() -> void:
 	_cam.position = Vector2(770, 600)
 	await get_tree().create_timer(0.30).timeout
 	_shot("stage_items")
+	# 献祭演出：给一个肢体，拍肢体飞进石碗和触须收拢的瞬间
+	var gm := get_node_or_null("/root/GameManager")
+	if gm != null and _altar != null:
+		gm.set("monster_limb_count", 1)
+		_altar.call("try_sacrifice")
+		await get_tree().create_timer(0.34).timeout
+		_shot("stage_sacrifice")
+		# 寄生组织：把镜头拉回玩家，拍献祭后肩后长出的东西
+		_cam.position = Vector2(220, 600)
+		_player.call("_show_corruption", 1)
+		await get_tree().create_timer(0.30).timeout
+		_shot("stage_corruption")
+		_cam.position = Vector2(770, 600)
 	# 顺手验证怪物死亡表现：压扁淡出后掉肢体、节点销毁，不报错
 	_dummy.call("activate")
 	_dummy.call("take_damage", 1)
 	_slime.call("take_damage", 99)
 	await get_tree().create_timer(0.55).timeout
+	_shot("stage_corpse")
 	var limbs := 0
 	for child in get_tree().current_scene.get_children():
 		if child.scene_file_path.ends_with("limb_pickup.tscn"):

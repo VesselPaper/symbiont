@@ -1,27 +1,28 @@
 extends Node
-## 新手教程组件（M1-10 改版 / M1-12 流程重排）
+## 新手教程组件（M1-10 改版 / M1-12 流程重排 / M4-21 去光点 / M4-22 提示常驻）
 ##
 ## 纯流程逻辑，与 UI 解耦（风格同 components/dialogue.gd）：
 ##   - 等待 EventBus.dialogue_finished("intro_parasite_1")（开场低语整条链播完）后开始
 ##   - 环环相扣的分区教学：MOVE → JUMP → WEAPON → ATTACK → POGO → COMBAT
-##     → PICKUP → SACRIFICE → DONE，一个目标达成才推进下一环（M1-12 新顺序：
-##     先教移动/跳跃，再到平台上拿剑/攻击木桩，下劈跳高，战斗，献祭）
+##     → PICKUP → SACRIFICE → DONE，一个目标达成才推进下一环
 ##   - 软隔离（组长定稿）：假人默认不激活、史莱姆到战斗环才生成、祭坛要肢体才能献祭，
 ##     不设门/墙 —— 提前跑去后一环无事可做
-##   - 事件驱动为主：任务光点(MOVE/JUMP)、铁剑拾取(WEAPON)、击杀(COMBAT)、
-##     肢体拾取(PICKUP)、献祭(SACRIFICE)走 EventBus；假人受击(ATTACK/POGO)走每帧检查
-##   - 每环条件满足后立即推进，天然防抖（同一提示不会重复触发）
-##   - M1-12：任务光点改为单个引导光点（guide_mark），不再按 marker_id 区分：
-##     进某步时 move_to 光点飞到该步目标点（见 MARKER_TARGETS），MOVE/JUMP 触碰推进；
-##     剑/肢体拾取物没有软隔离，玩家可能提前捡走，进环时按持有状态兜底，避免卡死
-##   - 对话台词走 DataDB 是对话组件的职责；本组件的气泡文案属 UI 提示，
-##     允许写在代码常量里（见 BUBBLE_TEXTS）
+##   - M4-21 组长定稿「不用指引光」：原来那颗会飞的引导光点连同 marker_path 一起删了。
+##     现在 MOVE/JUMP/POGO 三环都是**位置判定**（人真的走到了/真的站上了才算过），
+##     判定数字只在 test_arena 的 STAGE 表里，本组件通过 player_reached / player_on_platform
+##     两个duck-typing接口去问场景，自己不抄坐标：
+##       MOVE = 横向走过移动点；JUMP = 双脚站上跳台；POGO = 双脚站上下劈方台（不是“做出下劈动作”）
+##   - 其余环仍走事件：铁剑拾取(WEAPON)、假人受击(ATTACK)、击杀(COMBAT)、
+##     肢体拾取(PICKUP)、献祭(SACRIFICE)
+##   - 对话台词走 DataDB 是对话组件的职责；本组件的目标文案属 UI 提示，
+##     允许写在代码常量里（见 OBJECTIVE_TEXTS）
+##   - M4-22 组长定稿：每环提示做完**不消失**，留在地图上当路标（走过的句子变暗、当前那句亮），
+##     临时话只有「获得铁剑」「教程完成」两句，各自计时收掉
 ##
-## 挂载：作为场景子节点，export ui_path 指向头顶气泡 UI（scenes/ui/tutorial_bubble.tscn）。
+## 挂载：作为场景子节点，export ui_path 指向目标文字 UI（scenes/ui/objective_hud.tscn）。
 ## UI 契约（duck typing；ui_path 留空则只走逻辑不显示，便于无头测试）：
-##   show_bubble(text) / hide_bubble() / set_bubble_position(global_pos)
-##
-## 玩家节点通过 get_tree().get_first_node_in_group("player") 获取（player 在 "player" 分组）。
+##   show_objective(step, text, world_pos) / set_active_step(step)
+##   show_bubble(text) / hide_bubble() / set_bubble_position(global_pos)   ← 临时提示
 
 ## 开场对话入口 id：它整条链（含 next_id）播完后教程才开始
 const START_AFTER_DIALOGUE_ID := "intro_parasite_1"
@@ -30,34 +31,40 @@ const WEAPON_FLASH_DURATION := 1.2
 ## 教程完成提示的停留时长（秒），到点隐藏气泡
 const DONE_HINT_DURATION := 1.0
 
-## 每步引导光点的目标位置（M1-12 单个光点；M1-13 按组长新布局更新：
-## JumpPlatform x713~1700 顶571、PogoPlatform x1111~1251 顶440、
-## AltarPlatform x2045~2521 顶572、PitFloor x1673~2071 顶587。
-## 高度按"玩家站在该地面时脚底=地面顶、身体中心=地面顶-13"来定，
-## 光点停在头顶上方一点，既在视野里又能被 40x40 触发区碰到，不埋进平台/祭坛。
-const MARKER_TARGETS: Array[Vector2] = [
-	Vector2(475, 628),   # MOVE：地面移动目标点（地面顶 659，停在脚上方 31px）
-	Vector2(750, 528),   # JUMP：跳上 JumpPlatform（顶 571，停在鞋底上方 43px）
-	Vector2(830, 528),   # WEAPON：平台上尸体+剑的位置（剑 y549，光点在其上方 21px）
-	Vector2(940, 508),   # ATTACK：攻击木桩（假人甲头顶上方，不埋进稻草人）
-	Vector2(1180, 404),  # POGO：下劈木桩（PogoPlatform 顶 440，停在台面上方）
-	Vector2(1870, 552),  # COMBAT：祭坛前面的坑区（PitFloor 顶 587，史莱姆生成处）
-	Vector2(2221, 498),  # PICKUP：祭坛（停在石碗上方，不穿进祭坛模型）
-	Vector2(2221, 498),  # SACRIFICE：祭坛（同点，献祭完成后光点淡出）
+## 每环提示文字的默认锚点（文字刻在锚点上方，钉在世界坐标，不跟玩家走）。
+## M4-19/M4-21 起实际站位由 test_arena 的 STAGE 表在 _ready 里推进来，
+## 这份常量只作“单独挂 Tutorial、没有场景注入”时的兜底，数值和 STAGE 表一致。
+## 高度统一抬到地面/平台顶面之上 60px 以上（组长反馈：A/D 那句贴着石墙读不清）。
+## M4-22：MOVE 那句整句左移一个文字宽度（560 → 406），让开 600 处那道 200px 高的教学骨栅门；
+## 走路的判定点还是 STAGE 表的 move_mark(560)，这里只挪“话写在哪”。
+const STEP_ANCHORS: Array[Vector2] = [
+	Vector2(406, 585),   # MOVE：地面（地面顶 659），避开 600 的骨栅门
+	Vector2(900, 500),   # JUMP：跳台顶 571
+	Vector2(1310, 500),  # WEAPON：尸体+剑
+	Vector2(1650, 480),  # ATTACK：木桩甲
+	Vector2(2155, 372),  # POGO：下劈方台（顶 440）
+	Vector2(2660, 590),  # COMBAT：浅坑底（坑底 659）
+	Vector2(3130, 498),  # PICKUP：祭坛石碗上方（台顶 572）
+	Vector2(3130, 498),  # SACRIFICE：同一点
 ]
 
 ## 教学假人节点名（test_arena 内的实例名，见 test_arena.tscn）
 const DUMMY_A_NODE := "DummyA"
 const DUMMY_B_NODE := "DummyB"
 
-## 每环气泡文案（UI 提示而非对话台词，允许硬编码；数组下标即 Step 枚举值）
+## 位置判定用到的 STAGE 表键（场景侧接口的参数；表在 test_arena.gd）
+const MOVE_MARK_KEY := "move_mark"
+const JUMP_PLATFORM_KEY := "ledge"
+const POGO_PLATFORM_KEY := "pogo"
+
+## 每环目标文案（UI 提示而非对话台词，允许硬编码；数组下标即 Step 枚举值）
 ## 口吻说明（组长定稿）：寄生体在耳边低语式引导 —— 命令短句 + 括号标按键。
-const BUBBLE_TEXTS := [
-	"走到前面的光点（A/D）",       # MOVE
+const OBJECTIVE_TEXTS := [
+	"走到前面（A/D）",            # MOVE
 	"跳上平台（空格）",            # JUMP
 	"拿上那把剑",                  # WEAPON
 	"用 J 攻击木桩",               # ATTACK
-	"跳过去，下落时按 J 下劈反弹", # POGO
+	"从木桩上踩一下，跳上方台",    # POGO（成功标志是站上去，不是挥出下劈）
 	"击杀它（J）",                 # COMBAT
 	"捡起肢体，献给我",            # PICKUP
 	"带到祭坛，按 K 献祭",         # SACRIFICE
@@ -68,40 +75,40 @@ const DONE_BUBBLE_TEXT := "教程完成"
 ## 步骤状态机：WAIT_FOR_DIALOGUE 等待开场对话；MOVE..SACRIFICE 对应分区环；DONE 结束
 enum Step { WAIT_FOR_DIALOGUE = -1, MOVE, JUMP, WEAPON, ATTACK, POGO, COMBAT, PICKUP, SACRIFICE, DONE }
 
-## 头顶气泡 UI 节点（tutorial_bubble）；留空则只走逻辑不显示
+## 气泡 UI 节点（objective_hud）；留空则只走逻辑不显示
 @export var ui_path: NodePath
-## 引导光点（QuestMarker）在场景里的路径（test_arena.tscn 的 Tutorial 上配好）；
-## 进 MOVE 环 activate（软隔离），进各环 move_to 飞到对应目标点，MOVE/JUMP 触碰触发推进
-@export var marker_path: NodePath
 
 var _ui: Node
 var _step := Step.WAIT_FOR_DIALOGUE
 var _player: Node                 # 分组 "player" 的玩家节点（缓存，失效自动重取）
 var _dummies: Dictionary = {}     # 教学假人缓存：节点名 → 节点
 var _dummy_a_initial_hp := 0      # 进入 ATTACK 时假人甲的初始 hp，受击小于它就推进
-var _dummy_b_initial_hp := 0      # 进入 POGO 时假人乙的初始 hp
-var _marker: Node                 # 引导光点（marker_path）
+var _dummy_b_initial_hp := 0      # 进入 ATTACK 时假人乙的初始 hp
+var _anchors: Array[Vector2] = STEP_ANCHORS.duplicate()  # 实际锚点，场景可在 _ready 里覆盖
 var _weapon_flash_timer := 0.0    # "获得铁剑"气泡倒计时，到点进 ATTACK
 var _done_hint_timer := 0.0
+
+## 由所在场景推进来的锚点表（test_arena 的 STAGE 表）。参数不对就保持默认，不崩。
+func set_step_anchors(list: Array) -> void:
+	if list.size() != STEP_ANCHORS.size():
+		push_warning("tutorial: 锚点表应为 %d 项，收到 %d 项，继续用默认锚点" % [STEP_ANCHORS.size(), list.size()])
+		return
+	var typed: Array[Vector2] = []
+	for item in list:
+		typed.append(item as Vector2)
+	_anchors = typed
 
 func _ready() -> void:
 	if ui_path != NodePath(""):
 		_ui = get_node_or_null(ui_path)
 		if _ui == null:
 			push_warning("tutorial: 找不到 ui_path=%s，本组件只走逻辑不显示" % ui_path)
-	# M1-12：单个引导光点引用在编辑期摆好（test_arena 是 Tutorial 的兄弟场景节点），
-	# _ready 时必已在树上；路径未配 / 缺失不报错，只走逻辑不移动/激活
-	if marker_path != NodePath(""):
-		_marker = get_node_or_null(marker_path)
 	EventBus.dialogue_finished.connect(_on_dialogue_finished)
 	EventBus.enemy_killed.connect(_on_enemy_killed)
 	EventBus.item_picked.connect(_on_item_picked)
 	EventBus.sacrifice_done.connect(_on_sacrifice_done)
-	EventBus.marker_triggered.connect(_on_marker_triggered)
 
 func _process(delta: float) -> void:
-	# 气泡每帧跟随玩家头顶（UI 存在才定位；无 UI 时纯逻辑仍正常推进）
-	_position_bubble_on_player()
 	if _step == Step.DONE:
 		if _done_hint_timer > 0.0:
 			_done_hint_timer -= delta
@@ -111,7 +118,7 @@ func _process(delta: float) -> void:
 	if _step == Step.WAIT_FOR_DIALOGUE:
 		return
 	# WEAPON：拿到铁剑后短暂显示"获得铁剑"，到点进 ATTACK。
-	# 剑拾取物没有软隔离，玩家在 JUMP 环跳上台时可能顺路先捡走（先触发光点后拾剑），
+	# 剑拾取物没有软隔离，玩家在 JUMP 环跳上台时可能顺路先捡走，
 	# 所以进环时直接判"已持剑"也能开始闪烁提示，避免教学卡死
 	if _step == Step.WEAPON:
 		if not _player_has_weapon():
@@ -124,22 +131,29 @@ func _process(delta: float) -> void:
 			_advance()
 		return
 	match _step:
+		Step.MOVE:
+			# 组长定稿：走到位就算学会，不用光点碰
+			if _player_reached(MOVE_MARK_KEY):
+				_advance()
+		Step.JUMP:
+			# 必须真的站上跳台（在台上按着跳跃键乱蹦也会过，因为判定是“落地站在台上”）
+			if _player_on_platform(JUMP_PLATFORM_KEY):
+				_advance()
 		Step.ATTACK:
 			# 假人甲受击一次（hp 小于进入本环时的初始值）→ 进 POGO
 			if _dummy_hit(DUMMY_A_NODE, _dummy_a_initial_hp):
 				_advance()
 		Step.POGO:
-			# 假人乙受击一次 → 进 COMBAT
-			if _dummy_hit(DUMMY_B_NODE, _dummy_b_initial_hp):
+			# 组长定稿：下劈成功的标志是**站上那块方台**，不是挥出下劈动作
+			if _player_on_platform(POGO_PLATFORM_KEY):
 				_advance()
 		Step.PICKUP:
-			# 肢体拾取物同样没有软隔离：战斗环击杀后可能顺手捡起，
+			# 肢体拾取物没有软隔离：战斗环击杀后可能顺手捡起，
 			# 进环时已持有肢体直接推进，避免教学卡死
 			if _has_monster_limb():
 				_advance()
-		Step.MOVE, Step.JUMP, Step.COMBAT, Step.SACRIFICE:
-			# MOVE/JUMP 由 marker_triggered 信号推进；其余由事件推进（击杀/拾取/献祭），
-			# 都不需每帧轮询（M1-11：删掉原来的 Rect2 区域检测）
+		Step.COMBAT, Step.SACRIFICE:
+			# 由事件推进（击杀/献祭），不需每帧轮询
 			pass
 
 # ---- 事件 / 推进 ----
@@ -149,7 +163,7 @@ func _on_dialogue_finished(dialogue_id: String) -> void:
 		return
 	if dialogue_id != START_AFTER_DIALOGUE_ID:
 		return
-	# WAIT_FOR_DIALOGUE → MOVE：提示走到地面光点
+	# WAIT_FOR_DIALOGUE → MOVE：提示往前走
 	_advance()
 
 ## 拾取：WEAPON 环收到铁剑 → 短暂"获得铁剑"；PICKUP 环收到肢体 → 去献祭
@@ -164,16 +178,6 @@ func _on_item_picked(item_id: String, _count: int) -> void:
 			if item_id == "monster_limb":
 				_advance()  # PICKUP → SACRIFICE
 
-## M1-12：单个引导光点触发（MOVE/JUMP 环）：只有一个光点，不再按 marker_id 区分，
-## 任一触发即推进（形参保留是 EventBus 信号契约，兼容其它监听方）。
-## 反向测试：非 MOVE/JUMP 环（自己乱碰或提前触发）一律不推进，防误跳环
-func _on_marker_triggered(_marker_id: String) -> void:
-	match _step:
-		Step.MOVE:
-			_advance()  # MOVE → JUMP
-		Step.JUMP:
-			_advance()  # JUMP → WEAPON
-
 func _on_enemy_killed(_enemy: Node, _position: Vector2) -> void:
 	if _step != Step.COMBAT:
 		return
@@ -185,9 +189,11 @@ func _on_sacrifice_done(_sacrifice_id: String, _total_count: int) -> void:
 	# SACRIFICE → DONE（终态，不走 _advance，避免再显示环提示）
 	_step = Step.DONE
 	_done_hint_timer = DONE_HINT_DURATION
+	# 组长（M4-22）：每环提示做完要留在地图上当地标，所以这里只把全部刻字调暗，
+	# 不藏 HUD；"教程完成"才是临时一句，1 秒后自己收。
+	if _ui != null and _ui.has_method("set_active_step"):
+		_ui.call("set_active_step", -1)
 	_show_bubble(DONE_BUBBLE_TEXT)
-	# 教程结束不再需要指路，光点在祭坛上方淡出，避免永远停在场景里
-	_retire_marker()
 
 ## 教程是否已跑完（献祭完成）。场景用它决定下一层的门开不开。
 func is_completed() -> bool:
@@ -197,25 +203,28 @@ func is_completed() -> bool:
 func _advance() -> void:
 	_step += 1
 	match _step:
-		Step.MOVE:
-			# 到行走环才激活引导光点（软隔离：提前触碰没反应）；
-			# 光点初始位置就是 MOVE 目标点，不用飞
-			_activate_marker(_marker)
+		Step.JUMP:
+			# MOVE 做完，移门打开；玩家才能真正靠近第一平台
+			_open_gate("move")
+		Step.WEAPON:
+			# JUMP 做完，跳台门打开；剑在门后
+			_open_gate("jump")
 		Step.ATTACK:
 			# 到攻击环才激活假人甲（软隔离：提前打它没反应），记下初始 hp 作受击判定基准
 			_activate_dummy(DUMMY_A_NODE)
 			_dummy_a_initial_hp = _read_hp(_get_dummy(DUMMY_A_NODE))
 		Step.POGO:
+			# 木桩甲被打到，攻击门打开；去假人乙
+			_open_gate("attack")
 			_activate_dummy(DUMMY_B_NODE)
 			_dummy_b_initial_hp = _read_hp(_get_dummy(DUMMY_B_NODE))
 		Step.COMBAT:
+			# 站上方台（下劈跳上去）后才开下劈门；再去坑区战斗
+			_open_gate("pogo")
 			# 战斗环开始前，让所在场景生成史莱姆（对话/教程前期无敌人，见 test_arena.spawn_enemies）
 			_spawn_enemies_for_combat()
-	# M1-12：进各环把引导光点飞到该步目标点（MOVE 除外——光点初始就停在 MOVE 目标点）
-	if _step > Step.MOVE and _step < Step.DONE:
-		_move_marker_to(MARKER_TARGETS[_step])
 	if _step < Step.DONE:
-		_show_step_bubble(_step)
+		_show_step_text(_step)
 
 ## 调用所在场景的 spawn_enemies()（duck typing；场景不提供则跳过）
 func _spawn_enemies_for_combat() -> void:
@@ -223,26 +232,35 @@ func _spawn_enemies_for_combat() -> void:
 	if arena != null and arena.has_method("spawn_enemies"):
 		arena.call("spawn_enemies")
 
+## 打开场景里的教学门（test_arena 提供 open_tutorial_gate；无场景时静默跳过）
+func _open_gate(gate_id: String) -> void:
+	var arena := get_parent()
+	if arena != null and arena.has_method("open_tutorial_gate"):
+		arena.call("open_tutorial_gate", gate_id)
+
 ## 激活教学假人（activate 由 dummy_target.gd 提供，软隔离核心）
 func _activate_dummy(node_name: String) -> void:
 	var dummy := _get_dummy(node_name)
 	if dummy != null and dummy.has_method("activate"):
 		dummy.activate()
 
-## 激活引导光点（M1-11 软隔离：进 MOVE 环才 activate，见 quest_marker.gd）
-func _activate_marker(marker: Node) -> void:
-	if marker != null and is_instance_valid(marker) and marker.has_method("activate"):
-		marker.activate()
+# ---- 位置判定（真正的“做到了”由场景答，坐标只存在 STAGE 表）----
 
-## 引导光点飞到指定目标点（move_to 由 quest_marker.gd 提供，M1-12 单光点循环引导）
-func _move_marker_to(target_pos: Vector2) -> void:
-	if _marker != null and is_instance_valid(_marker) and _marker.has_method("move_to"):
-		_marker.move_to(target_pos)
+## 玩家是否已横向走到某个站位（MOVE 环）
+func _player_reached(mark_key: String) -> bool:
+	var arena := get_parent()
+	if arena == null or not arena.has_method("player_reached"):
+		return false
+	var player := _get_player()
+	return bool(arena.call("player_reached", mark_key, player))
 
-## 教程结束：让光点淡出并关掉触发，别把光留在祭坛模型里
-func _retire_marker() -> void:
-	if _marker != null and is_instance_valid(_marker) and _marker.has_method("retire"):
-		_marker.retire()
+## 玩家是否双脚站上某块平台（JUMP/POGO 环）
+func _player_on_platform(rect_key: String) -> bool:
+	var arena := get_parent()
+	if arena == null or not arena.has_method("player_on_platform"):
+		return false
+	var player := _get_player()
+	return bool(arena.call("player_on_platform", rect_key, player))
 
 # ---- 检测 ----
 
@@ -275,24 +293,31 @@ func _player_has_weapon() -> bool:
 func _has_monster_limb() -> bool:
 	return GameManager.monster_limb_count > 0
 
-# ---- 气泡 ----
+# ---- 世界里的目标文字 ----
 
-func _position_bubble_on_player() -> void:
-	if _ui == null or not is_instance_valid(_ui):
+## 进入某环：这一环亮起来，句子刻到地图上。做过的那些句子由 HUD 自己留着变暗。
+## 先 set_active_step 再 show_objective：这样新刻的那句直接按“当前环”上色。
+func _show_step_text(step: int) -> void:
+	if step < 0 or step >= OBJECTIVE_TEXTS.size() or _ui == null:
 		return
-	var player := _get_player()
-	if player == null:
+	var anchor_index := clampi(step, 0, _anchors.size() - 1)
+	if _ui.has_method("set_active_step"):
+		_ui.call("set_active_step", step)
+	if not _ui.has_method("show_objective"):
+		# UI 没实现新契约（老气泡/纯逻辑测试）：退回临时气泡，至少话还在
+		_show_bubble(OBJECTIVE_TEXTS[step])
 		return
-	_ui.set_bubble_position(player.global_position + Vector2(0, -44))
+	_ui.call("show_objective", step, OBJECTIVE_TEXTS[step], _anchors[anchor_index])
 
-func _show_step_bubble(step: int) -> void:
-	if step < 0 or step >= BUBBLE_TEXTS.size():
-		return
-	_show_bubble(BUBBLE_TEXTS[step])
-
+## 临时提示（获得铁剑 / 教程完成）：挂在当前环锚点上方，显示时长由本组件计时
 func _show_bubble(text: String) -> void:
-	if _ui != null:
-		_ui.show_bubble(text)
+	if _ui == null:
+		return
+	# 文字是地图背景的一部分：每步钉在自己那环的锚点上方，不跟着玩家走。
+	if _ui.has_method("set_bubble_position"):
+		var target_index := clampi(_step, 0, _anchors.size() - 1)
+		_ui.call("set_bubble_position", _anchors[target_index])
+	_ui.show_bubble(text)
 
 func _hide_bubble() -> void:
 	if _ui != null and is_instance_valid(_ui):

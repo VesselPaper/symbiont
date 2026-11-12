@@ -1,0 +1,48 @@
+[gd_scene load_steps=9 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/floor2.gd" id="1_level"]
+[ext_resource type="Script" path="res://components/abyss_backdrop.gd" id="2_backdrop"]
+[ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="3_player"]
+[ext_resource type="Script" path="res://scripts/world/camera_follow.gd" id="4_cam"]
+[ext_resource type="PackedScene" path="res://scenes/ui/dialogue_box.tscn" id="5_dbox"]
+[ext_resource type="Script" path="res://components/dialogue.gd" id="6_dlg"]
+[ext_resource type="PackedScene" path="res://scenes/items/altar.tscn" id="7_altar"]
+
+[node name="Floor2" type="Node2D"]
+script = ExtResource("1_level")
+
+[node name="Backdrop" type="Node2D" parent="."]
+z_index = -3
+script = ExtResource("2_backdrop")
+camera_path = NodePath("../Camera2D")
+world_width = 5220.0
+world_top = -260.0
+world_bottom = 760.0
+seed_value = 20261112
+far_color = Color(0.150, 0.160, 0.145, 1)
+mid_color = Color(0.040, 0.034, 0.030, 1)
+vine_color = Color(0.014, 0.011, 0.010, 1)
+rim_color = Color(0.360, 0.290, 0.190, 0.45)
+spore_color = Color(0.820, 0.660, 0.440, 0.50)
+arch_glow = Color(0.440, 0.260, 0.100, 0.14)
+
+[node name="Player" parent="." instance=ExtResource("3_player")]
+position = Vector2(140, 560)
+
+[node name="Camera2D" type="Camera2D" parent="."]
+limit_left = 0
+limit_top = 0
+limit_right = 5300
+limit_bottom = 1200
+script = ExtResource("4_cam")
+target_path = NodePath("../Player")
+player_screen_offset = 56.0
+
+[node name="DialogueBox" parent="." instance=ExtResource("5_dbox")]
+
+[node name="Dialogue" type="Node" parent="."]
+script = ExtResource("6_dlg")
+ui_path = NodePath("../DialogueBox")
+
+[node name="Altar" parent="." instance=ExtResource("7_altar")]
+position = Vector2(1570, 638)

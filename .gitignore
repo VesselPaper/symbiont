@@ -18,6 +18,13 @@ client/export/
 deploy/web/
 # 生成的数据库（由 tools/build_game_data.py 生成）
 database/game_data/game_data.db
+# 后端上传目录：测试/联调产生的文件块与 sqlite 库，体积到 GB 级，不属于源码
+server/storage/
+
+# ---------- 开发临时探针 / 调试图（本机有，不进仓库） ----------
+client/tests/_*.gd
+client/tests/_*.gd.uid
+client/shots/_debug_*.png
 
 # ---------- 日志 / 临时 ----------
 *.log
@@ -30,3 +37,6 @@ Desktop.ini
 .idea/
 .vscode/
 *.swp
+
+# ---------- 音频素材（运行时下载，不进仓库） ----------
+tools/audio_samples/

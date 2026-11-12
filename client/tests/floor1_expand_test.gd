@@ -24,7 +24,7 @@ func _check(ok: bool, msg: String) -> void:
 
 func _check_map() -> void:
 	var terrain := _level.get_node("Terrain")
-	_check(terrain.get_child_count() == 12, "地形数量不是 12")
+	_check(terrain.get_child_count() == 13, "地形数量不是 13")
 	var floors: Array[StaticBody2D] = []
 	for child in terrain.get_children():
 		var body := child as StaticBody2D
@@ -32,10 +32,10 @@ func _check_map() -> void:
 			continue
 		var col := body.get_node("CollisionShape2D") as CollisionShape2D
 		var rect := (col.shape as RectangleShape2D).size
-		# 左右边界墙宽 80，其它是脚能踩的地面；按 PLATFORMS 顺序前 10 块是地面
+		# 左右边界墙宽 80，其它是脚能踩的地面；按 PLATFORMS 顺序前 11 块是地面
 		if rect.x > 100.0:
 			floors.append(body)
-	_check(floors.size() == 10, "可站地面应是 10 块，实际 %d" % floors.size())
+	_check(floors.size() == 11, "可站地面应是 11 块，实际 %d" % floors.size())
 	var prev_right := -99999.0
 	var prev_top := 0.0
 	for i in range(floors.size()):
@@ -54,7 +54,13 @@ func _check_map() -> void:
 	# 新场景物件/剧情
 	var props := _level.get_node("Props")
 	_check(props.get_node_or_null("GateFrame") != null, "缺少层门")
-	_check((props.get_node("GateFrame") as Node2D).position.x > 4300.0, "层门没有移到扩建后的末端")
+	# 地图长度从关卡脚本的常量读，别在测试里抄一份数字（钟厅一加长就漏改）
+	var consts: Dictionary = _level.get_script().get_script_constant_map()
+	var map_right := float(consts.get("MAP_RIGHT", 5300.0))
+	var gate_x := float(consts.get("GATE_X", 5140.0))
+	_check((props.get_node("GateFrame") as Node2D).position.x >= gate_x, "层门没有移到扩建后的末端")
+	# M4-08：玩家从教学关带着铁剑进来，第一层不能再放一把地上的剑（会和手持剑重复）
+	_check(_level.get_node_or_null("WeaponPickup") == null, "第一层复活点不该再有武器拾取物")
 	var triggers := _level.get_node("Triggers")
 	_check(triggers.get_node_or_null("BridgeTrigger") != null, "缺少断桥触发器")
 	_check(triggers.get_node_or_null("RelicTrigger") != null, "缺少遗物廊触发器")
@@ -65,4 +71,6 @@ func _check_map() -> void:
 		_check((row.get("lines", []) as Array).size() >= 3, "对话 %s 太短" % id)
 	# 地图总长（右边界墙位置）
 	var wall := terrain.get_child(terrain.get_child_count() - 1) as StaticBody2D
-	_check(wall.position.x >= 4500.0, "右边界没有随扩建后移")
+	_check(wall.position.x >= map_right, "右边界没有随扩建后移")
+	var camera := _level.get_node("Camera2D") as Camera2D
+	_check(camera.limit_right == int(map_right), "相机右边界没有跟着地图扩到 %.0f" % map_right)

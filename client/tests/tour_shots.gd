@@ -12,16 +12,20 @@ const SETTLE := 0.55  # 瞬移后等相机跟上、物理落稳的时间
 ## 瞬移目标和抓图时间（秒）。y 取地面顶面减去半个角色高（14），避免穿地。
 ## move 时瞬移，shot 时抓图，中间留时间让相机吸附/落稳。
 const STOPS := [
-	{"move": 0.05, "shot": 0.40, "pos": Vector2(80.0, 646.0), "shot_name": "floor1_a"},
+	{"move": 0.05, "shot": 0.95, "pos": Vector2(80.0, 646.0), "shot_name": "floor1_a"},
 	{"move": 0.55, "shot": 1.25, "pos": Vector2(80.0, 646.0), "shot_name": "floor1_b", "show_dialogue": true},
 	{"move": 1.60, "shot": 2.10, "pos": Vector2(900.0, 557.0), "shot_name": "floor1_shelf"},
-	{"move": 2.55, "shot": 3.05, "pos": Vector2(1600.0, 746.0), "shot_name": "floor1_bell"},
-	{"move": 3.50, "shot": 4.00, "pos": Vector2(2260.0, 646.0), "shot_name": "floor1_steps"},
-	{"move": 4.45, "shot": 4.95, "pos": Vector2(2600.0, 586.0), "shot_name": "floor1_altar"},
-	{"move": 5.40, "shot": 5.90, "pos": Vector2(2950.0, 586.0), "shot_name": "floor1_bridge"},
-	{"move": 6.35, "shot": 6.85, "pos": Vector2(3560.0, 626.0), "shot_name": "floor1_relic"},
-	{"move": 7.30, "shot": 7.80, "pos": Vector2(3900.0, 606.0), "shot_name": "floor1_foyer"},
-	{"move": 8.25, "shot": 8.75, "pos": Vector2(4390.0, 586.0), "shot_name": "floor1_gate"},
+	{"move": 2.55, "shot": 3.05, "pos": Vector2(1300.0, 746.0), "shot_name": "floor1_bell_enter"},
+	{"move": 3.50, "shot": 4.00, "pos": Vector2(1950.0, 746.0), "shot_name": "floor1_bell"},
+	{"move": 4.45, "shot": 4.95, "pos": Vector2(2250.0, 746.0), "shot_name": "floor1_bell_under"},
+	{"move": 5.40, "shot": 5.90, "pos": Vector2(2480.0, 746.0), "shot_name": "floor1_bone_gate"},
+	{"move": 6.35, "shot": 6.85, "pos": Vector2(3120.0, 646.0), "shot_name": "floor1_steps"},
+	{"move": 7.30, "shot": 7.80, "pos": Vector2(3460.0, 586.0), "shot_name": "floor1_altar"},
+	{"move": 8.25, "shot": 8.75, "pos": Vector2(3810.0, 586.0), "shot_name": "floor1_bridge"},
+	{"move": 9.20, "shot": 9.70, "pos": Vector2(4420.0, 626.0), "shot_name": "floor1_relic"},
+	{"move": 10.15, "shot": 10.65, "pos": Vector2(4760.0, 606.0), "shot_name": "floor1_foyer"},
+	{"move": 11.10, "shot": 11.60, "pos": Vector2(5540.0, 586.0), "shot_name": "floor1_corridor"},
+	{"move": 12.00, "shot": 12.50, "pos": Vector2(5900.0, 586.0), "shot_name": "floor1_gate"},
 ]
 
 var _elapsed := 0.0

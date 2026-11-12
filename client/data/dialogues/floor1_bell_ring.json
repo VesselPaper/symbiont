@@ -1,0 +1,13 @@
+{
+  "id": "floor1_bell_ring",
+  "npc_id": "",
+  "title": "锈钟",
+  "lines": [
+    {
+      "speaker": "寄生体",
+      "text": "好孩子。再响一点，让它记住你的味道。"
+    }
+  ],
+  "next_id": "",
+  "branch": ""
+}

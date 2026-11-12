@@ -1,0 +1,17 @@
+{
+  "id": "sacrifice_after_1",
+  "npc_id": "",
+  "title": "第一道馈赠",
+  "lines": [
+    {
+      "speaker": "寄生体",
+      "text": "第一口。你的脊背里现在多了一根不属于你的东西。"
+    },
+    {
+      "speaker": "寄生体",
+      "text": "别怕，它比你更懂怎么活下去。"
+    }
+  ],
+  "next_id": "",
+  "branch": ""
+}

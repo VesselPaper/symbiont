@@ -1,0 +1,17 @@
+{
+  "id": "floor2_engineer_confirm",
+  "npc_id": "engineer_master",
+  "title": "把命押在蒸汽上",
+  "lines": [
+    {
+      "speaker": "工程师",
+      "text": "想清楚了？靴子一旦上脚，就再也拆不下来。"
+    },
+    {
+      "speaker": "工程师",
+      "text": "行。记住：蒸汽只认活人。你死了，它就把你当废铁吐出来。"
+    }
+  ],
+  "next_id": "",
+  "branch": ""
+}

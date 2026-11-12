@@ -12,6 +12,10 @@ const MAX_SLOTS := 3
 signal save_completed(slot: int)
 signal load_completed(slot: int)
 
+## 读档时当前场景可能还没加载玩家（例如主菜单继续游戏）：
+## 先把玩家数据存在这里，目标关卡 _ready 时调用 apply_pending_player() 落地。
+var pending_player: Dictionary = {}
+
 func _ready() -> void:
 	DirAccess.make_dir_recursive_absolute(SAVE_DIR)
 
@@ -52,13 +56,52 @@ func load(slot: int) -> void:
 	EventBus.save_loaded.emit(slot)
 
 func _collect() -> Dictionary:
+	var player := get_tree().get_first_node_in_group("player") as Node2D
+	var player_data: Dictionary = {}
+	if player != null:
+		player_data = {
+			"position": [player.global_position.x, player.global_position.y],
+			"hp": int(player.get("hp")),
+			"has_weapon": bool(player.get("has_weapon")),
+			"has_steam_boots": bool(player.get("has_steam_boots")),
+		}
+	var scene := get_tree().current_scene
+	if scene == null and player != null:
+		scene = player.get_parent()
 	return {
 		"game_progress": GameManager.to_dict(),
-		"player": {},     # M1: 玩家状态（位置/血量/能力）
-		"inventory": {},  # M1: 背包与已改造部位
-		"levels": {},     # M2: 楼层进度（开关/已拾取/已击败）
+		"player": player_data,
+		"inventory": {"monster_limb_count": GameManager.monster_limb_count},
+		"levels": {"scene": scene.scene_file_path if scene != null else ""},
 	}
 
 func _restore(data: Dictionary) -> void:
 	GameManager.from_dict(data.get("game_progress", {}))
-	# M1/M2: 恢复 player / inventory / levels
+	# 只暂存，不在这里落地：跨层读档时当前场景的玩家马上会被释放，
+	# 位置必须留给目标关卡的 _ready；同层读档由暂停菜单显式调用 apply_pending_player()。
+	pending_player = data.get("player", {})
+
+## 把暂存的玩家位置/血量/持剑状态落到当前场景玩家；只应用一次。
+func apply_pending_player(player: Node2D) -> void:
+	if pending_player.is_empty():
+		return
+	var pos: Array = pending_player.get("position", [])
+	if pos.size() >= 2:
+		player.global_position = Vector2(float(pos[0]), float(pos[1]))
+	if pending_player.has("hp"):
+		player.set("hp", int(pending_player["hp"]))
+	if pending_player.has("has_weapon"):
+		var weapon := bool(pending_player["has_weapon"])
+		player.set("has_weapon", weapon)
+		# 老存档没有 GameManager.has_weapon 字段；读档后同步，避免下一层又丢剑
+		GameManager.has_weapon = weapon
+	if pending_player.has("has_steam_boots"):
+		var boots := bool(pending_player["has_steam_boots"])
+		player.set("has_steam_boots", boots)
+		GameManager.has_steam_boots = boots
+	pending_player = {}
+
+func delete_slot(slot: int) -> void:
+	var path := _save_path(slot)
+	if FileAccess.file_exists(path):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(path))

@@ -1,0 +1,24 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/entities/gatekeeper_boss.gd" id="1_boss"]
+
+[sub_resource type="RectangleShape2D" id="Shape_body"]
+size = Vector2(30, 60)
+
+[sub_resource type="CircleShape2D" id="Shape_contact"]
+radius = 34.0
+
+[node name="GatekeeperBoss" type="CharacterBody2D" groups=["boss"]]
+collision_layer = 4
+collision_mask = 1
+script = ExtResource("1_boss")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("Shape_body")
+
+[node name="ContactArea" type="Area2D" parent="."]
+collision_layer = 0
+collision_mask = 2
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="ContactArea"]
+shape = SubResource("Shape_contact")

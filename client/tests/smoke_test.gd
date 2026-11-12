@@ -7,16 +7,30 @@ extends SceneTree
 ## 必须通过 root.get_node("/root/<名称>") 访问。
 
 var _frames := 0
+var _failed := false
+var _done := false
+var _exit_wait := 0
 
 func _process(_delta: float) -> bool:
 	_frames += 1
 	if _frames < 5:
 		return false   # 等 autoload 全部就绪
+	if _done:
+		_exit_wait += 1
+		# 窗口模式下 AudioDirector 可能刚播完献祭音乐；多等几帧再退出，避免资源计数告警
+		if _exit_wait < 10:
+			return false
+		quit(0 if not _failed else 1)
+		return true
 
-	var failed := _run_checks()
-	print("[smoke] %s" % ("PASS" if not failed else "FAIL"))
-	quit(0 if not failed else 1)
-	return true
+	_failed = _run_checks()
+	print("[smoke] %s" % ("PASS" if not _failed else "FAIL"))
+	var gm := root.get_node_or_null("/root/GameManager")
+	var audio := gm.get_node_or_null("AudioDirector") if gm != null else null
+	if audio != null and audio.has_method("stop_all"):
+		audio.call("stop_all")
+	_done = true
+	return false
 
 func _run_checks() -> bool:
 	var failed := false

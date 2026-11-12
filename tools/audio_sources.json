@@ -1,0 +1,244 @@
+{
+  "note": "音频素材清单。只记录来源和许可，音频本身不提交仓库（见 .gitignore 的 tools/audio_samples/）。改这里之后跑 tools/fetch_audio_samples.ps1 重新拉。",
+  "attribution": {
+    "meta_oculus": "\"Oculus Audio Pack 01\" by Oculus VR, LLC, licensed under CC BY 4.0. Files renamed to the UCS naming convention; OGG previews transcoded from the original WAVs.",
+    "meta_instruments": "Meta Piano by Meta Creative Audio team, CC0 1.0 Universal.",
+    "vsco": "VSCO 2 Community Edition by Versilian Studios LLC, CC0 1.0 Universal."
+  },
+  "sources": [
+    {
+      "key": "meta_swing",
+      "url": "https://raw.githubusercontent.com/facebookincubator/Meta-open-sound/main/corpora/oculus-audio-pack/ogg/WEAPSwrd_Sword_OS_01.ogg",
+      "license": "CC-BY-4.0",
+      "credit": "meta_oculus"
+    },
+    {
+      "key": "meta_swoosh",
+      "url": "https://raw.githubusercontent.com/facebookincubator/Meta-open-sound/main/corpora/oculus-audio-pack/ogg/SWSH_Swoosh_OS_02.ogg",
+      "license": "CC-BY-4.0",
+      "credit": "meta_oculus"
+    },
+    {
+      "key": "meta_step",
+      "url": "https://raw.githubusercontent.com/facebookincubator/Meta-open-sound/main/corpora/oculus-audio-pack/ogg/FEETHmn_ShoeDirtWalk_OS_01.ogg",
+      "license": "CC-BY-4.0",
+      "credit": "meta_oculus"
+    },
+    {
+      "key": "meta_step2",
+      "url": "https://raw.githubusercontent.com/facebookincubator/Meta-open-sound/main/corpora/oculus-audio-pack/ogg/FEETHmn_ShoeDirtWalk_OS_02.ogg",
+      "license": "CC-BY-4.0",
+      "credit": "meta_oculus"
+    },
+    {
+      "key": "meta_land",
+      "url": "https://raw.githubusercontent.com/facebookincubator/Meta-open-sound/main/corpora/oculus-audio-pack/ogg/FEETHmn_ShoeDirtLand_OS_01.ogg",
+      "license": "CC-BY-4.0",
+      "credit": "meta_oculus"
+    },
+    {
+      "key": "meta_hit",
+      "url": "https://raw.githubusercontent.com/facebookincubator/Meta-open-sound/main/corpora/oculus-audio-pack/ogg/FGHTImpt_PunchRegular_OS_01.ogg",
+      "license": "CC-BY-4.0",
+      "credit": "meta_oculus"
+    },
+    {
+      "key": "meta_creature",
+      "url": "https://raw.githubusercontent.com/facebookincubator/Meta-open-sound/main/corpora/oculus-audio-pack/ogg/CREAMnstr_CreatureCreepy_OS_01.ogg",
+      "license": "CC-BY-4.0",
+      "credit": "meta_oculus"
+    },
+    {
+      "key": "meta_ui_tone",
+      "url": "https://raw.githubusercontent.com/facebookincubator/Meta-open-sound/main/corpora/oculus-audio-pack/ogg/UIAlert_MusicTone_OS_01.ogg",
+      "license": "CC-BY-4.0",
+      "credit": "meta_oculus"
+    },
+    {
+      "key": "meta_chimes",
+      "url": "https://raw.githubusercontent.com/facebookincubator/Meta-open-sound/main/corpora/oculus-audio-pack/ogg/MUSCChim_WindChimes_LOOP_01.ogg",
+      "license": "CC-BY-4.0",
+      "credit": "meta_oculus"
+    },
+    {
+      "key": "meta_roomtone",
+      "url": "https://raw.githubusercontent.com/facebookincubator/Meta-open-sound/main/corpora/oculus-audio-pack/ogg/AMBHome_RoomTone_LOOP_01.ogg",
+      "license": "CC-BY-4.0",
+      "credit": "meta_oculus"
+    },
+    {
+      "key": "meta_machine",
+      "url": "https://raw.githubusercontent.com/facebookincubator/Meta-open-sound/main/corpora/oculus-audio-pack/ogg/AMBInd_RoomToneMachineRoom_LOOP_01.ogg",
+      "license": "CC-BY-4.0",
+      "credit": "meta_oculus"
+    },
+    {
+      "key": "meta_underwater",
+      "url": "https://raw.githubusercontent.com/facebookincubator/Meta-open-sound/main/corpora/oculus-audio-pack/ogg/AMBUndwtr_Underwater_LOOP_01.ogg",
+      "license": "CC-BY-4.0",
+      "credit": "meta_oculus"
+    },
+    {
+      "key": "meta_organ",
+      "url": "https://raw.githubusercontent.com/facebookincubator/Meta-open-sound/main/corpora/oculus-audio-pack/ogg/MUSCKeyd_PipeOrganCreepy_OS_01.ogg",
+      "license": "CC-BY-4.0",
+      "credit": "meta_oculus"
+    },
+    {
+      "key": "meta_strings_sting",
+      "url": "https://raw.githubusercontent.com/facebookincubator/Meta-open-sound/main/corpora/oculus-audio-pack/ogg/MUSCStr_StringsCreepy_OS_01.ogg",
+      "license": "CC-BY-4.0",
+      "credit": "meta_oculus"
+    },
+    {
+      "key": "meta_piano_c4",
+      "url": "https://raw.githubusercontent.com/facebookincubator/Meta-open-sound/main/systems/instruments/meta-piano/ogg/INSPiano_Vel03_C4_01.ogg",
+      "license": "CC0-1.0",
+      "credit": "meta_instruments"
+    },
+    {
+      "key": "vsco_contrabass",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/master/Strings/Solo%20Contrabass/SusVib/BKCtbss_SusVib_D1_v1_rr1.wav",
+      "license": "CC0-1.0",
+      "credit": "vsco"
+    },
+    {
+      "key": "vsco_cello_a2",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/master/Strings/Cello%20Section/susvib/susvib_A2_v1_1.wav",
+      "license": "CC0-1.0",
+      "credit": "vsco"
+    },
+    {
+      "key": "vsco_violin_c4",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/master/Strings/Solo%20Violin/Arco%20Vib/LLVln_ArcoVib_C4_p.wav",
+      "license": "CC0-1.0",
+      "credit": "vsco"
+    },
+    {
+      "key": "vsco_bell_c4",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/master/Percussion/TB_hit_C4_v4_rr1.wav",
+      "license": "CC0-1.0",
+      "credit": "vsco"
+    },
+    {
+      "key": "vsco_bell_g4",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/master/Percussion/TB_hit_G4_v4_rr1.wav",
+      "license": "CC0-1.0",
+      "credit": "vsco"
+    },
+    {
+      "key": "vsco_bell_f5",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/master/Percussion/TB_hit_F5_v3_rr1.wav",
+      "license": "CC0-1.0",
+      "credit": "vsco"
+    },
+    {
+      "key": "vsco_gong",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/master/Percussion/gongHit_f.wav",
+      "license": "CC0-1.0",
+      "credit": "vsco"
+    },
+    {
+      "key": "vsco_timpani",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/master/Percussion/Timpani/Timpani1_Hit_v1_rr1_Sum.wav",
+      "license": "CC0-1.0",
+      "credit": "vsco"
+    },
+    {
+      "key": "vsco_cello",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/master/Strings/Cello%20Section/susvib/susvib_C3_v1_1.wav",
+      "license": "CC0-1.0",
+      "credit": "vsco"
+    },
+    {
+      "key": "vsco_violin",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/master/Strings/Solo%20Violin/Arco%20Vib/LLVln_ArcoVib_C5_p.wav",
+      "license": "CC0-1.0",
+      "credit": "vsco"
+    },
+    {
+      "key": "vsco_harp_c3",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/master/Strings/Harp/KSHarp_C3_mf.wav",
+      "license": "CC0-1.0",
+      "credit": "vsco"
+    },
+    {
+      "key": "vsco_harp_c5",
+      "url": "https://raw.githubusercontent.com/sgossner/VSCO-2-CE/master/Strings/Harp/KSHarp_C5_mf.wav",
+      "license": "CC0-1.0",
+      "credit": "vsco"
+    },
+    {
+      "key": "meta_squish",
+      "url": "https://raw.githubusercontent.com/facebookincubator/Meta-open-sound/main/corpora/oculus-audio-pack/ogg/GORESqsh_BloodSquishSlimy_OS_01.ogg",
+      "license": "CC-BY-4.0",
+      "credit": "Oculus Audio Pack 01 (Meta Platforms, Inc.)"
+    },
+    {
+      "key": "meta_coin",
+      "url": "https://raw.githubusercontent.com/facebookincubator/Meta-open-sound/main/corpora/oculus-audio-pack/ogg/OBJCoin_CoinDrop_OS_01.ogg",
+      "license": "CC-BY-4.0",
+      "credit": "Oculus Audio Pack 01 (Meta Platforms, Inc.)"
+    },
+    {
+      "key": "meta_anvil",
+      "url": "https://raw.githubusercontent.com/facebookincubator/Meta-open-sound/main/corpora/oculus-audio-pack/ogg/METLImpt_HammerAnvil_OS_01.ogg",
+      "license": "CC-BY-4.0",
+      "credit": "Oculus Audio Pack 01 (Meta Platforms, Inc.)"
+    },
+    {
+      "key": "meta_ceramic",
+      "url": "https://raw.githubusercontent.com/facebookincubator/Meta-open-sound/main/corpora/oculus-audio-pack/ogg/CERMImpt_CeramicSmallImpact_OS_01.ogg",
+      "license": "CC-BY-4.0",
+      "credit": "Oculus Audio Pack 01 (Meta Platforms, Inc.)"
+    },
+    {
+      "key": "meta_bagopen",
+      "url": "https://raw.githubusercontent.com/facebookincubator/Meta-open-sound/main/corpora/oculus-audio-pack/ogg/OBJBag_KnapsackLeatherOpen_OS_01.ogg",
+      "license": "CC-BY-4.0",
+      "credit": "Oculus Audio Pack 01 (Meta Platforms, Inc.)"
+    },
+    {
+      "key": "meta_bagclose",
+      "url": "https://raw.githubusercontent.com/facebookincubator/Meta-open-sound/main/corpora/oculus-audio-pack/ogg/OBJBag_KnapsackLeatherClose_OS_01.ogg",
+      "license": "CC-BY-4.0",
+      "credit": "Oculus Audio Pack 01 (Meta Platforms, Inc.)"
+    },
+    {
+      "key": "meta_panel",
+      "url": "https://raw.githubusercontent.com/facebookincubator/Meta-open-sound/main/corpora/oculus-audio-pack/ogg/METLHndl_ElectricBoxOpen_OS_01.ogg",
+      "license": "CC-BY-4.0",
+      "credit": "Oculus Audio Pack 01 (Meta Platforms, Inc.)"
+    },
+    {
+      "key": "meta_metaldrop",
+      "url": "https://raw.githubusercontent.com/facebookincubator/Meta-open-sound/main/corpora/oculus-audio-pack/ogg/METLImpt_MetalObjDrop_OS_01.ogg",
+      "license": "CC-BY-4.0",
+      "credit": "Oculus Audio Pack 01 (Meta Platforms, Inc.)"
+    },
+    {
+      "key": "meta_woodclose",
+      "url": "https://raw.githubusercontent.com/facebookincubator/Meta-open-sound/main/corpora/oculus-audio-pack/ogg/UIClick_WoodClose_OS_01.ogg",
+      "license": "CC-BY-4.0",
+      "credit": "Oculus Audio Pack 01 (Meta Platforms, Inc.)"
+    },
+    {
+      "key": "meta_woodconfirm",
+      "url": "https://raw.githubusercontent.com/facebookincubator/Meta-open-sound/main/corpora/oculus-audio-pack/ogg/UIClick_WoodConfirm_OS_01.ogg",
+      "license": "CC-BY-4.0",
+      "credit": "Oculus Audio Pack 01 (Meta Platforms, Inc.)"
+    },
+    {
+      "key": "meta_grasswalk",
+      "url": "https://raw.githubusercontent.com/facebookincubator/Meta-open-sound/main/corpora/oculus-audio-pack/ogg/FEETHmn_ShoeGrassWalk_OS_01.ogg",
+      "license": "CC-BY-4.0",
+      "credit": "Oculus Audio Pack 01 (Meta Platforms, Inc.)"
+    },
+    {
+      "key": "meta_swordscrape",
+      "url": "https://raw.githubusercontent.com/facebookincubator/Meta-open-sound/main/corpora/oculus-audio-pack/ogg/WEAPSwrd_SwordScrape_OS_01.ogg",
+      "license": "CC-BY-4.0",
+      "credit": "Oculus Audio Pack 01 (Meta Platforms, Inc.)"
+    }
+  ]
+}

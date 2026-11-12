@@ -1,0 +1,15 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/world/bell_mechanism.gd" id="1_bell"]
+
+[sub_resource type="RectangleShape2D" id="Shape_rope"]
+size = Vector2(340, 160)
+
+[node name="BellMechanism" type="Area2D"]
+collision_layer = 0
+collision_mask = 2
+script = ExtResource("1_bell")
+
+[node name="Shape" type="CollisionShape2D" parent="."]
+shape = SubResource("Shape_rope")
+position = Vector2(0, -64)

@@ -127,8 +127,10 @@ func _build_far() -> void:
 	var root := Node2D.new()
 	root.name = "Far"
 	add_child(root)
-	# 远端断柱：高低错落，压成雾色；柱顶断口用两三段折线破一下
-	for i in range(9):
+	# 远端断柱：高低错落，压成雾色；柱顶断口用两三段折线破一下。
+	# 数量按地图宽算（M4-19 教学关拉到 5000），不然过了 2600 背景就只剩一片渐变。
+	var far_count := int(ceil(world_width / 360.0)) + 1
+	for i in range(far_count):
 		var x := -300.0 + float(i) * 360.0 + _rng.randf_range(-70.0, 70.0)
 		var h := _rng.randf_range(280.0, 580.0)
 		var w := _rng.randf_range(54.0, 120.0)
@@ -155,8 +157,10 @@ func _build_mid() -> void:
 	var root := Node2D.new()
 	root.name = "Mid"
 	add_child(root)
-	# 三座塌了半边的拱：柱子在，拱圈只留左半边，暗示这里曾经是通道
-	for i in range(3):
+	# 三座塌了半边的拱：柱子在，拱圈只留左半边，暗示这里曾经是通道。
+	# 拱的间距固定 900，数量跟着地图宽走（5000 的地图要六座才铺满）。
+	var arch_count := int(ceil(world_width / 900.0)) + 1
+	for i in range(arch_count):
 		var x := 240.0 + float(i) * 900.0
 		var base_y := world_bottom - 10.0
 		var w := 360.0
@@ -198,14 +202,16 @@ func _build_fog() -> void:
 	var root := Node2D.new()
 	root.name = "Fog"
 	add_child(root)
-	for i in range(3):
+	# 雾团铺满整张地图：数量按宽度算，位置按比例摊开
+	var fog_count := int(ceil(world_width / 900.0)) + 1
+	for i in range(fog_count):
 		var fog := Polygon2D.new()
-		fog.color = Color(0.16, 0.23, 0.25, 0.045 + i * 0.012)
-		fog.polygon = _ellipse(560.0 + i * 170.0, 90.0 + i * 30.0, 26)
-		var base := Vector2(world_width * (0.22 + 0.28 * i), world_bottom - 60.0)
+		fog.color = Color(0.16, 0.23, 0.25, 0.045 + (i % 3) * 0.012)
+		fog.polygon = _ellipse(560.0 + (i % 3) * 170.0, 90.0 + (i % 3) * 30.0, 26)
+		var base := Vector2(world_width * (0.10 + 0.80 * float(i) / maxf(float(fog_count - 1), 1.0)), world_bottom - 60.0)
 		fog.position = base
 		root.add_child(fog)
-		_fog.append({"node": fog, "base": base, "speed": 0.10 + i * 0.04, "phase": i * 2.1})
+		_fog.append({"node": fog, "base": base, "speed": 0.10 + (i % 3) * 0.04, "phase": i * 2.1})
 
 func _build_spores() -> void:
 	_spores = CPUParticles2D.new()
@@ -400,8 +406,9 @@ func _dress_props() -> void:
 	# 父节点 BackdropArt 是 -3：子节点 +2 → 世界 -1，压在角色后面、地形前面
 	props.z_index = 2
 	add_child(props)
-	# 锁链：从画面上方垂下来，短链挂在半空，破一下空旷的背景
-	for x in [180.0, 620.0, 1180.0, 1720.0, 2280.0]:
+	# 锁链：从画面上方垂下来，短链挂在半空，破一下空旷的背景。
+	# M4-19 地图到 5000：后段（宝箱/长廊/层门）也要有链子，否则那 1700px 是空墙
+	for x in [180.0, 620.0, 1180.0, 1720.0, 2280.0, 2840.0, 3380.0, 3960.0, 4520.0, 4860.0]:
 		var chain := Line2D.new()
 		chain.width = 3.0
 		chain.default_color = Color(0.150, 0.160, 0.170, 0.95)
@@ -419,11 +426,19 @@ func _dress_props() -> void:
 	_add_lantern(props, Vector2(760.0, 505.0), 210.0, 0.34, 0.26)
 	_add_lantern(props, Vector2(1500.0, 512.0), 210.0, 0.30, 0.22)
 	_add_lantern(props, Vector2(2060.0, 500.0), 210.0, 0.32, 0.24)
-	# 两根立在台面上的断柱：近景有高有低，画面才不是一条水平线
+	# 后段（宝箱 → 长廊 → 层门）四盏，越往后越暗，但一段路至少有一处暖色
+	_add_lantern(props, Vector2(2760.0, 505.0), 210.0, 0.26, 0.18)
+	_add_lantern(props, Vector2(3480.0, 500.0), 210.0, 0.24, 0.16)
+	_add_lantern(props, Vector2(4140.0, 512.0), 210.0, 0.22, 0.15)
+	_add_lantern(props, Vector2(4720.0, 498.0), 210.0, 0.28, 0.19)
+	# 立在台面上的断柱：近景有高有低，画面才不是一条水平线
 	_add_broken_pillar(props, 140.0, 660.0, 340.0, 48.0)
 	_add_broken_pillar(props, 1960.0, 660.0, 300.0, 42.0)
+	_add_broken_pillar(props, 2900.0, 660.0, 250.0, -34.0)
+	_add_broken_pillar(props, 3860.0, 660.0, 320.0, 40.0)
+	_add_broken_pillar(props, 4680.0, 660.0, 270.0, -30.0)
 	# 碎石：平台边角和地面散几块，别让地面是一条直线
-	for i in range(6):
+	for i in range(14):
 		var rock := Polygon2D.new()
 		rock.color = Color(0.12, 0.14, 0.15, 0.95)
 		var size := _rng.randf_range(6.0, 14.0)
@@ -431,25 +446,10 @@ func _dress_props() -> void:
 			Vector2(-size, 0), Vector2(-size * 0.4, -size * 0.7),
 			Vector2(size * 0.5, -size * 0.5), Vector2(size, 0),
 		])
-		rock.position = Vector2(_rng.randf_range(320.0, 2500.0), 659.0 - _rng.randf_range(0.0, 3.0))
+		rock.position = Vector2(_rng.randf_range(320.0, world_width - 300.0), 659.0 - _rng.randf_range(0.0, 3.0))
 		props.add_child(rock)
-	# 尸体：原来只有两块灰条，补几根肋骨和一条破斗篷
-	var corpse := get_parent().get_node_or_null("Corpse")
-	if corpse != null:
-		var body := corpse.get_node_or_null("Body") as Polygon2D
-		var head := corpse.get_node_or_null("Head") as Polygon2D
-		if body != null:
-			body.color = Color(0.34, 0.32, 0.29, 1)
-		if head != null:
-			head.color = Color(0.44, 0.41, 0.36, 1)
-		for i in range(4):
-			var rib := Line2D.new()
-			rib.width = 1.0
-			rib.default_color = Color(0.52, 0.48, 0.40, 0.7)
-			rib.points = PackedVector2Array([
-				Vector2(-20.0 + i * 6.0, -3.0), Vector2(-20.0 + i * 6.0, 3.0)
-			])
-			corpse.add_child(rib)
+	# 尸体不再由背景美术兼职：M4-21 起由 components/prop_corpse.gd 自己建模
+	# （原来这里只是把占位方块染成土黄 + 补四根肋骨，组长说“就一个黄色矩形”）
 
 # ---------- 小工具 ----------
 

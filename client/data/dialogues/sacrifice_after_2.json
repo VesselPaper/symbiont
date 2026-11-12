@@ -1,0 +1,17 @@
+{
+  "id": "sacrifice_after_2",
+  "npc_id": "",
+  "title": "第二道馈赠",
+  "lines": [
+    {
+      "speaker": "寄生体",
+      "text": "第二道。它已经学会用你的眼睛看路了。"
+    },
+    {
+      "speaker": "寄生体",
+      "text": "再喂下去，你就分不清是谁在走路。"
+    }
+  ],
+  "next_id": "",
+  "branch": ""
+}

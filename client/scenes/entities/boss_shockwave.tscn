@@ -1,0 +1,14 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/entities/boss_shockwave.gd" id="1_wave"]
+
+[sub_resource type="CircleShape2D" id="Shape_wave"]
+radius = 22.0
+
+[node name="BossShockwave" type="Area2D"]
+collision_layer = 0
+collision_mask = 2
+script = ExtResource("1_wave")
+
+[node name="Shape" type="CollisionShape2D" parent="."]
+shape = SubResource("Shape_wave")

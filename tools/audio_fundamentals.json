@@ -1,0 +1,18 @@
+{
+  "note": "素材音高表。hz 是调音用的值（按乐谱的标称音高；实测偏差在 ±20 音分内才取标称），measured 是谐波求和测出来的值，留作对照。调音只看 hz。钟、锣、定音鼓不是谐波音，kind=color 的 hz 只记大致音高，不参与调音。",
+  "samples": {
+    "vsco_cello": {"hz": 261.63, "measured": 262.0, "note": "C4", "kind": "pitched"},
+    "vsco_cello_a2": {"hz": 220.0, "measured": 220.0, "note": "A3", "kind": "pitched"},
+    "vsco_violin": {"hz": 523.25, "measured": 523.0, "note": "C5", "kind": "pitched"},
+    "vsco_violin_c4": {"hz": 265.0, "measured": 265.0, "note": "≈C4（录音偏高约 22 音分，按实测值调音）", "kind": "pitched"},
+    "vsco_contrabass": {"hz": 73.42, "measured": 73.5, "note": "D2", "kind": "pitched"},
+    "vsco_harp_c3": {"hz": 261.63, "measured": 261.0, "note": "C4", "kind": "pitched"},
+    "vsco_harp_c5": {"hz": 523.25, "measured": 520.0, "note": "C5", "kind": "pitched"},
+    "meta_piano_c4": {"hz": 261.63, "measured": 522.0, "note": "C4", "kind": "pitched"},
+    "vsco_bell_c4": {"hz": 261.63, "measured": 776.0, "note": "C4", "kind": "color"},
+    "vsco_bell_g4": {"hz": 392.0, "measured": 785.5, "note": "G4", "kind": "color"},
+    "vsco_bell_f5": {"hz": 698.46, "measured": 865.5, "note": "F5", "kind": "color"},
+    "vsco_timpani": {"hz": 87.31, "measured": 89.5, "note": "F2", "kind": "color"},
+    "vsco_gong": {"hz": 130.81, "measured": 144.0, "note": "C3", "kind": "color"}
+  }
+}

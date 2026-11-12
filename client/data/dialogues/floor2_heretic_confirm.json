@@ -1,0 +1,17 @@
+{
+  "id": "floor2_heretic_confirm",
+  "npc_id": "heretic_priest",
+  "title": "把命押在骨头上",
+  "lines": [
+    {
+      "speaker": "祭司",
+      "text": "别怕。第一刀下去会疼，第二刀开始就是恩典。"
+    },
+    {
+      "speaker": "祭司",
+      "text": "你的腿会先学会走路，再学会自己找路。到那时，你最好还认得自己。"
+    }
+  ],
+  "next_id": "",
+  "branch": ""
+}

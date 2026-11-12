@@ -41,6 +41,9 @@ var _tween: Tween
 @onready var _shards: Array[Polygon2D] = [$ShardA, $ShardB, $ShardC]
 
 func _ready() -> void:
+	# 试玩反馈：引导光飞到祭坛/木桩旁边时会被模型挡掉一半。光点是纯 UI 性质的
+	# 指引，不属于场景实体，画在道具之上（低于目标文字 z=6）就不会再被遮。
+	z_index = 5
 	_trigger_area.body_entered.connect(_on_body_entered)
 	_ring.points = _circle_points(11.0, 28)
 	_ring_inner.points = _circle_points(6.5, 16)

@@ -25,25 +25,53 @@ const LOST_DISTANCE := 280.0         # 追击中玩家超出该距离 → 恢复
 const SAME_FLOOR_TOLERANCE := 48.0   # 与玩家垂直差在范围内视为同一层（防隔层追击）
 const EDGE_CHECK_FORWARD := 16.0     # 边缘检测射线水平前伸量（在脚前方探地）
 const EDGE_CHECK_DOWN := 16.0        # 边缘检测射线垂直下探量（须越过脚底平面）
+const HOP_PROBE_AHEAD := 64.0        # 起跳前探落点：前方这么远的下方得有地
+const HOP_PROBE_DOWN := 64.0         # 落点探测的下探深度
 
 # ---- 接触伤害 ----
 const CONTACT_DAMAGE_COOLDOWN := 0.8 # 两次接触伤害的最小间隔（防连续扣血）
+const VOICE_COOLDOWN := 7.5          # 追击时的软体低鸣间隔，避免每帧叫
 
 # ---- 受击表现 ----
 const FLASH_TIME := 0.1              # 受击闪红时长
 const HIT_FLASH_COLOR := Color(1.0, 0.3, 0.3)
+const HIT_STUN := 0.18               # 受击硬直：期间不巡逻/不追击，让击退真的推得动
+const KNOCKBACK_FRICTION := 1200.0
 const DEATH_ANIM_TIME := 0.28        # 死亡压扁淡出时长（尸体消失前）
-const SQUASH_SPEED := 7.0            # 巡逻时的软体挤压频率
+const SQUASH_SPEED := 7.0            # 静止时的软体挤压频率
+
+# ---- 跳跃移动（第一版是匀速平移，组长反馈“一直锁定玩家走、平移太僵硬”）----
+# 现在改成一段一段地蹦：蹲下蓄力 → 腾空 → 落地停顿。空中不转向，
+# 落点带一点瞄准误差，玩家看到的就不是“贴着你滑过来”。
+const HOP_UP := 300.0                # 起跳竖直速度，决定弹起高度
+const HOP_SPEED_FACTOR := 4.2        # 腾空水平速度 = speed * 该系数（平均速度仍接近 speed）
+const HOP_WINDUP := 0.30             # 起跳前的下蹲时间
+const HOP_REST_CHASE := 0.18         # 追击时两跳之间的停顿（短一点才有压迫感）
+const HOP_REST_PATROL := 0.75        # 巡逻时停顿更长，显得悠哉
+const HOP_AIR_MIN := 0.16            # 起飞后至少这么久才算落地，避免起跳同帧被判落地
+const HOP_GROUND_FRICTION := 900.0   # 地面上水平速度衰减，击退才推得动
+const AIM_ERROR := 30.0              # 落点横向误差：不要每一跳都精确咬住玩家
+const CLOSE_RANGE := 56.0            # 离玩家这么近改小跳，别一头撞过去
+
+const PHASE_REST := 0
+const PHASE_WINDUP := 1
+const PHASE_AIR := 2
 
 const LIMB_PICKUP_SCENE := preload("res://scenes/items/limb_pickup.tscn")
+const CORPSE_SCENE := preload("res://scenes/entities/slime_corpse.tscn")
 
 var hp: int
 var speed: float
 var attack_damage: int
+## 击退重量：小史莱姆轻，被打退得远；boss/重甲怪在各自脚本里给更大值。
+var knockback_weight := 1.0
+## 被打中时用什么材质声（player 按这个名字取 hit_<材质>）
+var hit_material := "flesh"
 
 var _facing := 1             # 1 朝右，-1 朝左
 var _is_chasing := false
 var _contact_cooldown := 0.0
+var _stun_timer := 0.0
 var _flash_timer := 0.0
 var _base_color: Color
 var _is_dying := false
@@ -51,6 +79,11 @@ var _death_timer := 0.0
 var _anim_time := 0.0
 var _blink_timer := 2.8      # 下次眨眼倒计时
 var _blink_time := 0.0       # 当前眨眼剩余
+var _voice_cd := 3.0         # 第一次低鸣不要和出生同帧
+var _hop_phase := PHASE_WINDUP   # 出生先蹲一下再跳，别一落地就窜出去
+var _hop_timer := HOP_WINDUP
+var _hop_air_time := 0.0
+var _land_squash := 0.0      # 落地压扁的剩余时间
 
 @onready var _visual: Node2D = $Visual
 @onready var _body: Polygon2D = $Visual/Body
@@ -79,11 +112,29 @@ func _event_bus() -> Node:
 
 func _physics_process(delta: float) -> void:
 	_contact_cooldown = maxf(_contact_cooldown - delta, 0.0)
+	_voice_cd = maxf(_voice_cd - delta, 0.0)
 	_apply_gravity(delta)
+	if _stun_timer > 0.0:
+		# 受击硬直：不巡逻、不掉头，只让击退速度自然衰减
+		_stun_timer = maxf(_stun_timer - delta, 0.0)
+		velocity.x = move_toward(velocity.x, 0.0, KNOCKBACK_FRICTION * delta)
+		move_and_slide()
+		return
 	_aim_edge_ray()
-	_decide_horizontal()
+	_update_chase_state()
+	_update_hop(delta)
 	move_and_slide()
 	_handle_patrol_turn()
+	_maybe_voice()
+
+func _maybe_voice() -> void:
+	if _is_dying or _voice_cd > 0.0 or not _is_chasing:
+		return
+	var player := _get_player()
+	if player == null or not _player_in_range(player, CHASE_DISTANCE):
+		return
+	_voice_cd = VOICE_COOLDOWN + randf_range(-1.0, 1.5)
+	GameManager.play_sfx("slime_voice", -11.0, randf_range(0.88, 1.08))
 
 func _process(delta: float) -> void:
 	_update_flash(delta)
@@ -110,9 +161,26 @@ func _update_visual(delta: float) -> void:
 	var eyes_open := _blink_time <= 0.0
 	_eye_left.visible = eyes_open
 	_eye_right.visible = eyes_open
-	var speed_factor := 9.0 if _is_chasing else 6.0
-	var squash := sin(_anim_time * speed_factor) * 0.045
-	_visual.scale = Vector2(float(_facing) * (1.0 + squash), 1.0 - squash)
+	# 挤压跟着跳跃阶段走：下蹲压扁 → 腾空拉长 → 落地再压一下 → 静止慢呼吸
+	var sx := 1.0
+	var sy := 1.0
+	if _hop_phase == PHASE_WINDUP:
+		var charge := 1.0 - clampf(_hop_timer / HOP_WINDUP, 0.0, 1.0)
+		sx = 1.0 + 0.26 * charge
+		sy = 1.0 - 0.30 * charge
+	elif _hop_phase == PHASE_AIR:
+		sx = 0.88
+		sy = 1.16
+	elif _land_squash > 0.0:
+		_land_squash = maxf(_land_squash - delta, 0.0)
+		var land := _land_squash / 0.16
+		sx = 1.0 + 0.42 * land
+		sy = 1.0 - 0.46 * land
+	else:
+		var squash := sin(_anim_time * SQUASH_SPEED) * 0.045
+		sx = 1.0 + squash
+		sy = 1.0 - squash
+	_visual.scale = Vector2(float(_facing) * sx, sy)
 
 # ---- 数据驱动属性 ----
 
@@ -136,28 +204,91 @@ func _apply_gravity(delta: float) -> void:
 	if not is_on_floor():
 		velocity.y = minf(velocity.y + GRAVITY * delta, MAX_FALL_SPEED)
 
-func _decide_horizontal() -> void:
-	# 追击（带滞回）：已在追击中按 LOST_DISTANCE 判断脱离，否则按 CHASE_DISTANCE 判断进入
+## 只负责“要不要追”，不直接写 velocity：真正移动交给 _update_hop。
+## 带滞回：进圈用 CHASE_DISTANCE，出圈用 LOST_DISTANCE，防止在边界来回抽搐。
+func _update_chase_state() -> void:
 	var player := _get_player()
-	if _is_chasing:
-		if player == null or not _player_in_range(player, LOST_DISTANCE):
-			_is_chasing = false
-		else:
-			_update_facing_toward(player.global_position.x)
-			velocity.x = float(_facing) * speed
-			return
-	elif player != null and _player_in_range(player, CHASE_DISTANCE):
-		_is_chasing = true
-		_update_facing_toward(player.global_position.x)
-		velocity.x = float(_facing) * speed
+	if player == null:
+		_is_chasing = false
 		return
-	# 巡逻：按当前朝向匀速前进
-	velocity.x = float(_facing) * speed
+	if _is_chasing:
+		if not _player_in_range(player, LOST_DISTANCE):
+			_is_chasing = false
+	elif _player_in_range(player, CHASE_DISTANCE):
+		_is_chasing = true
+
+
+## 蹦跳状态机：地上停 → 下蹲 → 腾空 → 落地（带压扁）。
+## 空中完全不控制方向，落地后才重新瞄一次，所以看起来是“跳过去”而不是“粘着走”。
+func _update_hop(delta: float) -> void:
+	if _hop_phase == PHASE_AIR:
+		_hop_air_time += delta
+		if _hop_air_time >= HOP_AIR_MIN and is_on_floor():
+			_hop_phase = PHASE_REST
+			# 落地立刻停住：靠摩擦滑一段的话，玩家看到的就是“平移”
+			if _stun_timer <= 0.0:
+				velocity.x = 0.0
+			_hop_timer = HOP_REST_CHASE if _is_chasing else HOP_REST_PATROL
+			_land_squash = 0.16
+		return
+	# 地面阶段：把残余速度（击退、被推）自然吃掉，不做硬归零，不然打上去像打在墙上
+	velocity.x = move_toward(velocity.x, 0.0, HOP_GROUND_FRICTION * delta)
+	_hop_timer -= delta
+	if _hop_timer > 0.0:
+		return
+	if _hop_phase == PHASE_REST:
+		_hop_phase = PHASE_WINDUP
+		_hop_timer = HOP_WINDUP
+		return
+	_launch()
+
+
+func _launch() -> void:
+	var player := _get_player()
+	var up := HOP_UP
+	var aim := float(_facing)
+	if _is_chasing and player != null:
+		var dx := player.global_position.x - global_position.x
+		# 落点带误差，偶尔会跳偏一点，玩家就不会觉得被吸住
+		aim = dx + randf_range(-AIM_ERROR, AIM_ERROR)
+		if absf(dx) <= CLOSE_RANGE:
+			# 贴脸时改成小跳短扑，别整段大跳直接砸过去
+			up = HOP_UP * 0.55
+			aim = dx * 0.5
+	elif not _is_chasing:
+		# 巡逻方向前方没地面、或者跳过去会落空，先掉头再跳，别跳进坑里
+		if is_on_wall() or not _edge_check.is_colliding() or not _can_hop_toward(_facing):
+			_facing = -_facing
+			_aim_edge_ray()
+		if not _can_hop_toward(_facing):
+			# 两边都是悬空的窄台：原地弹一下，不往前送
+			velocity = Vector2(0.0, -up)
+			_hop_phase = PHASE_AIR
+			_hop_air_time = 0.0
+			return
+		aim = float(_facing)
+	if absf(aim) < 4.0:
+		aim = float(_facing) * 4.0
+	_update_facing_toward(global_position.x + aim)
+	velocity = Vector2(float(_facing) * speed * HOP_SPEED_FACTOR, -up)
+	_hop_phase = PHASE_AIR
+	_hop_air_time = 0.0
+
 
 func _update_facing_toward(target_x: float) -> void:
 	var dir := signf(target_x - global_position.x)
 	if dir != 0.0:
 		_facing = int(dir)
+
+
+## 起跳前探一下：跳到这个方向，前方 HOP_PROBE_AHEAD 处的下方还有没有地。
+## 没有的话说明这一跳会落进坑里，得掉头或者原地蹦。
+func _can_hop_toward(dir: int) -> bool:
+	var from := global_position + Vector2(float(dir) * HOP_PROBE_AHEAD, -12.0)
+	var query := PhysicsRayQueryParameters2D.create(from, from + Vector2(0, HOP_PROBE_DOWN), 1)
+	query.exclude = [get_rid()]
+	var hit := get_world_2d().direct_space_state.intersect_ray(query)
+	return not hit.is_empty()
 
 func _player_in_range(player: Node2D, distance: float) -> bool:
 	var horizontal_dist := absf(player.global_position.x - global_position.x)
@@ -169,10 +300,11 @@ func _get_player() -> Node2D:
 	return get_tree().get_first_node_in_group("player")
 
 ## 巡逻状态下碰墙或前方无地面 → 掉头；追击状态下不主动掉头（保持朝玩家）。
+## 只在落地且没在空中时判断，免得腾空中被墙判定打断整段跳跃。
 func _handle_patrol_turn() -> void:
-	if _is_chasing:
+	if _is_chasing or _hop_phase == PHASE_AIR or not is_on_floor():
 		return
-	if is_on_wall() or not _edge_check.is_colliding():
+	if _hop_phase == PHASE_REST and not _edge_check.is_colliding():
 		_facing = -_facing
 		_aim_edge_ray()
 
@@ -194,12 +326,28 @@ func _on_contact_area_body_entered(body: Node2D) -> void:
 # ---- 受击 / 死亡 ----
 
 ## 被玩家攻击判定框命中时调用（见 player.gd _apply_hit）。
+## 被推开：由玩家攻击命中时调用；strength 已按目标重量除过。
+func apply_knockback(source_pos: Vector2, strength: float) -> void:
+	if hp <= 0 or _is_dying:
+		return
+	var dir := signf(global_position.x - source_pos.x)
+	if dir == 0.0:
+		dir = float(-_facing)
+	velocity.x = dir * strength
+	velocity.y = -55.0
+	_stun_timer = HIT_STUN
+	_is_chasing = false
+	# 被打飞时别接着原计划起跳，落地后重新蓄力
+	_hop_phase = PHASE_REST
+	_hop_timer = HOP_REST_CHASE
+
 func take_damage(amount: int) -> void:
 	if hp <= 0 or _is_dying:
 		return
 	hp = maxi(hp - amount, 0)
 	_body.color = HIT_FLASH_COLOR
 	_flash_timer = FLASH_TIME
+	GameManager.play_sfx("enemy_hit", -2.0)
 	if hp <= 0:
 		_die()
 
@@ -257,8 +405,18 @@ func _finish_death() -> void:
 	if not is_inside_tree():
 		return
 	_death_timer = 0.0
+	_spawn_corpse()
 	_spawn_limb_pickup()
 	queue_free()
+
+## 尸体先落在地上，再把肢体放在旁边；两个模型错开，玩家一眼能分清"尸体"和"可拾取肢体"
+func _spawn_corpse() -> void:
+	var corpse := CORPSE_SCENE.instantiate()
+	var parent := get_parent()
+	if parent == null:
+		return
+	parent.add_child(corpse)
+	corpse.global_position = global_position + Vector2(0, 6)
 
 func _spawn_limb_pickup() -> void:
 	var pickup := LIMB_PICKUP_SCENE.instantiate()
@@ -266,4 +424,4 @@ func _spawn_limb_pickup() -> void:
 	if parent == null:
 		return
 	parent.add_child(pickup)
-	pickup.global_position = global_position + Vector2(0, 8)
+	pickup.global_position = global_position + Vector2(12, 8)

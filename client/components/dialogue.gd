@@ -42,6 +42,10 @@ var _player: Node2D
 var _frozen_enemies: Array[Node] = []  # 对话期间被冻结的敌人，结束时按原 process_mode 恢复
 
 func _ready() -> void:
+	# 显式开输入：对话是全局 K 的归属方，不能因为场景/UI 层级偶尔把默认输入关掉
+	set_process_input(true)
+	# DialogueLocator 优先用分组找，避免各交互点再各自全局扫描
+	add_to_group("dialogue")
 	if ui_path != NodePath(""):
 		_ui = get_node_or_null(ui_path)
 		if _ui == null:
@@ -50,8 +54,9 @@ func _ready() -> void:
 	EventBus.player_died.connect(_on_player_died)
 
 func _exit_tree() -> void:
-	# 切场景/测试释放时别把敌人的 process_mode 永远留在 DISABLED
-	_unfreeze_enemies()
+	# 切场景/测试释放时也要走完整的结束流程：
+	# 恢复敌人、关掉 UI、发 dialogue_finished，别把玩家的 _input_locked 留在 true。
+	_close_session(true)
 
 func _resolve_player() -> Node2D:
 	if _player != null and is_instance_valid(_player):
@@ -63,9 +68,9 @@ func _resolve_player() -> Node2D:
 	return _player
 
 func _on_player_died() -> void:
-	# 玩家在挂起期间掉坑死亡：丢掉这次对话，别等复活后突然弹出来
-	_pending_id = ""
-	_unfreeze_enemies()
+	# 玩家死亡=本次对话作废：active 和 pending 都要收掉，
+	# 并且发 finished 让玩家/音频/敌人各自解锁，不能只清 pending。
+	_close_session(true)
 
 ## 对话期间让敌人"时间停止"：只冻结敌人的 process/physics，不暂停整棵树。
 ## 暂停整棵树会把 UI 计时、测试协程和后续场景计时一起停掉；这里只停会攻击玩家的角色。
@@ -88,14 +93,19 @@ func _unfreeze_enemies() -> void:
 func is_playing() -> bool:
 	return _active or _pending_id != ""
 
-## 播放一段对话（入口）。播放中再次调用视为重新开始。
+## 当前条是否已经完整显示。钟绳提示要靠它区分“按 K 跳过打字”和“按 K 翻下一句”。
+func is_line_done() -> bool:
+	return _line_done
+
+## 播放一段对话（入口）。播放中再次调用视为重新开始：
+## 先把上一段收尾并发 finished，再起新的一段，保证 started/finished 成对。
 func play(dialogue_id: String) -> void:
+	_close_session(true)
 	# 空中触发先挂起：等玩家落地再开始，避免对话锁输入时角色还在坠落
 	var p := _resolve_player()
 	if p != null and not p.is_on_floor():
 		_pending_id = dialogue_id
 		return
-	_pending_id = ""
 	_entry_dialogue_id = dialogue_id
 	_start(dialogue_id, true)
 
@@ -110,12 +120,10 @@ func _start(dialogue_id: String, emit_started: bool) -> void:
 		return
 	_queue = (data["lines"] as Array).duplicate()
 	_next_id = str(data.get("next_id", ""))
-	var was_active := _active
 	_active = true
 	if emit_started:
 		EventBus.dialogue_started.emit(dialogue_id)
-		if not was_active:
-			_freeze_enemies()
+		_freeze_enemies()
 	_show_line(0)
 
 func _show_line(index: int) -> void:
@@ -123,22 +131,47 @@ func _show_line(index: int) -> void:
 	_visible_chars = 0.0
 	_line_done = false
 	var line: Dictionary = _queue[index]
-	if _ui != null:
+	var speaker := str(line.get("speaker", ""))
+	# 每句开头给一个非语言的“说话质感”，不是逐字音；系统旁白不配 NPC 嗓音。
+	GameManager.play_sfx("dialogue", -11.0, 1.0)
+	if speaker != "系统":
+		# 祭司是贴着耳朵说话的角色，用专门的低语层；其余人用普通胸腔声
+		if speaker == "祭司":
+			GameManager.play_sfx("voice_whisper", -15.0, _voice_pitch(speaker))
+		else:
+			GameManager.play_sfx("voice_murmur", -13.0, _voice_pitch(speaker))
+	if is_instance_valid(_ui):
 		_ui.set_speaker(str(line.get("speaker", "")))
 		_ui.show_box()
 	# 换新一条：收起"按 K 继续"提示，等本条完整显示后再亮起
 	_set_continue_hint(false)
 	_refresh_text()
 
+## 不同角色给不同胸腔/喉腔音高；不做真人语音，只做“谁在说”的辨识。
+func _voice_pitch(speaker: String) -> float:
+	match speaker:
+		"寄生体":
+			return 1.12
+		"守钟人":
+			return 0.78
+		"工程师":
+			return 0.92
+		"祭司":
+			return 0.70
+		"守门者":
+			return 0.58
+		_:
+			return 0.96
+
 func _refresh_text() -> void:
-	if _ui == null:
+	if not is_instance_valid(_ui) or _line_index < 0 or _line_index >= _queue.size():
 		return
 	var line: Dictionary = _queue[_line_index]
 	_ui.set_text(str(line.get("text", "")).left(int(_visible_chars)))
 
 ## M1-08：提示开关（对话 UI 契约扩展）。UI 没有该方法时静默跳过，保证旧 UI 兼容
 func _set_continue_hint(show: bool) -> void:
-	if _ui == null or not _ui.has_method("set_continue_hint"):
+	if not is_instance_valid(_ui) or not _ui.has_method("set_continue_hint"):
 		return
 	_ui.set_continue_hint(show)
 
@@ -163,10 +196,13 @@ func _process(delta: float) -> void:
 		_set_continue_hint(true)
 	_refresh_text()
 
-func _unhandled_input(event: InputEvent) -> void:
+## 用 _input 而不是 _unhandled_input：钟厅里钟绳/守钟人/调查点都挂了 K，
+## 对话正在播时 K 只归对话；处理完立刻 set_input_as_handled，避免同一次按键
+## 在最后一句结束后又触发旁边的守钟人/钟绳。
+func _input(event: InputEvent) -> void:
 	# 反向测试（规范第 6 条）：只有 interact(K) 的按下沿才触发，
 	# 其它按键 / 抬起 / 长按重复（echo）一律忽略，防止自动推进
-	if not _active:
+	if not _active or get_tree().paused:
 		return
 	var key := event as InputEventKey
 	if key == null or not key.pressed or key.is_echo():
@@ -182,6 +218,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		_line_done = true
 		_set_continue_hint(true)
 		_refresh_text()
+	get_viewport().set_input_as_handled()
 
 func _advance_line() -> void:
 	if _line_index + 1 < _queue.size():
@@ -194,11 +231,24 @@ func _advance_line() -> void:
 		_finish()
 
 func _finish() -> void:
+	_close_session(true)
+
+## 统一的结束路径：正常播完 / 重播 / 玩家死亡 / 场景销毁都走这里。
+## 只有原本已经 active（也就是发过 started）才发 finished；
+## 空中 pending 还没发 started，清掉即可，不能补一个没有配对的 finished。
+func abort() -> void:
+	_close_session(true)
+
+func _close_session(emit_finished: bool) -> void:
+	var had_active := _active
 	_active = false
+	_pending_id = ""
 	_line_done = true
-	# 对话结束：收起"按 K 继续"再隐藏对话框
+	_queue.clear()
+	_next_id = ""
 	_set_continue_hint(false)
-	if _ui != null:
+	if is_instance_valid(_ui) and _ui.has_method("hide_box"):
 		_ui.hide_box()
 	_unfreeze_enemies()
-	EventBus.dialogue_finished.emit(_entry_dialogue_id)
+	if emit_finished and had_active:
+		EventBus.dialogue_finished.emit(_entry_dialogue_id)

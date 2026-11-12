@@ -1,6 +1,7 @@
 extends SceneTree
 ## 教学关美术巡图（开发用，手动跑）：
 ##   Godot_v4.7.2-stable_win64_console.exe --path client --script res://tests/arena_shots.gd
+## 站位跟着 test_arena.gd 的 STAGE 表走（M4-19 拉宽后每个教学环一个停点）。
 
 const SCENE := "res://scenes/world/test_arena.tscn"
 const OUT_DIR := "res://shots"
@@ -17,12 +18,16 @@ var _last_t := 0.0
 
 const STOPS := [
 	{"move": 0.20, "shot": 0.75, "pos": Vector2(300.0, 647.0), "name": "arena_entry"},
-	{"move": 1.15, "shot": 1.70, "pos": Vector2(880.0, 555.0), "name": "arena_combat"},
-	{"move": 1.90, "shot": 2.45, "pos": Vector2(1800.0, 560.0), "name": "arena_pit"},
-	{"move": 2.85, "shot": 3.40, "pos": Vector2(2150.0, 558.0), "name": "arena_altar"},
+	{"move": 1.15, "shot": 1.70, "pos": Vector2(1360.0, 555.0), "name": "arena_combat"},
+	{"move": 1.90, "shot": 2.45, "pos": Vector2(2560.0, 646.0), "name": "arena_hollow"},
+	{"move": 2.85, "shot": 3.40, "pos": Vector2(3050.0, 558.0), "name": "arena_altar"},
+	{"move": 3.65, "shot": 4.05, "pos": Vector2(3600.0, 646.0), "name": "arena_chest"},
+	{"move": 4.35, "shot": 4.90, "pos": Vector2(3820.0, 646.0), "name": "arena_causeway"},
+	{"move": 5.35, "shot": 5.95, "pos": Vector2(4320.0, 646.0), "name": "arena_gallery"},
+	{"move": 6.40, "shot": 7.00, "pos": Vector2(4830.0, 646.0), "name": "arena_door"},
 ]
 
-var _moved: Array[bool] = [false, false, false, false]
+var _moved: Array[bool] = [false, false, false, false, false, false, false, false]
 
 func _process(delta: float) -> bool:
 	if not _started:
@@ -38,7 +43,7 @@ func _process(delta: float) -> bool:
 		_player = _arena.get_node("Player") as Node2D
 		_dbox = _arena.get_node("DialogueBox") as CanvasLayer
 		var slime := SLIME.instantiate()
-		slime.position = Vector2(985, 646)
+		slime.position = Vector2(1550, 646)
 		_arena.add_child(slime)
 		return false
 	_elapsed += delta

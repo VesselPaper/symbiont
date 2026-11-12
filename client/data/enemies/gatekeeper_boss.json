@@ -1,12 +1,12 @@
 {
   "id": "gatekeeper_boss",
   "name": "守门 Boss",
-  "hp": 120,
+  "hp": 24,
   "speed": 60.0,
   "behavior": "boss",
-  "attack_damage": 3,
+  "attack_damage": 2,
   "drops": {
     "soul": 50
   },
-  "desc": "第三层把守出路，结局结算的关键。"
+  "desc": "第三层把守出路，结局结算的关键；上一任走到这里的容器。"
 }
