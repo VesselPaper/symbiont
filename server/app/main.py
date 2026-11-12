@@ -20,10 +20,16 @@ app = FastAPI(
 app.include_router(health.router, prefix=settings.api_prefix)
 
 
+@app.get("/healthz", include_in_schema=False)
+def healthz() -> dict:
+    return {"status": "ok", "service": "symbiont-server", "version": "0.1.0"}
+
+
 @app.get("/")
 def root() -> dict:
     return {
         "service": "symbiont-server",
         "docs": "/docs",
         "health": f"{settings.api_prefix}/health",
+        "healthz": "/healthz",
     }

@@ -1,0 +1,189 @@
+[gd_scene format=3 uid="uid://bkuega3o1vpb7"]
+
+[ext_resource type="Script" uid="uid://dgru46wtu0ks3" path="res://scripts/world/test_arena.gd" id="1_arena"]
+[ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="2_player"]
+[ext_resource type="PackedScene" path="res://scenes/entities/dummy_target.tscn" id="3_dummy"]
+[ext_resource type="PackedScene" path="res://scenes/ui/dialogue_box.tscn" id="5_dbox"]
+[ext_resource type="Script" uid="uid://cinkkacppjmdy" path="res://components/dialogue.gd" id="6_dlg"]
+[ext_resource type="PackedScene" path="res://scenes/ui/tutorial_bubble.tscn" id="7_bubble"]
+[ext_resource type="Script" uid="uid://ctmjp5k5310an" path="res://components/tutorial.gd" id="8_tut"]
+[ext_resource type="Script" uid="uid://bees2eeru2n57" path="res://scripts/world/camera_follow.gd" id="9_cam"]
+[ext_resource type="PackedScene" path="res://scenes/items/altar.tscn" id="10_altar"]
+[ext_resource type="PackedScene" uid="uid://v226loe7qfs6" path="res://scenes/items/weapon_pickup.tscn" id="11_sword"]
+[ext_resource type="PackedScene" path="res://scenes/items/quest_marker.tscn" id="12_marker"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_ground"]
+size = Vector2(2568, 60)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_pit"]
+size = Vector2(295, 46)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_wall"]
+size = Vector2(40, 1170)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_platform"]
+size = Vector2(987, 90)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_pogo_platform"]
+size = Vector2(140, 131)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_altar_platform"]
+size = Vector2(476, 90)
+
+[node name="TestArena" type="Node2D" unique_id=1599870205]
+script = ExtResource("1_arena")
+metadata/_edit_lock_ = true
+
+[node name="Backdrop" type="Polygon2D" parent="." unique_id=571203853]
+z_index = -2
+position = Vector2(1287, 360)
+color = Color(0.075426795, 0.0860123, 0.10365506, 1)
+polygon = PackedVector2Array(-1280, -360, 1280, -360, 1280, 360, -1280, 360)
+metadata/_edit_lock_ = true
+
+[node name="GroundLeft" type="StaticBody2D" parent="." unique_id=2143097642]
+position = Vector2(875, 689)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="GroundLeft" unique_id=638024373]
+position = Vector2(409, 0)
+shape = SubResource("RectangleShape2D_ground")
+
+[node name="Visual" type="Polygon2D" parent="GroundLeft" unique_id=1207325149]
+position = Vector2(409.50003, 0)
+scale = Vector2(1.4679999, 1)
+color = Color(0.15686275, 0.15686275, 0.15686275, 1)
+polygon = PackedVector2Array(-875, -30, 875, -30, 875, 30, -875, 30)
+
+[node name="PitFloor" type="StaticBody2D" parent="." unique_id=578124910]
+position = Vector2(1872.0001, 625)
+scale = Vector2(1.3464146, 1.6511029)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="PitFloor" unique_id=338271005]
+shape = SubResource("RectangleShape2D_pit")
+
+[node name="Visual" type="Polygon2D" parent="PitFloor" unique_id=771239488]
+color = Color(0.15686275, 0.15686275, 0.15686275, 1)
+polygon = PackedVector2Array(-147.5, -23, 147.5, -23, 147.5, 23, -147.5, 23)
+
+[node name="WallLeft" type="StaticBody2D" parent="." unique_id=269467515]
+position = Vector2(20, 75)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="WallLeft" unique_id=700112468]
+shape = SubResource("RectangleShape2D_wall")
+
+[node name="Visual" type="Polygon2D" parent="WallLeft" unique_id=1505481847]
+color = Color(0.15686275, 0.15686275, 0.15686275, 1)
+polygon = PackedVector2Array(-20, -585, 20, -585, 20, 585, -20, 585)
+
+[node name="WallRight" type="StaticBody2D" parent="." unique_id=478597390]
+position = Vector2(2540, 75)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="WallRight" unique_id=1695720208]
+shape = SubResource("RectangleShape2D_wall")
+
+[node name="Visual" type="Polygon2D" parent="WallRight" unique_id=376334160]
+color = Color(0.15686275, 0.15686275, 0.15686275, 1)
+polygon = PackedVector2Array(-20, -585, 20, -585, 20, 585, -20, 585)
+
+[node name="guide_mark" parent="." unique_id=1284384026 instance=ExtResource("12_marker")]
+position = Vector2(475, 640)
+marker_id = "guide_mark"
+
+[node name="Player" parent="." unique_id=791723823 instance=ExtResource("2_player")]
+position = Vector2(80, 647)
+
+[node name="JumpPlatform" type="StaticBody2D" parent="." unique_id=1772295909]
+position = Vector2(863, 616)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="JumpPlatform" unique_id=710306783]
+position = Vector2(343.5, 0)
+shape = SubResource("RectangleShape2D_platform")
+
+[node name="Visual" type="Polygon2D" parent="JumpPlatform" unique_id=298465546]
+position = Vector2(343.50006, 0)
+scale = Vector2(3.2900002, 1)
+color = Color(0.15686275, 0.15686275, 0.15686275, 1)
+polygon = PackedVector2Array(-150, -45, 150, -45, 150, 45, -150, 45)
+
+[node name="Corpse" type="Node2D" parent="." unique_id=882141390]
+position = Vector2(839, 567)
+
+[node name="Body" type="Polygon2D" parent="Corpse" unique_id=70901639]
+color = Color(0.42, 0.42, 0.46, 1)
+polygon = PackedVector2Array(-26, -5, 26, -5, 26, 5, -26, 5)
+
+[node name="Head" type="Polygon2D" parent="Corpse" unique_id=844129717]
+position = Vector2(-30, 0)
+color = Color(0.45, 0.45, 0.5, 1)
+polygon = PackedVector2Array(-5, -5, 5, -5, 5, 5, -5, 5)
+
+[node name="WeaponPickup" parent="." unique_id=1863270936 instance=ExtResource("11_sword")]
+position = Vector2(829.99994, 548.99994)
+rotation = -2.8797934
+metadata/_edit_group_ = true
+
+[node name="DummyA" parent="." unique_id=1719367442 instance=ExtResource("3_dummy")]
+position = Vector2(940, 557)
+
+[node name="DummyB" parent="." unique_id=256792845 instance=ExtResource("3_dummy")]
+position = Vector2(1107, 496.00003)
+rotation = -1.0471976
+
+[node name="PogoPlatform" type="StaticBody2D" parent="." unique_id=856051452]
+position = Vector2(1181, 480)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="PogoPlatform" unique_id=2036215760]
+position = Vector2(0, 25.5)
+shape = SubResource("RectangleShape2D_pogo_platform")
+
+[node name="Visual" type="Polygon2D" parent="PogoPlatform" unique_id=532416296]
+position = Vector2(-1, 26.000008)
+scale = Vector2(0.564, 1.4666668)
+color = Color(0.15686275, 0.15686275, 0.15686275, 1)
+polygon = PackedVector2Array(-125, -45, 125, -45, 125, 45, -125, 45)
+
+[node name="AltarPlatform" type="StaticBody2D" parent="." unique_id=824955269]
+position = Vector2(2220, 617)
+collision_mask = 0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="AltarPlatform" unique_id=1802730532]
+position = Vector2(63, 0)
+shape = SubResource("RectangleShape2D_altar_platform")
+
+[node name="Visual" type="Polygon2D" parent="AltarPlatform" unique_id=3009525]
+position = Vector2(62.99999, 0)
+scale = Vector2(1.36, 1)
+color = Color(0.15686275, 0.15686275, 0.15686275, 1)
+polygon = PackedVector2Array(-175, -45, 175, -45, 175, 45, -175, 45)
+
+[node name="Altar" parent="." unique_id=1521621871 instance=ExtResource("10_altar")]
+position = Vector2(2221, 597)
+
+[node name="Camera2D" type="Camera2D" parent="." unique_id=691359795]
+position = Vector2(640, 360)
+limit_left = 0
+limit_top = -120
+limit_right = 2560
+limit_bottom = 720
+script = ExtResource("9_cam")
+target_path = NodePath("../Player")
+
+[node name="DialogueBox" parent="." unique_id=1221460156 instance=ExtResource("5_dbox")]
+
+[node name="Dialogue" type="Node" parent="." unique_id=1622753729]
+script = ExtResource("6_dlg")
+ui_path = NodePath("../DialogueBox")
+
+[node name="TutorialBubble" parent="." unique_id=1170628202 instance=ExtResource("7_bubble")]
+position = Vector2(80, 603)
+
+[node name="Tutorial" type="Node" parent="." unique_id=1018087819]
+script = ExtResource("8_tut")
+ui_path = NodePath("../TutorialBubble")
+marker_path = NodePath("../guide_mark")

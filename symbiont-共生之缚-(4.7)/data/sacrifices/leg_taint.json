@@ -1,0 +1,9 @@
+{
+  "id": "leg_taint",
+  "part": "leg",
+  "route": "heretic",
+  "desc": "腿部改造：长按跳跃为大跳（与蒸汽靴跳高相同）。",
+  "effect": {
+    "jump": "big_jump"
+  }
+}

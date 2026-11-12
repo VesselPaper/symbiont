@@ -1,0 +1,12 @@
+{
+  "id": "wood_shield",
+  "name": "木盾",
+  "type": "shield",
+  "desc": "能格挡正面攻击的木盾。",
+  "icon": "",
+  "stats": {
+    "def": 3
+  },
+  "obtain": "map_pickup",
+  "flags": {}
+}

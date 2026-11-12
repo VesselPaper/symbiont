@@ -1,0 +1,13 @@
+{
+  "id": "tainted_leg",
+  "name": "污化之腿",
+  "type": "upgrade",
+  "desc": "献祭改造的腿部，长按可大跳。",
+  "icon": "",
+  "stats": {},
+  "obtain": "sacrifice",
+  "flags": {
+    "movement": "big_jump",
+    "faction": "heretic"
+  }
+}

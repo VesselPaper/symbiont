@@ -1,0 +1,9 @@
+{
+  "id": "arm_claw",
+  "part": "arm",
+  "route": "heretic",
+  "desc": "手臂改造：以肢体为武器，超高攻低防。",
+  "effect": {
+    "attack_mode": "arm_claw"
+  }
+}

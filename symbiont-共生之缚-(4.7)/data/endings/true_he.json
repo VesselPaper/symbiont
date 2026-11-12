@@ -1,0 +1,7 @@
+{
+  "id": "true_he",
+  "name": "真结局 HE",
+  "condition": "击败守门 Boss 后回到起点取得特殊道具并完成反噬",
+  "weight": 3,
+  "desc": "清除异化状态，反咬邪神。"
+}

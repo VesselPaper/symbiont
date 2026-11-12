@@ -1,0 +1,13 @@
+{
+  "id": "refuse_die",
+  "npc_id": "",
+  "title": "拒绝",
+  "lines": [
+    {
+      "speaker": "系统",
+      "text": "你拒绝了献祭。生命一点点流逝……黑暗吞没了你。"
+    }
+  ],
+  "next_id": "",
+  "branch": "ending:refuse_die"
+}
