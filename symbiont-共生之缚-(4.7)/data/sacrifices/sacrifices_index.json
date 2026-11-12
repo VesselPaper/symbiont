@@ -1,8 +1,0 @@
-{
-  "arm_claw": {
-    "part": "arm"
-  },
-  "leg_taint": {
-    "part": "leg"
-  }
-}
