@@ -22,9 +22,14 @@ database/game_data/game_data.db
 server/storage/
 
 # ---------- 开发临时探针 / 调试图（本机有，不进仓库） ----------
+# 探针脚本、截图脚本、调试图都带下划线前缀；Godot 给每张图生成的 .import 也要一起挡，
+# 否则只挡 .png 会把一排指向不存在图片的 .import 提交上去
 client/tests/_*.gd
 client/tests/_*.gd.uid
-client/shots/_debug_*.png
+client/shots/_*.png
+client/shots/_*.png.import
+# 开发脚本的临时产出（tools/audio_audit.py 的音频对照表等）
+tmp/
 
 # ---------- 日志 / 临时 ----------
 *.log
