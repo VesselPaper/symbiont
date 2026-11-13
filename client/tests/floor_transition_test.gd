@@ -13,7 +13,8 @@ func _process(delta: float) -> bool:
 	if not _started:
 		_started = true
 		var gm := root.get_node("/root/GameManager")
-		gm.set("flags", {})
+		# 第一层关底 Boss 已倒下，层门才会解封（本用例只测转场，不测 Boss 流程）
+		gm.set("flags", {"floor1_boss_defeated": true})
 		gm.set("current_floor", "floor_1")
 		_level = load("res://scenes/world/floor1.tscn").instantiate()
 		root.add_child(_level)

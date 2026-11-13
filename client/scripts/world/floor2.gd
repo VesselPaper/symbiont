@@ -26,8 +26,10 @@ const SEAL_POS := Vector2(3910, 430)
 const NPC_SCENE := preload("res://scenes/world/faction_npc.tscn")
 const SEAL_SCENE := preload("res://scenes/world/faction_seal.tscn")
 const SLIME_SCENE := preload("res://scenes/entities/slime.tscn")
+const CAMPFIRE_SCENE := preload("res://scenes/world/campfire.tscn")
 const SPORE_SHOOTER_SCENE := preload("res://scenes/entities/spore_shooter.tscn")
 const INSPECT_SCENE := preload("res://scenes/world/inspect_point.tscn")
+const STEAM_BOOTS_CHEST_SCENE := preload("res://scenes/items/steam_boots_chest.tscn")
 const FLOOR2_NAME := "第二层 · 铸炉与圣坛"
 const FLOOR3_SCENE := "res://scenes/world/floor3.tscn"
 const FLOOR3_NAME := "第三层 · 守门者之厅"
@@ -58,6 +60,8 @@ var _transition_rect: ColorRect
 var _transition_label: Label
 
 func _ready() -> void:
+	GameManager.mark_floor_start("floor2")
+	_build_campfire()
 	_build_platforms()
 	_build_props()
 	_build_npcs()
@@ -319,6 +323,7 @@ func _build_props() -> void:
 	add_child(props)
 	_build_entry_lift(props)
 	_build_forge(props)
+	_build_boots_chest(props)
 	_build_chapel(props)
 	_build_seal_corridor(props)
 	_build_gate(props)
@@ -328,6 +333,13 @@ func _build_props() -> void:
 
 ## M4-09：封印门原先离第三层门只有 250px，走过去太快。这里把后段拉到 900px，
 ## 用断阶 + 断柱 + 冷雾把“选完阵营后走向终点”的路撑起来，不挡路、不加敌人。
+## 篝火：圣坛廊中段（地图中部），见完两个 NPC 之后能歇一次
+func _build_campfire() -> void:
+	var fire := CAMPFIRE_SCENE.instantiate()
+	fire.name = "Campfire"
+	fire.position = Vector2(2500, 600)
+	add_child(fire)
+
 func _build_seal_corridor(parent: Node) -> void:
 	for spec in [
 		{"x": 4330.0, "base": 560.0, "height": 120.0, "tilt": -0.05, "cap": true},
@@ -511,21 +523,23 @@ func _build_forge(parent: Node) -> void:
 		pipe_rim.points = pipe.points
 		parent.add_child(pipe_rim)
 	# 工程师工作台：桌面上散着齿轮、扳手和油灯
+	# 组长反馈：整张桌子看起来浮在空中 —— 原来桌面 42px 比人还高、腿又细又短。
+	# 现在桌面压到 32px、腿加粗到 12px 宽并插进地面 2px，读起来才是一张落地的长桌。
 	var bench := Node2D.new()
 	bench.name = "Workbench"
-	bench.position = Vector2(1090, 640)
+	bench.position = Vector2(1090, 642)
 	parent.add_child(bench)
 	var top := Polygon2D.new()
 	top.color = Color(0.28, 0.21, 0.14)
 	top.polygon = PackedVector2Array([
-		Vector2(-68, -42), Vector2(68, -42), Vector2(62, -34), Vector2(-62, -34),
+		Vector2(-70, -32), Vector2(70, -32), Vector2(64, -24), Vector2(-64, -24),
 	])
 	bench.add_child(top)
-	for dx in [-52.0, 46.0]:
+	for dx in [-54.0, 48.0]:
 		var leg := Polygon2D.new()
 		leg.color = Color(0.16, 0.13, 0.10)
 		leg.polygon = PackedVector2Array([
-			Vector2(dx - 3, -36), Vector2(dx + 3, -36), Vector2(dx + 6, 0), Vector2(dx - 5, 0),
+			Vector2(dx - 6, -26), Vector2(dx + 6, -26), Vector2(dx + 8, 2), Vector2(dx - 8, 2),
 		])
 		bench.add_child(leg)
 	for i in range(3):
@@ -535,7 +549,7 @@ func _build_forge(parent: Node) -> void:
 		var pts := PackedVector2Array()
 		for k in range(8):
 			var a := TAU * float(k) / 8.0
-			pts.append(Vector2(-30.0 + i * 27.0 + cos(a) * 7.0, -46.0 + sin(a) * 7.0))
+			pts.append(Vector2(-30.0 + i * 27.0 + cos(a) * 7.0, -36.0 + sin(a) * 7.0))
 		gear.points = pts
 		bench.add_child(gear)
 	# 吊在锅炉上方的齿轮组，工厂的“骨架”
@@ -550,6 +564,14 @@ func _build_forge(parent: Node) -> void:
 			pts.append(Vector2(cx + cos(a) * (26.0 + i * 8.0), 430.0 + sin(a) * (26.0 + i * 8.0)))
 		wheel.points = pts
 		parent.add_child(wheel)
+
+## 蒸汽靴宝箱：剧情上这双靴子是工程师给的，所以从教学关挪到锅炉房、工作台右侧。
+## 箱身多边形底边在 y=+4，压到地面顶 640 上正好落地。
+func _build_boots_chest(parent: Node) -> void:
+	var chest := STEAM_BOOTS_CHEST_SCENE.instantiate()
+	chest.name = "SteamBootsChest"
+	chest.position = Vector2(1330, 640)
+	parent.add_child(chest)
 
 ## 圣坛廊：尖拱、垂布、蜡烛和骨堆，颜色从锅炉的铜色慢慢过渡到紫色。
 func _build_chapel(parent: Node) -> void:
@@ -764,6 +786,10 @@ func _spawn_enemies() -> void:
 	for spec in [
 		{"name": "Slime1", "pos": Vector2(1660, 628)},
 		{"name": "Slime2", "pos": Vector2(2920, 628)},
+		# 组长反馈后半程空：下行回廊、封印后两段断阶各补一只，避开 4900 的层门触发器
+		{"name": "Slime3", "pos": Vector2(3150, 626)},
+		{"name": "Slime4", "pos": Vector2(4100, 546)},
+		{"name": "Slime5", "pos": Vector2(4520, 586)},
 		{"name": "SporeShooter", "pos": Vector2(3520, 590)},
 	]:
 		var scene := SLIME_SCENE if str(spec["name"]).begins_with("Slime") else SPORE_SHOOTER_SCENE

@@ -38,14 +38,14 @@ const DONE_HINT_DURATION := 1.0
 ## M4-22：MOVE 那句整句左移一个文字宽度（560 → 406），让开 600 处那道 200px 高的教学骨栅门；
 ## 走路的判定点还是 STAGE 表的 move_mark(560)，这里只挪“话写在哪”。
 const STEP_ANCHORS: Array[Vector2] = [
-	Vector2(406, 585),   # MOVE：地面（地面顶 659），避开 600 的骨栅门
-	Vector2(900, 500),   # JUMP：跳台顶 571
-	Vector2(1310, 500),  # WEAPON：尸体+剑
-	Vector2(1650, 480),  # ATTACK：木桩甲
-	Vector2(2155, 372),  # POGO：下劈方台（顶 440）
-	Vector2(2660, 590),  # COMBAT：浅坑底（坑底 659）
-	Vector2(3130, 498),  # PICKUP：祭坛石碗上方（台顶 572）
-	Vector2(3130, 498),  # SACRIFICE：同一点
+	Vector2(508, 585),   # MOVE：地面（地面顶 659），避开 750 的骨栅门
+	Vector2(1125, 500),  # JUMP：跳台顶 571
+	Vector2(1638, 500),  # WEAPON：尸体+剑
+	Vector2(2063, 480),  # ATTACK：木桩甲
+	Vector2(2694, 372),  # POGO：下劈方台（顶 440）
+	Vector2(3325, 590),  # COMBAT：浅坑底（坑底 659）
+	Vector2(3913, 498),  # PICKUP：祭坛石碗上方（台顶 572）
+	Vector2(3913, 498),  # SACRIFICE：同一点
 ]
 
 ## 教学假人节点名（test_arena 内的实例名，见 test_arena.tscn）
@@ -57,17 +57,17 @@ const MOVE_MARK_KEY := "move_mark"
 const JUMP_PLATFORM_KEY := "ledge"
 const POGO_PLATFORM_KEY := "pogo"
 
-## 每环目标文案（UI 提示而非对话台词，允许硬编码；数组下标即 Step 枚举值）
-## 口吻说明（组长定稿）：寄生体在耳边低语式引导 —— 命令短句 + 括号标按键。
+## 每环目标文案。组长定稿：不要写成"按 X 键"的操作说明，要用寄生体在耳边的低语，
+## 让提示本身是剧情的一部分；按键怎么用靠玩家自己摸索/菜单里的按键说明。
 const OBJECTIVE_TEXTS := [
-	"走到前面（A/D）",            # MOVE
-	"跳上平台（空格）",            # JUMP
-	"拿上那把剑",                  # WEAPON
-	"用 J 攻击木桩",               # ATTACK
-	"从木桩上踩一下，跳上方台",    # POGO（成功标志是站上去，不是挥出下劈）
-	"击杀它（J）",                 # COMBAT
-	"捡起肢体，献给我",            # PICKUP
-	"带到祭坛，按 K 献祭",         # SACRIFICE
+	"向前走。身体会记得。",          # MOVE
+	"跃上去，离开地面。",            # JUMP
+	"捡起那把铁器。",                # WEAPON
+	"让它尝尝铁的味道。",            # ATTACK
+	"踩住它，借力跳高。",            # POGO
+	"它来了。别被碰到。",            # COMBAT
+	"把肢体带走，给我。",            # PICKUP
+	"放到祭坛上，献给我。",          # SACRIFICE
 ]
 const WEAPON_FLASH_TEXT := "获得铁剑"
 const DONE_BUBBLE_TEXT := "教程完成"

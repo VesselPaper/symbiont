@@ -41,7 +41,7 @@ func _run() -> void:
 	await _stand_at(Vector2(float(stage["move_mark"].x) + 30.0, 646.0))
 	_expect(1, "JUMP")
 	# M4-22 组长定稿：做完的那句不消失，留在地图上当路标（只是变暗）
-	_check_objective_kept(0, "走到前面（A/D）")
+	_check_objective_kept(0, "向前走。身体会记得。")
 	# JUMP：站上跳台（顶 571 → 站好后身体中心 558）
 	var ledge: Rect2 = stage["ledge"]
 	await _stand_at(Vector2(ledge.position.x + 120.0, ledge.position.y - 13.0))

@@ -1,0 +1,37 @@
+extends SceneTree
+## 篝火截图（开发用）：
+##   Godot_v4.7.2-stable_win64_console.exe --path client --script res://tests/campfire_shots.gd
+
+const SCENE := "res://scenes/world/floor1.tscn"
+
+var _warmup := 0
+var _frames := 0
+var _level: Node
+
+func _process(_delta: float) -> bool:
+	if _level == null:
+		_warmup += 1
+		if _warmup < 10:
+			return false
+		_level = load(SCENE).instantiate()
+		root.add_child(_level)
+		return false
+	_frames += 1
+	# 等场景稳定后把相机放到篝火附近
+	if _frames == 20:
+		var player := _level.get_node_or_null("Player") as Node2D
+		if player != null:
+			player.global_position = Vector2(2500, 720)
+	# 让玩家在火边坐下，抓"休息"的样子
+	if _frames == 28:
+		var fire := _level.get_node_or_null("Campfire")
+		if fire != null:
+			fire.call("_rest")
+	if _frames == 45:
+		var img := root.get_texture().get_image()
+		var path := ProjectSettings.globalize_path("res://shots/campfire.png")
+		img.save_png(path)
+		print("[campfire_shots] %s" % path)
+		quit(0)
+		return true
+	return false

@@ -1,9 +1,9 @@
 ﻿# 共生之缚 —— 环境初始化脚本（Windows）
-# 1) 安装/定位 Godot 4.5.1（仓库外目录，全组统一版本）
+# 1) 安装/定位 Godot 4.7.2（仓库外目录，全组统一版本）
 # 2) 创建 server/.venv 并安装依赖
 # 3) 构建游戏内容库并导出 JSON（验证数据管道）
 param(
-    [string]$GodotVersion = "4.5.1-stable",
+    [string]$GodotVersion = "4.7.2-stable",
     [string]$InstallDir   = "D:\Applications\Godot"
 )
 
@@ -26,7 +26,7 @@ function Resolve-Python {
 Write-Host "==> [1/4] Godot $GodotVersion"
 $godotExe = Join-Path $InstallDir "Godot_v${GodotVersion}_win64.exe"
 if (-not (Test-Path $godotExe)) {
-    Write-Host "    未找到，正在下载（约 163MB）..."
+    Write-Host "    未找到，正在下载（约 82MB）..."
     New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
     $zip = Join-Path $InstallDir "godot.zip"
     $url = "https://github.com/godotengine/godot/releases/download/$GodotVersion/Godot_v${GodotVersion}_win64.exe.zip"

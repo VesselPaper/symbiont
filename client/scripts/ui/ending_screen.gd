@@ -104,7 +104,8 @@ func _build(ending_id: String, data: Dictionary) -> void:
 	_vbox.add_child(quote)
 
 	var hint := Label.new()
-	hint.text = "按 K 重新开始"
+	# 异化结局是"假结局"：按 K 会坠入深渊打终章，不是重开
+	hint.text = "按 K 坠入深渊" if ending_id == "transformed" else "按 K 重新开始"
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hint.add_theme_font_size_override("font_size", 14)
 	hint.add_theme_color_override("font_color", Color(0.52, 0.60, 0.58, 0.85))

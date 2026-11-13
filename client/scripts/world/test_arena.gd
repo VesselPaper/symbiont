@@ -4,7 +4,7 @@ extends Node2D
 ## 教学关：平地 + 左右边界墙，从左到右是
 ##   出生 → 走一段（MOVE）→ 跳台（顶 571：JUMP、拿剑、打木桩、木桩乙在下劈台前）
 ##   → 下劈方台（顶 440，POGO 要站上去）→ 浅坑（两级石阶 + 战斗）
-##   → 祭坛台（顶 572，献祭）→ 蒸汽靴宝箱 → 长廊台阶（可选）→ 下一层的门
+##   → 祭坛台（顶 572，献祭）→ 长廊台阶（可选）→ 下一层的门
 ## 布局数字全部在 STAGE 表里（M4-19 拉开距离 / M4-21 去掉引导光点），改布局只改表。
 ## M1-03：挂载对话 UI（DialogueBox，CanvasLayer 子节点保证 UI 在顶层）和对话
 ## 组件（Dialogue），场景稳定后自动弹出开场寄生体低语（intro_parasite_1 链）。
@@ -23,58 +23,61 @@ const FLOOR1_SCENE := "res://scenes/world/floor1.tscn"
 ## 统一拉到 340~510px（一屏约 747px），地图从 4000 加到 5000：
 ##
 ##   出生 80 → 移动光点 560 → 跳台 820..2400（拿剑 1310、木桩甲 1650、下劈台 2075..2235）
-##   → 浅坑 2460..2800（史莱姆 2620/2700）→ 祭坛台 2860..3400（祭坛 3130）
-##   → 宝箱 3640 → 长廊台阶 4060..4770 → 层门 4900 → 右墙 5000
+##   → 浅坑 2460..2800（史莱姆 2660，只有一只）→ 祭坛台 2860..3400（祭坛 3130）
+##   → 长廊台阶 4060..4770 → 层门 4900 → 右墙 5000
 ##
 ## 场景文件 test_arena.tscn 里的坐标只是给编辑器看的初值，运行时全部按这张表摆。
 ## 改布局只改表（外加 world_width 那一项会同步地面/右墙/镜头/背景），别再去 .tscn 挪节点。
 ##
 ## M4-21 起表里的 *_mark 只当「这一环的提示写在哪」的锚点（原先是光点站位，光点已删）。
 const PLAYER_HALF_HEIGHT := 13.0   # 玩家碰撞盒 14×26，中心到脚底 13
+## 组长反馈"地图太紧凑"：整张教学关横向统一放大 1.25 倍（x 与宽度一起缩放，
+## 拓扑不变、间距与跑动距离同步变长，约多出 1.2 km 的横向路程）。
+const SPREAD := 1.25
 const STAGE := {
-	"world_width": 5000.0,
-	"spawn": Vector2(80, 647),
-	# 移动环：走完这 480px 才算学会走路（判定点）
-	"move_mark": Vector2(560, 585),
-	# M4-22 组长反馈：开头那句 A/D 提示压在 600 处那道 200px 高的骨栅门上，整句左移一个文字宽度。
-	# 这里只管“话写在哪”，判定还是 move_mark(560)：句子写在入口上方，人继续往前走才算过。
-	"move_hint": Vector2(406, 585),
-	"move_gate": Vector2(600, 559),
+	"world_width": 6250.0,
+	"spawn": Vector2(100, 647),
+	# 移动环：走完这段才算学会走路（判定点）
+	"move_mark": Vector2(700, 585),
+	# 这里只管“话写在哪”，判定还是 move_mark：句子写在入口上方，人继续往前走才算过。
+	"move_hint": Vector2(508, 585),
+	"move_gate": Vector2(750, 559),
 	# 跳台（顶 571，比地面高 88）：拿剑、打桩、下劈都在这条长台上
-	"ledge": Rect2(820, 571, 1580, 90),
-	"jump_mark": Vector2(900, 500),
-	"jump_gate": Vector2(1040, 471),
-	"corpse": Vector2(1245, 567),
-	"sword": Vector2(1310, 568),
-	"weapon_mark": Vector2(1310, 500),
-	"dummy_a": Vector2(1650, 557),
-	"attack_mark": Vector2(1650, 480),
-	"attack_gate": Vector2(1760, 471),
+	"ledge": Rect2(1025, 571, 1975, 90),
+	"jump_mark": Vector2(1125, 500),
+	"jump_gate": Vector2(1300, 471),
+	"corpse": Vector2(1556, 567),
+	"sword": Vector2(1638, 568),
+	"weapon_mark": Vector2(1638, 500),
+	"dummy_a": Vector2(2063, 557),
+	"attack_mark": Vector2(2063, 480),
+	"attack_gate": Vector2(2200, 471),
 	# 下劈：小方台（顶 440）+ 悬在台前的木桩乙，下劈反弹才够得着
-	"pogo": Rect2(2075, 440, 160, 131),
-	"dummy_b": Vector2(2060, 496),
-	"pogo_mark": Vector2(2155, 372),
-	"pogo_gate": Vector2(2330, 449),
+	"pogo": Rect2(2594, 440, 200, 131),
+	"dummy_b": Vector2(2575, 496),
+	"pogo_mark": Vector2(2694, 372),
+	"pogo_gate": Vector2(2913, 449),
 	# 浅坑：两侧各两级台阶，坑底和地面同高，史莱姆就站在坑里
 	"pit_steps": [
-		Rect2(2400, 607, 30, 52), Rect2(2430, 633, 30, 26),
-		Rect2(2800, 633, 30, 26), Rect2(2830, 607, 30, 52),
+		Rect2(3000, 607, 38, 52), Rect2(3038, 633, 38, 26),
+		Rect2(3500, 633, 38, 26), Rect2(3538, 607, 38, 52),
 	],
-	"slimes": [Vector2(2620, 646), Vector2(2700, 646)],
-	"combat_mark": Vector2(2660, 590),
-	"combat_gate": Vector2(2790, 309),
+	# 组长反馈：教学关只留一只史莱姆，两只同时贴脸容易被围住，节奏也太赶
+	"slimes": [Vector2(3325, 646)],
+	"combat_mark": Vector2(3325, 590),
+	"combat_gate": Vector2(3488, 309),
 	# 祭坛台（顶 572）＋ 祭坛
-	"altar_hall": Rect2(2860, 572, 540, 90),
-	"altar": Vector2(3130, 597),
-	"pickup_mark": Vector2(3130, 498),
-	"sacrifice_mark": Vector2(3130, 498),
-	# 祭坛之后：宝箱落地面上，长廊台阶是可选路线，层门在地图最右
-	"chest": Vector2(3640, 659),
+	"altar_hall": Rect2(3575, 572, 675, 90),
+	"altar": Vector2(3913, 597),
+	"pickup_mark": Vector2(3913, 498),
+	"sacrifice_mark": Vector2(3913, 498),
+	# 祭坛之后：长廊台阶是可选路线，层门在地图最右。
+	# 蒸汽靴宝箱已移到第二层工程师处（剧情上靴子由工程师交付），教学关不再放箱子。
 	"gallery": [
-		Rect2(4060, 607, 130, 26), Rect2(4240, 552, 120, 26),
-		Rect2(4430, 505, 110, 26), Rect2(4620, 565, 150, 26),
+		Rect2(5075, 607, 163, 26), Rect2(5300, 552, 150, 26),
+		Rect2(5538, 505, 138, 26), Rect2(5775, 565, 188, 26),
 	],
-	"door": Vector2(4900, 659),
+	"door": Vector2(6125, 659),
 }
 
 ## 物理门：每环一个，只有做完前面那一环才开。高度按玩家跳跃高度留死角：
@@ -88,6 +91,7 @@ const DEBUG_SKIP_KEY := KEY_F2
 ## 史莱姆场景：对话/教程前期场景无敌人（避免教学时被攻击的矛盾），
 ## 教程进入"战斗"步骤时由 spawn_enemies() 生成（M1-08 修正），位置见 STAGE["slimes"]。
 const SLIME_SCENE := preload("res://scenes/entities/slime.tscn")
+const CAMPFIRE_SCENE := preload("res://scenes/world/campfire.tscn")
 const TUTORIAL_GATE_SCENE := preload("res://scenes/world/tutorial_gate.tscn")
 const ORIGIN_RELIC_SCENE := preload("res://scenes/items/origin_relic.tscn")
 const ENDING_SCENE := preload("res://scenes/ui/ending_screen.tscn")
@@ -123,6 +127,8 @@ var _ending_screen: CanvasLayer
 var _refusing := false
 
 func _ready() -> void:
+	GameManager.mark_floor_start("tutorial")
+	_build_campfire()
 	# 相机 zoom 由这里设置（垂直视野 = N 倍角色身高）；水平跟随/垂直死区由 camera_follow.gd 处理
 	var camera := $Camera2D as Camera2D
 	camera.zoom = Vector2(CAMERA_ZOOM, CAMERA_ZOOM)
@@ -135,6 +141,7 @@ func _ready() -> void:
 	_build_next_floor_door()
 	_build_tutorial_gates()
 	_build_fade_overlay()
+	_build_fade_in()
 	_build_hud()
 	# 教程 8 个提示气泡锚点也在这张表里，推给 Tutorial；它自己的常量只作无场景时的兜底
 	if _tutorial != null and _tutorial.has_method("set_step_anchors"):
@@ -186,7 +193,6 @@ func _apply_stage() -> void:
 	($DummyA as Node2D).position = STAGE["dummy_a"]
 	($DummyB as Node2D).position = STAGE["dummy_b"]
 	($Altar as Node2D).position = STAGE["altar"]
-	($SteamBootsChest as Node2D).position = STAGE["chest"]
 
 ## 平台原点是中心：碰撞换成 rect 大小、子节点归零、视觉按原始多边形缩放。
 ## 原来 JumpPlatform 的碰撞挂在 +343.5 这种手调偏移上，挪平台就得连子节点一起改，
@@ -463,6 +469,30 @@ func _build_hud() -> void:
 	var hud := GAME_HUD_SCENE.instantiate()
 	hud.name = "GameHUD"
 	add_child(hud)
+
+## 篝火：放在祭坛之后、长廊台阶之前的地面中段，打完浅坑能补给一次再走
+func _build_campfire() -> void:
+	var fire := CAMPFIRE_SCENE.instantiate()
+	fire.name = "Campfire"
+	fire.position = Vector2(4650, 659)
+	add_child(fire)
+
+## 从序章的黑场接进来：整屏先黑，再慢慢亮起（序章结尾已渐黑，这里保证两幕之间没有硬切）
+func _build_fade_in() -> void:
+	var layer := CanvasLayer.new()
+	layer.name = "FadeIn"
+	layer.layer = 4
+	add_child(layer)
+	var rect := ColorRect.new()
+	rect.name = "Black"
+	rect.color = Color(0.0, 0.0, 0.0, 1.0)
+	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	layer.add_child(rect)
+	var tw := create_tween()
+	tw.tween_interval(0.15)
+	tw.tween_property(rect, "color:a", 0.0, 0.95)
+	tw.tween_callback(layer.queue_free)
 
 func _build_fade_overlay() -> void:
 	_fade_layer = CanvasLayer.new()

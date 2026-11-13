@@ -1,7 +1,7 @@
 ﻿# 共生之缚 —— 全量测试
 # 数据管道 + server pytest + Godot headless 全量回归
 param(
-    [string]$GodotExe = "D:\Applications\Development\Tools\Godot_v4.7.2-stable_win64\Godot_v4.7.2-stable_win64_console.exe"
+    [string]$GodotExe = "D:\Applications\Godot\Godot_v4.7.2-stable_win64_console.exe"
 )
 $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $PSScriptRoot

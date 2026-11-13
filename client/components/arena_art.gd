@@ -136,7 +136,10 @@ func _build_far() -> void:
 		var w := _rng.randf_range(54.0, 120.0)
 		var base_y := world_bottom - 20.0
 		var pillar := Polygon2D.new()
-		pillar.color = Color(0.190, 0.220, 0.240)
+		# 组长反馈：坑边的灰矩形看着像一块能站的平台，走上去却没有碰撞 ——
+		# 那是这层远景断柱。把颜色压暗、轮廓光减弱，让它们退到雾里当背景，
+		# 不再和前景石台抢同一个灰度。
+		pillar.color = Color(0.105, 0.125, 0.140)
 		pillar.polygon = PackedVector2Array([
 			Vector2(x, base_y), Vector2(x, base_y - h),
 			Vector2(x + w * 0.35, base_y - h - _rng.randf_range(4.0, 26.0)),
@@ -148,7 +151,7 @@ func _build_far() -> void:
 		# 只给左侧一条轮廓光，黑块才不是死黑
 		var rim := Line2D.new()
 		rim.width = 1.6
-		rim.default_color = Color(0.32, 0.42, 0.44, 0.45)
+		rim.default_color = Color(0.24, 0.32, 0.34, 0.26)
 		rim.points = PackedVector2Array([Vector2(x, base_y - 10.0), Vector2(x, base_y - h + 20.0)])
 		root.add_child(rim)
 	_layers.append({"node": root, "factor": 0.16})

@@ -6,7 +6,6 @@
 [ext_resource type="Script" path="res://scripts/world/camera_follow.gd" id="4_cam"]
 [ext_resource type="PackedScene" path="res://scenes/ui/dialogue_box.tscn" id="5_dbox"]
 [ext_resource type="Script" path="res://components/dialogue.gd" id="6_dlg"]
-[ext_resource type="PackedScene" path="res://scenes/items/altar.tscn" id="7_altar"]
 
 [node name="Floor2" type="Node2D"]
 script = ExtResource("1_level")
@@ -43,6 +42,3 @@ player_screen_offset = 56.0
 [node name="Dialogue" type="Node" parent="."]
 script = ExtResource("6_dlg")
 ui_path = NodePath("../DialogueBox")
-
-[node name="Altar" parent="." instance=ExtResource("7_altar")]
-position = Vector2(1570, 638)

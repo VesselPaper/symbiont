@@ -1,6 +1,6 @@
 ﻿# 导出 Windows 桌面版到 client/export/
 param(
-    [string]$GodotExe = "D:\Applications\Godot\Godot_v4.5.1-stable_win64.exe"
+    [string]$GodotExe = "D:\Applications\Godot\Godot_v4.7.2-stable_win64.exe"
 )
 $Root = Split-Path -Parent $PSScriptRoot
 if (-not (Test-Path $GodotExe)) { throw "未找到 Godot: $GodotExe" }

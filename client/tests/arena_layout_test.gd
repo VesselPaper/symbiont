@@ -57,7 +57,6 @@ func _beats() -> Array:
 		{"label": "下劈台", "x": float(_stage["pogo_mark"].x)},
 		{"label": "战斗区", "x": float(_stage["combat_mark"].x)},
 		{"label": "祭坛", "x": float(_stage["altar"].x)},
-		{"label": "宝箱", "x": float(_stage["chest"].x)},
 		{"label": "层门", "x": float(_stage["door"].x)},
 	]
 
@@ -173,7 +172,6 @@ func _check_terrain() -> void:
 	_placed("DummyA", _stage["dummy_a"])
 	_placed("DummyB", _stage["dummy_b"])
 	_placed("Altar", _stage["altar"])
-	_placed("SteamBootsChest", _stage["chest"])
 
 ## 平台原点在中心：按碰撞盒反推左上角，和 rect 比
 func _platform(node_name: String, rect: Rect2) -> void:

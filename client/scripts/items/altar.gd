@@ -281,7 +281,15 @@ func _play_after_voice(dialogue_id: String) -> void:
 	var dialogue := root.find_child("Dialogue", true, false)
 	if dialogue == null or not dialogue.has_method("play"):
 		return
-	if dialogue.has_method("is_playing") and bool(dialogue.call("is_playing")):
+	# 组长反馈：献祭后的低语"有时有、有时没有" —— 原来只要对话组件正忙就直接丢掉这句。
+	# 现在最多等 3 秒，等它念完再补上，而不是静默吞掉。
+	var waited := 0.0
+	while waited < 3.0 and is_inside_tree():
+		if not (dialogue.has_method("is_playing") and bool(dialogue.call("is_playing"))):
+			break
+		await get_tree().create_timer(0.25).timeout
+		waited += 0.25
+	if not is_inside_tree():
 		return
 	dialogue.call("play", dialogue_id)
 

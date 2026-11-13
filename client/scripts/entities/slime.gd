@@ -410,13 +410,14 @@ func _finish_death() -> void:
 	queue_free()
 
 ## 尸体先落在地上，再把肢体放在旁边；两个模型错开，玩家一眼能分清"尸体"和"可拾取肢体"
+## 组长反馈：空中被打死时尸体和掉落物会停在半空 —— 这里先向下探地，把两者都放到地面上。
 func _spawn_corpse() -> void:
 	var corpse := CORPSE_SCENE.instantiate()
 	var parent := get_parent()
 	if parent == null:
 		return
 	parent.add_child(corpse)
-	corpse.global_position = global_position + Vector2(0, 6)
+	corpse.global_position = _ground_point(-4.0)
 
 func _spawn_limb_pickup() -> void:
 	var pickup := LIMB_PICKUP_SCENE.instantiate()
@@ -424,4 +425,16 @@ func _spawn_limb_pickup() -> void:
 	if parent == null:
 		return
 	parent.add_child(pickup)
-	pickup.global_position = global_position + Vector2(12, 8)
+	var point := _ground_point(-6.0)
+	pickup.global_position = Vector2(point.x + 12.0, point.y)
+
+## 从死亡点竖直向下探地（只探世界层 1，排除自己），返回落地点。
+## 探不到地面（掉进无底坑）时退回死亡位置，至少不会把东西扔到地图外。
+func _ground_point(y_offset: float) -> Vector2:
+	var from := global_position + Vector2(0.0, -10.0)
+	var query := PhysicsRayQueryParameters2D.create(from, from + Vector2(0.0, 1200.0), 1)
+	query.exclude = [get_rid()]
+	var hit := get_world_2d().direct_space_state.intersect_ray(query)
+	if hit.is_empty():
+		return global_position + Vector2(0.0, y_offset)
+	return Vector2(global_position.x, float(hit["position"].y) + y_offset)

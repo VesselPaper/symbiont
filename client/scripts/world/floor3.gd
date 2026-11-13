@@ -22,10 +22,12 @@ const BOSS_SCENE := preload("res://scenes/entities/gatekeeper_boss.tscn")
 const EXIT_SCENE := preload("res://scenes/world/boss_exit_door.tscn")
 const SHAFT_SCENE := preload("res://scenes/world/return_shaft.tscn")
 const SLIME_SCENE := preload("res://scenes/entities/slime.tscn")
+const CAMPFIRE_SCENE := preload("res://scenes/world/campfire.tscn")
 const SPORE_SHOOTER_SCENE := preload("res://scenes/entities/spore_shooter.tscn")
 const ENDING_SCENE := preload("res://scenes/ui/ending_screen.tscn")
 const GAME_HUD_SCENE := preload("res://scenes/ui/game_hud.tscn")
 const TEST_ARENA := "res://scenes/world/test_arena.tscn"
+const ABYSS_SCENE := "res://scenes/world/abyss.tscn"
 const FLOOR3_NAME := "第三层 · 守门者之厅"
 
 const VIEW_HEIGHT_IN_CHARACTERS := 15.0
@@ -55,6 +57,8 @@ var _ending_active := false
 var _ending_screen: CanvasLayer
 
 func _ready() -> void:
+	GameManager.mark_floor_start("floor3")
+	_build_campfire()
 	_build_platforms()
 	_build_props()
 	_build_exit_door()
@@ -635,6 +639,13 @@ func _update_boss_hud() -> void:
 
 # ---------- 触发器 / 敌人 / 结局 ----------
 
+## 篝火：断兵回廊（地图中部），进 Boss 厅前最后一次补给；避开 2500 的史莱姆
+func _build_campfire() -> void:
+	var fire := CAMPFIRE_SCENE.instantiate()
+	fire.name = "Campfire"
+	fire.position = Vector2(2300, 620)
+	add_child(fire)
+
 func _build_triggers() -> void:
 	var holder := Node2D.new()
 	holder.name = "Triggers"
@@ -700,6 +711,8 @@ func _spawn_enemies() -> void:
 	for spec in [
 		{"name": "Slime1", "pos": Vector2(1240, 588)},
 		{"name": "Slime2", "pos": Vector2(1860, 628)},
+		# 断兵回廊中段补一只：玩家从下行台阶过来后不至于一路空走到 Boss 厅
+		{"name": "Slime3", "pos": Vector2(2500, 606)},
 		{"name": "SporeShooter", "pos": Vector2(2140, 588)},
 	]:
 		var scene := SLIME_SCENE if str(spec["name"]).begins_with("Slime") else SPORE_SHOOTER_SCENE
@@ -727,8 +740,16 @@ func _show_ending() -> void:
 	if _ending_screen == null:
 		_ending_screen = ENDING_SCENE.instantiate() as CanvasLayer
 		add_child(_ending_screen)
-		_ending_screen.restart_requested.connect(_restart_from_ending)
+		# 异化结局只是"假结局"：按 K 不是重开，而是坠入深渊打最后一场精神战
+		if ending_id == "transformed":
+			_ending_screen.restart_requested.connect(_continue_to_abyss)
+		else:
+			_ending_screen.restart_requested.connect(_restart_from_ending)
 	_ending_screen.call("show_ending", ending_id)
+
+## 假结局之后：灵魂没有消散，坠进更深的深渊（终章场景）
+func _continue_to_abyss() -> void:
+	get_tree().change_scene_to_file(ABYSS_SCENE)
 
 func _restart_from_ending() -> void:
 	_ending_active = false

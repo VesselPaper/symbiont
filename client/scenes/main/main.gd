@@ -3,9 +3,10 @@ extends Node2D
 ##
 ## 启动先到这里：开始新游戏 / 有存档时显示继续 / 退出。
 ## 背景全部代码绘制，走冷灰石廊 + 微光的空洞骑士式简洁感，不依赖图片素材。
-## 开始新游戏只重置 GameManager 再切教学关；继续则读最近一个本地存档，按 current_floor 回对应层。
+## 开始新游戏只重置 GameManager，再切序章（灵魂在虚无中苏醒 → 触碰本心 → 获得躯体）；
 
 const FONT_PATH := "res://assets/fonts/NotoSansCJKsc-Regular.otf"
+const PROLOGUE := "res://scenes/world/prologue.tscn"
 const TEST_ARENA := "res://scenes/world/test_arena.tscn"
 const FLOOR1 := "res://scenes/world/floor1.tscn"
 const FLOOR2 := "res://scenes/world/floor2.tscn"
@@ -235,7 +236,8 @@ func _on_start_pressed() -> void:
 	if _leaving:
 		return
 	GameManager.start_new_game()
-	_enter_scene(TEST_ARENA)
+	# 先演序章：灵魂在虚无里苏醒、触碰寄生物的本心、获得躯体，再进教学关
+	_enter_scene(PROLOGUE)
 
 func _on_continue_pressed() -> void:
 	if _leaving:

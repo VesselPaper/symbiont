@@ -99,6 +99,9 @@ var _attack_anim_timer := 0.0   # 挥砍动作剩余时间（表现，不影响 
 var _attack_anim_kind := 0      # 0 = 横砍，1 = 下劈
 var _attack_running := false    # 本次横砍是不是跑着砍（决定动作和是否保留冲量）
 var _attack_root_timer := 0.0   # 站砍时把脚钉住的剩余时间
+var _rest_timer := 0.0          # 篝火休息：坐姿剩余时间（期间压扁身体、停止动画覆盖）
+var _rest_total := 0.0          # 本次休息的总时长，用来分段：放剑 / 坐 / 起身
+var _rest_prop: Node2D          # 休息时放在身侧的剑
 var _hurt_timer := 0.0          # 受击缩身剩余时间
 var _death_timer := 0.0         # 倒地剩余时间，走完才复活
 var _revive_timer := 0.0        # 复活起身剩余时间
@@ -377,6 +380,42 @@ func _hide_slash_layers() -> void:
 ##   横砍 → 抬臂蓄力再甩下去 + 弧线残影；下劈 → 剑指地 + 竖弧；
 ##   受击 → 缩身抖一下；倒地 → 侧倒淡出；复活 → 从地上撑起来。
 func _update_visual_anim(delta: float) -> void:
+	if _rest_timer > 0.0:
+		# 篝火休息：放剑到身侧地上 → 蹲坐 → 抓剑、撑地起身；按方向键可随时中断
+		if absf(Input.get_axis("move_left", "move_right")) > 0.1:
+			_end_rest_pose()
+			return
+		_rest_timer = maxf(_rest_timer - delta, 0.0)
+		var total := maxf(_rest_total, 1.6)
+		var t := total - _rest_timer
+		var stand_at := maxf(total - 0.95, 0.6)
+		if t < 0.45:
+			# ① 把剑放到身侧地上（手里那把先收起来）
+			var p := t / 0.45
+			_sword.visible = p < 0.55
+			_ensure_ground_sword()
+			_body.scale = Vector2(float(_facing), lerpf(1.0, 0.86, p))
+			_body.position = Vector2(0, lerpf(0.0, 3.0, p))
+			_body.rotation = 0.03 * float(_facing) * p
+		elif t < stand_at:
+			# ② 蹲坐着歇息：膝盖压低、身体前倾，剑就放在手边
+			_sword.visible = false
+			_ensure_ground_sword()
+			_body.scale = Vector2(float(_facing) * 1.04, 0.60)
+			_body.position = Vector2(0, 10)
+			_body.rotation = 0.12 * float(_facing)
+		else:
+			# ③ 起身：先抓剑回手，再单手撑地站起来
+			var q := clampf((t - stand_at) / maxf(total - stand_at, 0.01), 0.0, 1.0)
+			var grab := clampf(q * 2.4, 0.0, 1.0)
+			if grab >= 0.55:
+				_free_ground_sword()
+			_sword.visible = grab >= 0.5
+			var rise := clampf((q - 0.35) / 0.65, 0.0, 1.0)
+			_body.scale = Vector2(float(_facing), lerpf(0.60, 1.0, rise))
+			_body.position = Vector2(0, lerpf(10.0, 0.0, rise) - 4.0 * sin(rise * PI))
+			_body.rotation = 0.12 * float(_facing) * (1.0 - rise)
+		return
 	_anim_time += delta
 	if _body == null:
 		return
@@ -842,12 +881,31 @@ func _try_start_attack() -> void:
 	if not Input.is_action_just_pressed("attack"):
 		return
 	if is_on_floor():
+		# 地面上：按住下键(S) + 攻击 = 朝下劈；只按攻击 = 前方横砍
+		if Input.is_action_pressed("move_down"):
+			_start_down_slash()
+		else:
+			_start_side_slash()
+	elif Input.is_action_pressed("move_down"):
+		# 空中同样靠"按住下 + 攻击"进入下劈；不再自动把空中攻击变成下劈
+		_start_pogo()
+	else:
+		# 空中普通攻击：只朝面前横砍
 		_start_side_slash()
-	elif velocity.y > 0.0:
-		# 空中下落按 J → 记录下砍请求（从按下点下落超过阈值才真正触发，见 _update_pogo_state）
-		if not _pogo_requested:
-			_pogo_requested = true
-			_pogo_request_y = position.y
+
+## 地面上的下劈：站在原地朝脚下挥一刀，能打到贴地的矮目标（不再靠下落触发）
+func _start_down_slash() -> void:
+	_attack_dir = _facing
+	_attack_cooldown_timer = ATTACK_COOLDOWN
+	_attack_active_timer = ATTACK_ACTIVE_TIME
+	_attack_anim_timer = ATTACK_ANIM_TIME
+	_attack_anim_kind = 1
+	_attack_running = false
+	_hit_this_swing.clear()
+	_hitbox_side.monitoring = false
+	_hitbox_down.monitoring = true
+	_pogo_active = false
+	GameManager.play_sfx("swing", -2.0, 0.82)
 
 # 地面：普通横砍（0.12s 短暂判定，一次挥砍只命中一次）
 func _start_side_slash() -> void:
@@ -864,7 +922,8 @@ func _start_side_slash() -> void:
 		# 补前冲但不超过跑速上限：否则连砍就能跑得比跑步还快
 		velocity.x = float(_attack_dir) * minf(maxf(absf(velocity.x), RUN_SPEED * 0.6) + RUN_SLASH_LUNGE, RUN_SPEED)
 	else:
-		_attack_root_timer = RUN_SLASH_ROOT_TIME
+		# 站定才把脚钉住；空中挥砍保留原有水平速度，不要"后坐力"把人刹住
+		_attack_root_timer = RUN_SLASH_ROOT_TIME if is_on_floor() else 0.0
 	_hit_this_swing.clear()
 	_hitbox_side.monitoring = true
 	_hitbox_down.monitoring = false
@@ -872,7 +931,7 @@ func _start_side_slash() -> void:
 	_slash.rotation = RUN_SLASH_ARC_ROT if _attack_running else 0.0
 	GameManager.play_sfx("swing", -2.0)
 
-# 空中：下砍（pogo）—— 加速下落 + 身前下方持续判定，直到落地或命中实体
+# 空中：下砍（pogo）—— 只朝脚下判定，不再强制加速下坠
 func _start_pogo() -> void:
 	_attack_dir = _facing  # 锁定出手朝向
 	_pogo_active = true
@@ -882,7 +941,6 @@ func _start_pogo() -> void:
 	_hitbox_side.monitoring = false
 	_hitbox_down.monitoring = true
 	_attack_cooldown_timer = POGO_RETRIGGER_COOLDOWN
-	velocity.y = POGO_FALL_SPEED
 	GameManager.play_sfx("swing", -2.0, 0.82)
 	EventBus.log_event("pogo_start", {})
 
@@ -896,8 +954,7 @@ func _update_pogo_state() -> void:
 			_start_pogo()
 	if not _pogo_active:
 		return
-	# 持续强制下落（加速下落）
-	velocity.y = POGO_FALL_SPEED
+	# 下劈不再强制下坠：保留玩家原本的垂直速度，只负责脚下的判定
 	# M1-13：下劈命中改为"每帧查询 hitbox 区域内的可受击实体"。
 	# 原因：下劈下落很快（vy=700），hitbox 每帧位置大幅移动，body_entered 信号在
 	# monitoring 刚开启的那帧重叠信息未更新、下一帧 hitbox 已穿过目标，导致踩跳
@@ -1028,6 +1085,65 @@ func _target_weight(body: Node2D) -> float:
 	return maxf(weight, 0.1)
 
 # ---- 受击 / 死亡 ----
+
+## 篝火休息：回满血。HUD 订阅 player_healed 刷新心数。
+## 返回实际回复的心数（满血时 0），供篝火决定显示"已恢复"还是"不需要休息"。
+func heal_full() -> int:
+	if _is_dead:
+		return 0
+	var before := hp
+	hp = MAX_HP
+	var healed := hp - before
+	if healed > 0:
+		EventBus.player_healed.emit(healed)
+	return healed
+
+## 篝火休息：放剑 → 蹲坐 → 抓剑撑地起身。默认 3.2 秒足够看清三段动作。
+func sit_rest(duration: float = 3.2) -> void:
+	_rest_total = maxf(duration, 1.8)
+	_rest_timer = _rest_total
+
+## 身侧地上的剑：休息开始就摆到脚边，起身抓回手里后移除
+func _ensure_ground_sword() -> void:
+	if _rest_prop != null and is_instance_valid(_rest_prop):
+		return
+	var prop := Node2D.new()
+	prop.name = "RestSword"
+	prop.z_index = -1
+	var blade := Polygon2D.new()
+	blade.color = Color(0.76, 0.80, 0.83, 1.0)
+	blade.polygon = PackedVector2Array([
+		Vector2(-24, -1.6), Vector2(10, -1.6), Vector2(14, 0),
+		Vector2(10, 1.6), Vector2(-24, 1.6),
+	])
+	prop.add_child(blade)
+	var guard := Polygon2D.new()
+	guard.color = Color(0.50, 0.38, 0.22, 1.0)
+	guard.polygon = PackedVector2Array([
+		Vector2(-27, -5), Vector2(-23, -5), Vector2(-23, 5), Vector2(-27, 5),
+	])
+	prop.add_child(guard)
+	var grip := Polygon2D.new()
+	grip.color = Color(0.26, 0.18, 0.12, 1.0)
+	grip.polygon = PackedVector2Array([
+		Vector2(-35, -1.6), Vector2(-27, -1.6), Vector2(-27, 1.6), Vector2(-35, 1.6),
+	])
+	prop.add_child(grip)
+	get_parent().add_child(prop)
+	prop.global_position = global_position + Vector2(-22.0 * float(_facing), 12.0)
+	prop.rotation = 0.28
+	_rest_prop = prop
+
+func _free_ground_sword() -> void:
+	if _rest_prop != null and is_instance_valid(_rest_prop):
+		_rest_prop.queue_free()
+	_rest_prop = null
+
+## 中途起身：恢复持剑、收掉地上的剑
+func _end_rest_pose() -> void:
+	_rest_timer = 0.0
+	_sword.visible = true
+	_free_ground_sword()
 
 func take_damage(amount: int, source: Node = null) -> void:
 	if _invincible_timer > 0.0 or _is_dead:

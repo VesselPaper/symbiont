@@ -88,9 +88,9 @@ func _run_checks() -> void:
 		_check(transition.get_node_or_null("Fade") != null, "缺少转场黑幕")
 		_check(transition.get_node_or_null("FloorName") != null, "缺少第二层层名")
 
-	# 敌人（M4-18：钟厅不给怪，只剩钟厅之后的两只史莱姆 + 一只孢子射手）
+	# 敌人：钟厅不给怪；钟厅之后沿路线铺 4 只史莱姆 + 1 只孢子射手
 	var enemies := _level.get_node_or_null("Enemies")
-	_check(enemies != null and enemies.get_child_count() == 3, "敌人应为 2 只史莱姆 + 1 只孢子射手")
+	_check(enemies != null and enemies.get_child_count() == 5, "敌人应为 4 只史莱姆 + 1 只孢子射手")
 	_check(enemies != null and enemies.get_node_or_null("SporeShooter") != null, "缺少 SporeShooter")
 	# 剧情触发器周围不放怪：每个触发器和最近史莱姆至少隔 200px
 	if enemies != null and triggers != null:

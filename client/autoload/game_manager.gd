@@ -16,6 +16,31 @@ var has_steam_boots: bool = false     # 蒸汽靴（二段跳）；宝箱开启�
 var faction: String = ""              # "" / "heretic" / "engineer"（第二层抉择）
 var flags: Dictionary = {}            # 通用剧情旗标（flag_<名称> = true）
 
+# ---- 节奏埋点（组长需要知道每层实际玩多久，才能在"20 分钟"上做校准）----
+## 上一次进入某层的时间戳（毫秒）；换层时把上一层用时写进日志。
+var _pacing_mark_ms: int = 0
+var _pacing_floor: String = ""
+## 已结束楼层的用时（秒），floor_id → seconds；测试和结算都能读
+var floor_seconds: Dictionary = {}
+
+## 进入某层时调用（每个关卡 _ready 里一次）。会先把上一层用时落日志再重新计时。
+func mark_floor_start(floor_id: String) -> void:
+	var now := Time.get_ticks_msec()
+	if _pacing_floor != "" and _pacing_mark_ms > 0:
+		var seconds := float(now - _pacing_mark_ms) / 1000.0
+		floor_seconds[_pacing_floor] = seconds
+		EventBus.log_event("floor_time", {"floor": _pacing_floor, "seconds": seconds})
+		if DisplayServer.get_name() != "headless":
+			print("[pacing] %s 用时 %.1f 秒（%.1f 分钟）" % [_pacing_floor, seconds, seconds / 60.0])
+	_pacing_floor = floor_id
+	_pacing_mark_ms = now
+
+## 当前所在层的已用秒数（HUD / 结算可用）
+func current_floor_seconds() -> float:
+	if _pacing_mark_ms <= 0:
+		return 0.0
+	return float(Time.get_ticks_msec() - _pacing_mark_ms) / 1000.0
+
 func _ready() -> void:
 	state = GameState.MAIN_MENU
 	# M4-05：音频总监挂在 GameManager 下，不新增 autoload，避免打乱单例顺序。

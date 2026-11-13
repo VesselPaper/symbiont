@@ -1,4 +1,4 @@
-﻿[gd_scene format=3 uid="uid://bkuega3o1vpb7"]
+[gd_scene format=3 uid="uid://bkuega3o1vpb7"]
 
 [ext_resource type="Script" uid="uid://dgru46wtu0ks3" path="res://scripts/world/test_arena.gd" id="1_arena"]
 [ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="2_player"]
@@ -11,7 +11,6 @@
 [ext_resource type="PackedScene" path="res://scenes/items/altar.tscn" id="10_altar"]
 [ext_resource type="PackedScene" uid="uid://v226loe7qfs6" path="res://scenes/items/weapon_pickup.tscn" id="11_sword"]
 [ext_resource type="Script" path="res://components/arena_art.gd" id="13_arena_art"]
-[ext_resource type="PackedScene" path="res://scenes/items/steam_boots_chest.tscn" id="14_chest"]
 [ext_resource type="Script" path="res://components/prop_corpse.gd" id="15_corpse"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_ground"]
@@ -174,6 +173,3 @@ ui_path = NodePath("../DialogueBox")
 [node name="Tutorial" type="Node" parent="." unique_id=1018087819]
 script = ExtResource("8_tut")
 ui_path = NodePath("../ObjectiveHUD")
-
-[node name="SteamBootsChest" parent="." instance=ExtResource("14_chest")]
-position = Vector2(3640, 659)

@@ -62,6 +62,8 @@ const SPAWN_POINT := Vector2(140, 560)
 ## M4-08：层门厅后段加长后，门/入口/剧情触发统一用这个 x，避免三处各写一个数
 const GATE_X := 5140.0 + HALL_SHIFT
 const SLIME_SCENE := preload("res://scenes/entities/slime.tscn")
+const CAMPFIRE_SCENE := preload("res://scenes/world/campfire.tscn")
+const SOUL_BOSS_SCENE := preload("res://scenes/entities/soul_slime_boss.tscn")
 const SPORE_SHOOTER_SCENE := preload("res://scenes/entities/spore_shooter.tscn")
 const INSPECT_SCENE := preload("res://scenes/world/inspect_point.tscn")
 const WATCHMAN_SCENE := preload("res://scenes/world/watchman.tscn")
@@ -71,7 +73,10 @@ const BONE_GATE_SCENE := preload("res://scenes/world/bone_gate.tscn")
 ## 敌人只留钟厅之后的两只史莱姆和遗物廊出口的孢子射手。
 ## 敌人离剧情触发器至少 200px，对话时 dialogue.gd 还会把 enemy 分组整体冻结。
 const SLIME_SPAWNS: Array[Vector2] = [
-	Vector2(3140, 646), Vector2(4760, 606)
+	Vector2(3140, 646), Vector2(4760, 606),
+	# 组长反馈"路上太空、一屏打完就没东西"：在祭坛厅、层门厅、后段长阶各补一只，
+	# 把战斗均匀铺到整条路线上（不是堆在同一处）
+	Vector2(5200, 586), Vector2(5650, 586),
 ]
 
 ## 摄像机参数与教学关一致：垂直视野 = 15 倍角色身高
@@ -105,12 +110,16 @@ var _watchman: Node2D
 var _bell_mechanism: Node2D
 var _bone_gate: StaticBody2D
 var _bell_rung := false
+var _boss: Node = null
 
 func _ready() -> void:
+	GameManager.mark_floor_start("floor1")
+	_build_campfire()
 	_build_platforms()
 	_build_props()
 	_build_mechanisms()
 	_build_triggers()
+	_build_boss_arena()
 	_build_inspect_points()
 	_build_floor2_entry()
 	_build_kill_zone()
@@ -1073,6 +1082,45 @@ func _spawn_enemies() -> void:
 	shooter.position = Vector2(3860 + HALL_SHIFT, 620)
 	holder.add_child(shooter)
 
+## 篝火：钟厅里（地图中段偏左），敲完钟、过骨门前歇一脚；这里本来就不放怪
+func _build_campfire() -> void:
+	var fire := CAMPFIRE_SCENE.instantiate()
+	fire.name = "Campfire"
+	fire.position = Vector2(2500, 760)
+	add_child(fire)
+
+## 第一层关底：走到层门厅后段，魂史莱姆从地里涌出来；打倒之前层门是封的
+func _build_boss_arena() -> void:
+	if GameManager.has_flag("floor1_boss_defeated"):
+		return
+	var area := Area2D.new()
+	area.name = "BossArena"
+	area.collision_layer = 0
+	area.collision_mask = 2
+	area.position = Vector2(5440, 470)
+	var shape := RectangleShape2D.new()
+	shape.size = Vector2(110, 300)
+	var col := CollisionShape2D.new()
+	col.shape = shape
+	area.add_child(col)
+	area.body_entered.connect(func(body: Node2D) -> void:
+		if body.is_in_group("player"):
+			_spawn_boss()
+	)
+	add_child(area)
+
+func _spawn_boss() -> void:
+	if _boss != null and is_instance_valid(_boss):
+		return
+	_boss = SOUL_BOSS_SCENE.instantiate()
+	_boss.name = "SoulSlimeBoss"
+	_boss.position = Vector2(5850, 548)
+	add_child(_boss)
+	if _boss.has_method("set_arena_floor"):
+		_boss.call("set_arena_floor", 600.0)
+	EventBus.boss_encounter_started.emit("soul_slime")
+	EventBus.log_event("boss_encounter_started", {"boss": "soul_slime", "floor": "floor1"})
+
 # ---------- 第二层入口 / 转场 ----------
 
 ## 门缝里的判定区：玩家从层门框中间穿过去时置位，_process 等台词播完再切场景。
@@ -1088,10 +1136,37 @@ func _build_floor2_entry() -> void:
 	col.shape = shape
 	area.add_child(col)
 	area.body_entered.connect(func(body: Node2D) -> void:
-		if body.is_in_group("player"):
-			_want_floor2 = true
+		if not body.is_in_group("player"):
+			return
+		# 关底魂史莱姆没倒下之前，门被魂力封着：只提示，不切场景
+		if not GameManager.has_flag("floor1_boss_defeated"):
+			_show_sealed_hint()
+			return
+		_want_floor2 = true
 	)
 	add_child(area)
+
+var _sealed_hint: Label
+
+## 门被封住时的提示（只出现一次，几秒后淡出）
+func _show_sealed_hint() -> void:
+	if _sealed_hint != null and is_instance_valid(_sealed_hint):
+		return
+	_sealed_hint = Label.new()
+	_sealed_hint.text = "门被魂力封着 —— 先解决掉守在这儿的那个东西"
+	_sealed_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_sealed_hint.position = Vector2(GATE_X - 260.0, 430)
+	_sealed_hint.size = Vector2(520, 30)
+	_sealed_hint.add_theme_font_size_override("font_size", 16)
+	_sealed_hint.add_theme_color_override("font_color", Color(0.76, 0.86, 0.96, 0.9))
+	var font := load("res://assets/fonts/NotoSansCJKsc-Regular.otf") as Font
+	if font != null:
+		_sealed_hint.add_theme_font_override("font", font)
+	add_child(_sealed_hint)
+	var tw := create_tween()
+	tw.tween_interval(2.4)
+	tw.tween_property(_sealed_hint, "modulate:a", 0.0, 0.8)
+	tw.tween_callback(_sealed_hint.queue_free)
 
 func _build_floor2_transition() -> void:
 	_transition_layer = CanvasLayer.new()

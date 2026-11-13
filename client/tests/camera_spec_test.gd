@@ -8,7 +8,7 @@ const VIEW_HEIGHT_IN_CHARACTERS := 15.0
 const PLAYER_CHARACTER_HEIGHT := 28.0
 const EXPECTED_ZOOM := 720.0 / (VIEW_HEIGHT_IN_CHARACTERS * PLAYER_CHARACTER_HEIGHT)
 const CASES := [
-	{"label": "arena", "scene": "res://scenes/world/test_arena.tscn", "right": 5000, "top": -120, "bottom": 720},
+	{"label": "arena", "scene": "res://scenes/world/test_arena.tscn", "right": 6250, "top": -120, "bottom": 720},
 	{"label": "floor1", "scene": "res://scenes/world/floor1.tscn", "right": 6160, "top": 0, "bottom": 1200},
 	{"label": "floor2", "scene": "res://scenes/world/floor2.tscn", "right": 5300, "top": 0, "bottom": 1200},
 	{"label": "floor3", "scene": "res://scenes/world/floor3.tscn", "right": 4300, "top": 0, "bottom": 1200},

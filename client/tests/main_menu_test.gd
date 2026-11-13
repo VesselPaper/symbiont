@@ -61,7 +61,8 @@ func _check_menu() -> void:
 	_check(int(_gm.get("state")) == 1, "主菜单没把 GameManager 置为 MAIN_MENU")
 
 func _check_entered() -> void:
-	_check(root.get_node_or_null("TestArena") != null, "开始新游戏没进教学关")
+	# 开始新游戏先演序章（灵魂苏醒 → 触碰本心 → 获得躯体），不再直接进教学关
+	_check(root.get_node_or_null("Prologue") != null, "开始新游戏没进序章")
 	_check(int(_gm.get("state")) == 2, "开始新游戏后 GameManager 没进 PLAYING")
 	_check((_gm.get("flags") as Dictionary).is_empty(), "开始新游戏没清空旗标")
 	_check(_start_presses == 2, "测试没有按两次开始")

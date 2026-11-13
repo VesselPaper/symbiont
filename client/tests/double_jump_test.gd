@@ -2,11 +2,11 @@ extends SceneTree
 ## 蒸汽靴宝箱 + 二段跳回归（M4-06）
 ##   Godot_v4.7.2-stable_win64_console.exe --headless --path client --script res://tests/double_jump_test.gd
 ##
-## 验收：宝箱在祭坛右侧、不重叠；靠近按 K 才开；只开一次；开箱后 GameManager/Player 都有靴子；
+## 验收：宝箱在第二层工程师（锅炉房）旁边、不重叠；靠近按 K 才开；只开一次；开箱后 GameManager/Player 都有靴子；
 ## 二段跳只在有靴子且本次离地未用过时生效；存档字段可往返。
 ## 反向：K 抬起/长按 echo/其它键不触发；没靴子/已用完第二段不触发。
 
-const SCENE := "res://scenes/world/test_arena.tscn"
+const SCENE := "res://scenes/world/floor2.tscn"
 
 var _frames := 0
 var _failed := false
@@ -25,7 +25,7 @@ func _process(_delta: float) -> bool:
 		_level = load(SCENE).instantiate()
 		root.add_child(_level)
 		_player = _level.get_node("Player")
-		_chest = _level.get_node_or_null("SteamBootsChest")
+		_chest = _level.find_child("SteamBootsChest", true, false)
 		return false
 	if _frames < 25:
 		return false
@@ -48,15 +48,17 @@ func _make_key(code: int, pressed: bool = true, echo: bool = false) -> InputEven
 	return event
 
 func _run_checks() -> void:
-	_check(_chest != null, "教学关没有 SteamBootsChest")
+	_check(_chest != null, "第二层没有 SteamBootsChest（靴子应由工程师交付）")
 	if _chest == null:
 		return
-	# 位置必须在祭坛右侧、和祭坛保持距离，不能挡住祭坛 K 判定
-	var altar := _level.get_node_or_null("Altar")
-	_check(altar != null, "缺少祭坛")
-	if altar != null:
-		_check(float(_chest.global_position.x) > float(altar.global_position.x) + 250.0,
-			"宝箱离祭坛太近，可能挡 K")
+	# 位置必须在工程师的锅炉房里（工作台右侧），不能跑到别的地图段去
+	var engineer := _level.find_child("Engineer", true, false) as Node2D
+	_check(engineer != null, "第二层缺少工程师 NPC")
+	if engineer != null:
+		var dx := float(_chest.global_position.x) - float(engineer.global_position.x)
+		_check(dx > 0.0 and dx < 320.0, "宝箱没放在工程师旁边（水平差 %.0f px）" % dx)
+		_check(absf(float(_chest.global_position.y) - 640.0) < 12.0,
+			"宝箱没落在地面上（y=%.0f）" % float(_chest.global_position.y))
 
 	# 没靴子时第二段跳必须无效
 	_player.set("_air_jumps_left", 1)
