@@ -497,10 +497,13 @@ func _add_lantern(parent: Node2D, pos: Vector2, chain_top: float, halo_strength:
 	lantern.add_child(light)
 
 ## 断柱：立在台面上的残柱，断口用两三段折线，左侧一条轮廓光
+## M4-23 组长反馈：这些灰柱子“看着像能站上去的平台，走上去却没有碰撞”，
+## 还有几处地面被当成“纯色矩形错误地形”。现在把它们压到只比远景亮一点的灰，
+## 轮廓光砍半，并在柱脚加一道贴地暗影 —— 读起来是背景里的旧柱子，不是可站的地形。
 func _add_broken_pillar(parent: Node2D, x: float, base_y: float, height: float, width: float) -> void:
 	var half := width * 0.5
 	var pillar := Polygon2D.new()
-	pillar.color = Color(0.165, 0.185, 0.195, 1)
+	pillar.color = Color(0.105, 0.120, 0.132, 1)
 	pillar.polygon = PackedVector2Array([
 		Vector2(x - half, base_y - 6.0), Vector2(x - half, base_y - height),
 		Vector2(x - half + 8.0, base_y - height + 14.0),
@@ -509,9 +512,15 @@ func _add_broken_pillar(parent: Node2D, x: float, base_y: float, height: float, 
 		Vector2(x + half, base_y - 6.0),
 	])
 	parent.add_child(pillar)
+	# 贴地暗影：柱子压在背景里，别让它像一块浮着的地形
+	var shadow := Polygon2D.new()
+	shadow.color = Color(0.0, 0.0, 0.0, 0.32)
+	shadow.polygon = _ellipse(half + 7.0, 4.5, 12)
+	shadow.position = Vector2(x, base_y - 3.0)
+	parent.add_child(shadow)
 	var rim := Line2D.new()
-	rim.width = 1.8
-	rim.default_color = Color(0.30, 0.40, 0.42, 0.40)
+	rim.width = 1.4
+	rim.default_color = Color(0.24, 0.31, 0.33, 0.22)
 	rim.points = PackedVector2Array([
 		Vector2(x - half + 1.0, base_y - 16.0),
 		Vector2(x - half + 1.0, base_y - height + 10.0),

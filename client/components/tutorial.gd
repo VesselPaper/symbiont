@@ -57,17 +57,17 @@ const MOVE_MARK_KEY := "move_mark"
 const JUMP_PLATFORM_KEY := "ledge"
 const POGO_PLATFORM_KEY := "pogo"
 
-## 每环目标文案。组长定稿：不要写成"按 X 键"的操作说明，要用寄生体在耳边的低语，
-## 让提示本身是剧情的一部分；按键怎么用靠玩家自己摸索/菜单里的按键说明。
+## 每环目标文案。M4-23 组长定稿：提示要带上按键，新手才知道按什么；
+## 但话说在前面，按键放在括号里当“旁注”，读起来仍是寄生体在耳边低语，不像说明书。
 const OBJECTIVE_TEXTS := [
-	"向前走。身体会记得。",          # MOVE
-	"跃上去，离开地面。",            # JUMP
-	"捡起那把铁器。",                # WEAPON
-	"让它尝尝铁的味道。",            # ATTACK
-	"踩住它，借力跳高。",            # POGO
-	"它来了。别被碰到。",            # COMBAT
-	"把肢体带走，给我。",            # PICKUP
-	"放到祭坛上，献给我。",          # SACRIFICE
+	"向前走。身体会记得。（A / D）",          # MOVE
+	"跃上去，离开地面。（空格）",              # JUMP
+	"捡起那把铁器。（K）",                     # WEAPON
+	"让它尝尝铁的味道。（J）",                 # ATTACK
+	"踩住它，借力跳高。（空中按 J）",           # POGO（成功标志是站上去，不是挥出下劈）
+	"它来了。别被碰到。",                     # COMBAT
+	"把肢体带走，给我。（K）",                 # PICKUP
+	"放到祭坛上，献给我。（K）",               # SACRIFICE
 ]
 const WEAPON_FLASH_TEXT := "获得铁剑"
 const DONE_BUBBLE_TEXT := "教程完成"

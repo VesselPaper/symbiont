@@ -886,12 +886,11 @@ func _try_start_attack() -> void:
 			_start_down_slash()
 		else:
 			_start_side_slash()
-	elif Input.is_action_pressed("move_down"):
-		# 空中同样靠"按住下 + 攻击"进入下劈；不再自动把空中攻击变成下劈
-		_start_pogo()
 	else:
-		# 空中普通攻击：只朝面前横砍
-		_start_side_slash()
+		# 空中：按攻击一律是下劈（踩敌反弹）。
+		# M4-23 组长反馈：原来空中要求“按住 S + J”才下劈，玩家在稻草人头上按 J 只挥了
+		# 一记横砍，人接着往下掉，看起来就是“砍到了却不反弹”。空中不需要再按方向键。
+		_start_pogo()
 
 ## 地面上的下劈：站在原地朝脚下挥一刀，能打到贴地的矮目标（不再靠下落触发）
 func _start_down_slash() -> void:

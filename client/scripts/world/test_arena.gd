@@ -125,6 +125,8 @@ var _true_he_shown := false
 var _relic: Node
 var _ending_screen: CanvasLayer
 var _refusing := false
+## M4-25：这一局是从序章虚空掉下来的（落地要扬尘、开场要慢慢亮）
+var _drop_in := false
 
 func _ready() -> void:
 	GameManager.mark_floor_start("tutorial")
@@ -187,7 +189,17 @@ func _apply_stage() -> void:
 	_place_platform($AltarPlatform as StaticBody2D, STAGE["altar_hall"], Vector2(300, 90))
 
 	# 道具与玩家
-	($Player as Node2D).position = STAGE["spawn"]
+	# M4-25：从序章的虚空掉下来时，人不是“站在地上”—— 先出现在半空，落下来砸出扬尘，
+	# 由 player.gd 的落地扬尘/落地声接住。正常读档/直接进关时还是老老实实站好。
+	var spawn_pos: Vector2 = STAGE["spawn"]
+	if GameManager.has_flag("enter_from_void"):
+		GameManager.flags.erase("enter_from_void")
+		_drop_in = true
+		spawn_pos += Vector2(0, -230)
+		($Player as Node2D).position = spawn_pos
+		($Player as CharacterBody2D).velocity = Vector2(0, 320)
+	else:
+		($Player as Node2D).position = spawn_pos
 	($Corpse as Node2D).position = STAGE["corpse"]
 	($WeaponPickup as Node2D).position = STAGE["sword"]
 	($DummyA as Node2D).position = STAGE["dummy_a"]
@@ -334,17 +346,43 @@ func _build_slab_holder(holder_name: String, rects: Array, names: Array) -> void
 		body.add_child(col)
 		var half := rect.size * 0.5
 		var slab := Polygon2D.new()
-		slab.color = Color(0.145, 0.148, 0.150, 1)
+		slab.color = Color(0.155, 0.170, 0.180, 1)
 		slab.polygon = PackedVector2Array([
 			Vector2(-half.x, -half.y), Vector2(half.x, -half.y),
 			Vector2(half.x, half.y), Vector2(-half.x, half.y),
 		])
 		body.add_child(slab)
+		# M4-23 组长反馈：这些台阶只有一整块纯色，看着像“错误地形”。
+		# 现在按和主地面同一套画法补：顶面亮边 + 顶面暗线 + 两道接缝 + 一点苔痕，
+		# 有厚度、有接缝，才读得出是石台而不是占位方块。
 		var edge := Line2D.new()
 		edge.width = 2.0
-		edge.default_color = Color(0.30, 0.31, 0.31, 0.85)
-		edge.points = PackedVector2Array([Vector2(-half.x, -half.y), Vector2(half.x, -half.y)])
+		edge.default_color = Color(0.34, 0.36, 0.36, 0.9)
+		edge.points = PackedVector2Array([Vector2(-half.x + 1.0, -half.y + 1.0), Vector2(half.x - 1.0, -half.y + 1.0)])
 		body.add_child(edge)
+		var shade := Line2D.new()
+		shade.width = 2.0
+		shade.default_color = Color(0.03, 0.04, 0.05, 0.75)
+		shade.points = PackedVector2Array([Vector2(-half.x + 2.0, -half.y + 3.5), Vector2(half.x - 2.0, -half.y + 3.5)])
+		body.add_child(shade)
+		for k in range(2):
+			var seam := Line2D.new()
+			seam.width = 1.2
+			seam.default_color = Color(0.09, 0.10, 0.11, 0.7)
+			var sx := -half.x + rect.size.x * float(k + 1) / 3.0
+			seam.points = PackedVector2Array([
+				Vector2(sx, -half.y + 2.0),
+				Vector2(sx + 2.0, -half.y + rect.size.y * 0.45),
+				Vector2(sx - 1.0, half.y - 2.0),
+			])
+			body.add_child(seam)
+		var moss := Polygon2D.new()
+		moss.color = Color(0.20, 0.28, 0.24, 0.55)
+		moss.polygon = PackedVector2Array([
+			Vector2(-half.x + 6.0, -half.y + 2.0), Vector2(-half.x + 26.0, -half.y + 2.0),
+			Vector2(-half.x + 20.0, -half.y + 6.0), Vector2(-half.x + 8.0, -half.y + 5.0),
+		])
+		body.add_child(moss)
 		holder.add_child(body)
 
 func _build_next_floor_door() -> void:
@@ -490,8 +528,14 @@ func _build_fade_in() -> void:
 	rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	layer.add_child(rect)
 	var tw := create_tween()
-	tw.tween_interval(0.15)
-	tw.tween_property(rect, "color:a", 0.0, 0.95)
+	# M4-25：从虚空掉下来时黑场退得慢一些（1.6s），让人看清自己是从上面砸下来的；
+	# 正常进关还是 0.15s 黑 + 0.95s 淡出。
+	if _drop_in:
+		tw.tween_interval(0.35)
+		tw.tween_property(rect, "color:a", 0.0, 1.65)
+	else:
+		tw.tween_interval(0.15)
+		tw.tween_property(rect, "color:a", 0.0, 0.95)
 	tw.tween_callback(layer.queue_free)
 
 func _build_fade_overlay() -> void:
