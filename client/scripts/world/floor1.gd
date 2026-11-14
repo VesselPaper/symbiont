@@ -64,6 +64,7 @@ const GATE_X := 5140.0 + HALL_SHIFT
 const SLIME_SCENE := preload("res://scenes/entities/slime.tscn")
 const CAMPFIRE_SCENE := preload("res://scenes/world/campfire.tscn")
 const SOUL_BOSS_SCENE := preload("res://scenes/entities/soul_slime_boss.tscn")
+const GATE_SCENE := preload("res://scenes/world/tutorial_gate.tscn")
 const SPORE_SHOOTER_SCENE := preload("res://scenes/entities/spore_shooter.tscn")
 const INSPECT_SCENE := preload("res://scenes/world/inspect_point.tscn")
 const WATCHMAN_SCENE := preload("res://scenes/world/watchman.tscn")
@@ -111,6 +112,12 @@ var _bell_mechanism: Node2D
 var _bone_gate: StaticBody2D
 var _bell_rung := false
 var _boss: Node = null
+var _boss_spawned := false
+var _boss_gate: Node = null
+var _boss_arena: Node = null
+var _boss_hud: CanvasLayer
+var _boss_bar: ProgressBar
+var _boss_name: Label
 
 func _ready() -> void:
 	GameManager.mark_floor_start("floor1")
@@ -174,6 +181,11 @@ func _build_fade_in() -> void:
 	tw.tween_callback(layer.queue_free)
 
 func _process(_delta: float) -> void:
+	_update_boss_hud()
+	# 打倒关底：围栏升起，通往第二层的路才通
+	if _boss_spawned and GameManager.has_flag("floor1_boss_defeated"):
+		if _boss_gate != null and is_instance_valid(_boss_gate) and not bool(_boss_gate.call("is_open")):
+			_boss_gate.call("open")
 	# 玩家已经走进门缝，但层门对话还在念：等它念完再黑场，别把台词吞掉。
 	if _want_floor2 and not _entering_floor2:
 		if _dialogue != null and _dialogue.has_method("is_playing") and bool(_dialogue.call("is_playing")):
@@ -1093,6 +1105,15 @@ func _build_campfire() -> void:
 func _build_boss_arena() -> void:
 	if GameManager.has_flag("floor1_boss_defeated"):
 		return
+	# 关底围栏：Boss 战开始后落下，挡住通往层门的路；打倒才升起
+	_boss_gate = GATE_SCENE.instantiate()
+	_boss_gate.name = "BossGate"
+	_boss_gate.position = Vector2(5980, 470)
+	_boss_gate.set("gate_id", "boss")
+	_boss_gate.set("gate_height", 260.0)
+	add_child(_boss_gate)
+	_boss_gate.call("open")
+
 	var area := Area2D.new()
 	area.name = "BossArena"
 	area.collision_layer = 0
@@ -1108,16 +1129,26 @@ func _build_boss_arena() -> void:
 			_spawn_boss()
 	)
 	add_child(area)
+	_boss_arena = area
 
 func _spawn_boss() -> void:
+	# 关底只有一只：打到过的层不再刷，重复触发也不再刷
+	if _boss_spawned or GameManager.has_flag("floor1_boss_defeated"):
+		return
 	if _boss != null and is_instance_valid(_boss):
 		return
+	_boss_spawned = true
 	_boss = SOUL_BOSS_SCENE.instantiate()
 	_boss.name = "SoulSlimeBoss"
 	_boss.position = Vector2(5850, 548)
 	add_child(_boss)
+	if _boss_arena != null and is_instance_valid(_boss_arena):
+		_boss_arena.set_deferred("monitoring", false)
+	if _boss_gate != null and is_instance_valid(_boss_gate):
+		_boss_gate.call("close")
 	if _boss.has_method("set_arena_floor"):
 		_boss.call("set_arena_floor", 600.0)
+	_build_boss_hud()
 	EventBus.boss_encounter_started.emit("soul_slime")
 	EventBus.log_event("boss_encounter_started", {"boss": "soul_slime", "floor": "floor1"})
 
@@ -1145,6 +1176,68 @@ func _build_floor2_entry() -> void:
 		_want_floor2 = true
 	)
 	add_child(area)
+
+## 顶部 Boss 血条：和第三层守门者同一套样式，名字「灵魂聚合体」
+func _build_boss_hud() -> void:
+	if _boss_hud != null:
+		return
+	_boss_hud = CanvasLayer.new()
+	_boss_hud.name = "BossHUD"
+	_boss_hud.layer = 3
+	add_child(_boss_hud)
+	var panel := PanelContainer.new()
+	panel.name = "BossPanel"
+	panel.position = Vector2(390, 26)
+	panel.size = Vector2(500, 66)
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.012, 0.016, 0.024, 0.74)
+	style.set_border_width_all(2)
+	style.border_color = Color(0.32, 0.46, 0.60, 0.7)
+	style.set_corner_radius_all(3)
+	panel.add_theme_stylebox_override("panel", style)
+	_boss_hud.add_child(panel)
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 14)
+	margin.add_theme_constant_override("margin_right", 14)
+	margin.add_theme_constant_override("margin_top", 7)
+	margin.add_theme_constant_override("margin_bottom", 7)
+	panel.add_child(margin)
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 3)
+	margin.add_child(box)
+	_boss_name = Label.new()
+	_boss_name.text = "灵魂聚合体"
+	_boss_name.add_theme_font_size_override("font_size", 15)
+	_boss_name.add_theme_color_override("font_color", Color(0.80, 0.90, 1.0, 0.95))
+	var font := load("res://assets/fonts/NotoSansCJKsc-Regular.otf") as Font
+	if font != null:
+		_boss_name.add_theme_font_override("font", font)
+	box.add_child(_boss_name)
+	_boss_bar = ProgressBar.new()
+	_boss_bar.custom_minimum_size = Vector2(0, 14)
+	_boss_bar.max_value = 1.0
+	_boss_bar.value = 1.0
+	_boss_bar.show_percentage = false
+	var fill := StyleBoxFlat.new()
+	fill.bg_color = Color(0.52, 0.64, 0.92, 0.95)
+	_boss_bar.add_theme_stylebox_override("fill", fill)
+	var bg := StyleBoxFlat.new()
+	bg.bg_color = Color(0.06, 0.07, 0.10, 0.95)
+	_boss_bar.add_theme_stylebox_override("background", bg)
+	box.add_child(_boss_bar)
+	_boss_hud.visible = false
+
+func _update_boss_hud() -> void:
+	if _boss_hud == null or _boss == null or not is_instance_valid(_boss):
+		return
+	if bool(_boss.call("is_dead")):
+		_boss_hud.visible = false
+		return
+	_boss_hud.visible = true
+	var hp := int(_boss.call("get_hp"))
+	var max_hp := maxi(int(_boss.call("get_max_hp")), 1)
+	_boss_bar.max_value = float(max_hp)
+	_boss_bar.value = float(hp)
 
 var _sealed_hint: Label
 

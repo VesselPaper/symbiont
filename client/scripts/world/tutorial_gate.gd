@@ -105,3 +105,21 @@ func _hide_after_open() -> void:
 
 func is_open() -> bool:
 	return _open
+
+## 反向：把已经打开的门重新落下（Boss 战开始封场用）。
+## open() 会把视觉沉下去并淡出，这里全部复位。
+func close() -> void:
+	if not _open and _shape != null and not _shape.disabled:
+		return
+	_open = false
+	collision_layer = 1
+	collision_mask = 0
+	if _shape != null:
+		_shape.set_deferred("disabled", false)
+	if _visual != null:
+		_visual.visible = true
+		_visual.position = Vector2.ZERO
+		_visual.modulate = Color(1, 1, 1, 1)
+	var tween := create_tween()
+	tween.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.tween_property(_visual, "modulate:a", 1.0, 0.25)

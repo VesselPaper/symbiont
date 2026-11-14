@@ -1,5 +1,5 @@
-extends SceneTree
-## 关底 Boss 截图（开发用）：
+﻿extends SceneTree
+## 鍏冲簳 Boss 鎴浘锛堝紑鍙戠敤锛夛細
 ##   Godot_v4.7.2-stable_win64_console.exe --path client --script res://tests/boss_shots.gd
 
 const SCENE := "res://scenes/world/floor1.tscn"
@@ -21,7 +21,7 @@ func _process(_delta: float) -> bool:
 		_level.call("_spawn_boss")
 		var player := _level.get_node_or_null("Player") as Node2D
 		if player != null:
-			player.global_position = Vector2(5520, 560)
+			player.global_position = Vector2(5820, 560)
 	if _frames == 40:
 		var img := root.get_texture().get_image()
 		var path := ProjectSettings.globalize_path("res://shots/floor1_boss.png")
