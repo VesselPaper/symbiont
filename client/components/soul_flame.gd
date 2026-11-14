@@ -1,85 +1,100 @@
 extends Node2D
-## 灵魂上方的"火焰状消逝"
+## 灵魂的"火焰状消逝"
 ##
-## 灵魂形态没有实体，靠几片向上飘的白焰 + 火星来表现"正在一点点消散"。
-## 每片火舌自己循环：从根部升起 → 变大变淡 → 消失后重来，节奏错开，看起来像连续燃烧。
-## 只做表现，不碰逻辑；挂到灵魂节点上用。
+## 灵魂没有实体，靠一簇簇细碎的白焰往上飘、边飘边碎掉，表现"正在一点点消散"。
+## 每片碎片各自循环：从根部升起 → 侧向漂移 → 拉长变淡 → 熄灭后换个位置重来；
+## 片数多、尺寸小、相位错开，所以看起来是零碎地剥落，而不是三根整齐的火舌。
+## 只做表现，不碰逻辑；挂到灵魂/Boss 身上用。根部放在躯体内部，火焰会从体内升起。
+##
+## 参数：
+##   fragment_count  碎片数量（默认 9）
+##   base_radius     碎片出生点在根部附近的散布半径
+##   rise_height     每片碎片向上飘的距离
 
-var _flames: Array[Polygon2D] = []
-var _cores: Array[Polygon2D] = []
+@export var fragment_count := 9
+@export var base_radius := 6.0
+@export var rise_height := 26.0
+
+var _tongues: Array[Polygon2D] = []
+var _seeds: Array[Dictionary] = []
 var _time := 0.0
 var _rise := 1.0
 
 func _ready() -> void:
 	z_index = -1
-	_build_flames()
+	_build_fragments()
 	_build_embers()
 
-func _build_flames() -> void:
-	for i in range(3):
+func _build_fragments() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 91
+	for i in range(fragment_count):
 		var tongue := Polygon2D.new()
-		tongue.color = Color(0.80, 0.86, 0.92, 0.0 if i > 0 else 0.55)
+		tongue.color = Color(0.82, 0.88, 0.94, 0.0)
 		add_child(tongue)
-		_flames.append(tongue)
-		var core := Polygon2D.new()
-		core.color = Color(0.95, 0.97, 1.0, 0.0)
-		add_child(core)
-		_cores.append(core)
+		_tongues.append(tongue)
+		# 每片碎片的随机参数：相位、寿命、横向漂移、起飞点、宽度
+		_seeds.append({
+			"phase": rng.randf_range(0.0, 1.0),
+			"speed": rng.randf_range(0.42, 0.95),
+			"drift": rng.randf_range(-9.0, 9.0),
+			"x": rng.randf_range(-base_radius, base_radius),
+			"y": rng.randf_range(-base_radius * 0.5, base_radius * 0.5),
+			"w": rng.randf_range(1.4, 3.2),
+			"h": rng.randf_range(9.0, 20.0),
+			"alpha": rng.randf_range(0.22, 0.55),
+			"sway": rng.randf_range(1.4, 3.8),
+		})
 
 func _build_embers() -> void:
 	var embers := CPUParticles2D.new()
 	embers.name = "SoulEmbers"
-	embers.amount = 10
-	embers.lifetime = 2.2
+	embers.amount = 14
+	embers.lifetime = 2.0
 	embers.preprocess = 1.0
 	embers.emission_shape = CPUParticles2D.EMISSION_SHAPE_SPHERE
-	embers.emission_sphere_radius = 7.0
+	embers.emission_sphere_radius = 6.0
 	embers.direction = Vector2(0, -1)
-	embers.spread = 18.0
-	embers.gravity = Vector2(0, -22)
-	embers.initial_velocity_min = 10.0
-	embers.initial_velocity_max = 26.0
-	embers.scale_amount_min = 0.35
-	embers.scale_amount_max = 1.0
+	embers.spread = 26.0
+	embers.gravity = Vector2(0, -20)
+	embers.initial_velocity_min = 8.0
+	embers.initial_velocity_max = 24.0
+	embers.scale_amount_min = 0.3
+	embers.scale_amount_max = 0.9
 	var ramp := Gradient.new()
-	ramp.set_color(0, Color(0.86, 0.92, 1.0, 0.75))
+	ramp.set_color(0, Color(0.86, 0.92, 1.0, 0.65))
 	ramp.set_color(1, Color(0.62, 0.70, 0.82, 0.0))
 	embers.color_ramp = ramp
-	embers.position = Vector2(0, -16)
+	embers.position = Vector2(0, -6)
 	add_child(embers)
 
 func _process(delta: float) -> void:
 	_time += delta
-	for i in range(_flames.size()):
-		var tongue := _flames[i]
+	for i in range(_tongues.size()):
+		var tongue := _tongues[i]
 		if tongue == null or not is_instance_valid(tongue):
 			continue
-		# 每片火舌错开相位，循环 1.6s：升起 → 放大变淡 → 熄灭
-		var phase := fmod(_time * 0.62 + float(i) * 0.34, 1.0)
-		var life := phase
-		var height := (22.0 - float(i) * 5.0) * (0.6 + life * 0.9) * _rise
-		var width := (5.0 - float(i) * 0.9) * (1.0 - life * 0.45)
-		var sway := sin(_time * 3.0 + float(i) * 1.9) * (2.0 + life * 3.0)
-		var base := Vector2(0, -life * 18.0)
+		var s: Dictionary = _seeds[i]
+		# life 在 0~1 之间循环：0 刚从体内冒出，1 已经碎散消失
+		var life := fmod(_time * float(s["speed"]) + float(s["phase"]), 1.0)
+		var rise := life * rise_height * _rise
+		var sway := sin(_time * float(s["sway"]) + float(s["phase"]) * TAU) * (1.0 + life * 2.2)
+		var drift := float(s["drift"]) * life
+		var base := Vector2(float(s["x"]) + drift, float(s["y"]) - rise)
 		tongue.position = base
+		# 碎片越飘越细，末端甩出去，像被风扯散
+		var w := float(s["w"]) * (1.0 - life * 0.55)
+		var h := float(s["h"]) * (0.55 + life * 0.8) * _rise
 		tongue.polygon = PackedVector2Array([
-			Vector2(-width, 0),
-			Vector2(-width * 0.6 + sway * 0.4, -height * 0.45),
-			Vector2(sway, -height),
-			Vector2(width * 0.55 + sway * 0.5, -height * 0.5),
-			Vector2(width, 0),
+			Vector2(-w, 0),
+			Vector2(-w * 0.5 + sway * 0.35, -h * 0.45),
+			Vector2(sway, -h),
+			Vector2(w * 0.45 + sway * 0.5, -h * 0.4),
+			Vector2(w, 0),
 		])
-		var alpha := sin(phase * PI) * (0.52 if i == 0 else 0.34)
-		tongue.color = Color(0.80, 0.86, 0.94, alpha)
-		var core := _cores[i]
-		if core != null and is_instance_valid(core):
-			core.position = base + Vector2(0, -height * 0.28)
-			core.polygon = PackedVector2Array([
-				Vector2(-width * 0.42, 0),
-				Vector2(sway * 0.3, -height * 0.42),
-				Vector2(width * 0.4, 0),
-			])
-			core.color = Color(0.98, 0.99, 1.0, alpha * 0.9)
+		# 出生时可见、中段最亮、末尾碎掉
+		var alpha := sin(life * PI) * float(s["alpha"])
+		tongue.color = Color(0.84, 0.90, 0.96, alpha)
 
 ## 汇入/消散时可以让火焰整体变旺或变弱（0~2）
 func set_rise(value: float) -> void:

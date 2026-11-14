@@ -8,6 +8,7 @@ extends CharacterBody2D
 ## 玩家把它打空血后，第一层通往第二层的门才解封。
 
 const SLIME_BULLET_SCENE := preload("res://scenes/entities/slime_bullet.tscn")
+const SOUL_FLAME := preload("res://components/soul_flame.gd")
 
 const MAX_HP := 26
 const CONTACT_DAMAGE := 1
@@ -27,8 +28,6 @@ const SPIT_SPEED_X := 300.0
 const SPIT_SPEED_Y := -420.0
 
 const DEATH_TIME := 1.2
-## 造型整体缩放：横向约 6 倍、纵向约 4.2 倍主角，整体体积是主角的 4~5 倍
-const ART_SCALE := Vector2(0.66, 1.5)
 
 enum State { IDLE, CROUCH, RISE, HOVER, SLAM, SPIT_WINDUP, DEAD }
 
@@ -60,68 +59,84 @@ func _ready() -> void:
 		bus.enemy_spawned.emit(self)
 
 func _build_body() -> void:
-	# 碰撞：一颗中等大小的圆；视觉再整体缩放（宽约 74、高约 114，是主角的 4~5 倍）
+	# 碰撞：一颗扁圆的魂体，宽 108 高 88 左右（主角 14×26 的 4~5 倍）
 	var shape := CircleShape2D.new()
-	shape.radius = 36.0
+	shape.radius = 40.0
 	var col := CollisionShape2D.new()
 	col.name = "CollisionShape2D"
 	col.shape = shape
-	col.position = Vector2(0, -20)
+	col.position = Vector2(0, -24)
 	add_child(col)
 
 	_visual = Node2D.new()
 	_visual.name = "Visual"
-	_visual.scale = ART_SCALE
 	add_child(_visual)
 
-	# 魂体主块：半透明的冷蓝白，边缘不规则
+	# 魂体主块：宽扁的果冻轮廓，下沿做出滴落感，不是把旧造型压扁
 	_body = Polygon2D.new()
 	_body.name = "Body"
 	_body.color = Color(0.62, 0.74, 0.86, 0.55)
 	_body.polygon = PackedVector2Array([
-		Vector2(-58, 10), Vector2(-64, -14), Vector2(-52, -42),
-		Vector2(-30, -62), Vector2(0, -70), Vector2(30, -62),
-		Vector2(52, -42), Vector2(64, -14), Vector2(58, 10),
-		Vector2(38, 18), Vector2(0, 21), Vector2(-38, 18),
+		Vector2(-50, 16), Vector2(-54, -6), Vector2(-46, -30),
+		Vector2(-30, -48), Vector2(-8, -60), Vector2(14, -60),
+		Vector2(36, -47), Vector2(50, -27), Vector2(54, -4),
+		Vector2(48, 17), Vector2(34, 24), Vector2(12, 26),
+		Vector2(-10, 27), Vector2(-30, 23), Vector2(-44, 21),
 	])
 	_visual.add_child(_body)
 
-	# 内层魂核：更亮的一团，呼吸般起伏
+	# 内层魂核：更亮的一团，横向铺开一点，呼吸般起伏
 	var core := Polygon2D.new()
 	core.name = "Core"
 	core.color = Color(0.86, 0.93, 1.0, 0.35)
 	core.polygon = PackedVector2Array([
-		Vector2(-32, 0), Vector2(-36, -22), Vector2(-20, -40),
-		Vector2(0, -46), Vector2(20, -40), Vector2(36, -22),
-		Vector2(32, 0), Vector2(16, 10), Vector2(-16, 10),
+		Vector2(-30, 2), Vector2(-34, -16), Vector2(-24, -34),
+		Vector2(-8, -44), Vector2(10, -44), Vector2(26, -33),
+		Vector2(34, -14), Vector2(30, 3), Vector2(12, 12), Vector2(-12, 12),
 	])
 	_visual.add_child(core)
 
-	# 人脸：两只空洞的眼窝 + 一张下撇的嘴，像被吞进去又浮在表面
+	# 人脸：两只斜挑的空洞眼窝 + 一张下撇的嘴
 	_face = Node2D.new()
 	_face.name = "Face"
 	_visual.add_child(_face)
-	for dx in [-18.0, 18.0]:
+	for dx in [-16.0, 16.0]:
 		var socket := Polygon2D.new()
 		socket.color = Color(0.06, 0.10, 0.16, 0.85)
 		socket.polygon = PackedVector2Array([
-			Vector2(dx - 9, -20), Vector2(dx + 9, -22),
-			Vector2(dx + 7, -6), Vector2(dx - 7, -5),
+			Vector2(dx - 10, -34), Vector2(dx + 9, -37),
+			Vector2(dx + 8, -20), Vector2(dx - 8, -19),
 		])
 		_face.add_child(socket)
 		var glint := Polygon2D.new()
 		glint.color = Color(0.85, 0.95, 1.0, 0.85)
 		glint.polygon = PackedVector2Array([
-			Vector2(dx - 2, -16), Vector2(dx + 2, -17), Vector2(dx + 1, -13), Vector2(dx - 2, -13),
+			Vector2(dx - 3, -31), Vector2(dx + 2, -32), Vector2(dx + 1, -26), Vector2(dx - 3, -26),
 		])
 		_face.add_child(glint)
 	var mouth := Line2D.new()
-	mouth.width = 2.4
+	mouth.width = 2.6
 	mouth.default_color = Color(0.06, 0.10, 0.16, 0.85)
 	mouth.points = PackedVector2Array([
-		Vector2(-14, 2), Vector2(-5, 6), Vector2(5, 6), Vector2(14, 2),
+		Vector2(-16, -12), Vector2(-6, -7), Vector2(6, -7), Vector2(16, -12),
 	])
 	_face.add_child(mouth)
+
+	# 身上和灵魂同款的白色火焰：沿背部排三簇，随呼吸一起飘
+	# 魂焰从体内升起：根部压到躯干中段（y ≈ 0~-18），碎片穿过半透明魂体再飘到体外散掉
+	for spec in [
+		{"pos": Vector2(-30, -6), "scale": 1.5, "radius": 9.0},
+		{"pos": Vector2(4, 2), "scale": 1.9, "radius": 11.0},
+		{"pos": Vector2(34, -10), "scale": 1.3, "radius": 8.0},
+		{"pos": Vector2(-4, -18), "scale": 1.4, "radius": 10.0},
+	]:
+		var flame := SOUL_FLAME.new()
+		flame.position = spec["pos"]
+		flame.scale = Vector2.ONE * float(spec["scale"])
+		flame.set("base_radius", float(spec["radius"]))
+		flame.set("rise_height", 42.0)
+		flame.set("fragment_count", 8)
+		_visual.add_child(flame)
 
 	# 往上飘的魂丝
 	var wisps := CPUParticles2D.new()
@@ -228,9 +243,8 @@ func _pick_skill() -> void:
 	if player == null:
 		_timer = IDLE_TIME
 		return
-	# 玩家离得近就跳砸，远一点就吐粘液，避免一直重复同一招
-	var distance := absf(player.global_position.x - global_position.x)
-	if distance < 260.0:
+	# 两种技能从开场就随机切换，不按距离、也没有第二形态
+	if randf() < 0.5:
 		_state = State.CROUCH
 		_timer = SLAM_CROUCH
 		_shockwave_done = false
@@ -303,13 +317,13 @@ func _update_visual() -> void:
 	if _visual == null:
 		return
 	var breath := 1.0 + sin(_anim_time * 2.2) * 0.03
-	_visual.scale = Vector2(breath, 2.0 - breath) * ART_SCALE
+	_visual.scale = Vector2(breath, 2.0 - breath)
 	if _state == State.CROUCH:
-		_visual.scale = Vector2(1.12, 0.82) * ART_SCALE
+		_visual.scale = Vector2(1.12, 0.82)
 	elif _state == State.HOVER:
-		_visual.scale = Vector2(0.94, 1.08) * ART_SCALE
+		_visual.scale = Vector2(0.94, 1.08)
 	elif _state == State.SLAM:
-		_visual.scale = Vector2(0.88, 1.16) * ART_SCALE
+		_visual.scale = Vector2(0.88, 1.16)
 	# 空中时脸更明显地"浮"出来
 	if _face != null:
 		_face.modulate.a = 0.85 if _state == State.HOVER or _state == State.HOVER else 0.75
@@ -321,6 +335,16 @@ func _on_contact(body: Node2D) -> void:
 		return
 	body.take_damage(CONTACT_DAMAGE, self)
 	_contact_cd = CONTACT_COOLDOWN
+
+## 给关卡的 Boss 血条用
+func is_dead() -> bool:
+	return _is_dead
+
+func get_hp() -> int:
+	return hp
+
+func get_max_hp() -> int:
+	return MAX_HP
 
 func take_damage(amount: int) -> void:
 	if _is_dead:
