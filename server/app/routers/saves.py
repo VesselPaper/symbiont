@@ -23,9 +23,16 @@ DEVICE_ID_MAX = 64
 ANONYMOUS_PREFIX = "device:"
 
 
+def _rev_of(row: SaveData) -> int:
+    """版本号存在 save_data 里，不动表结构。"""
+    return int((row.save_data or {}).get("_rev", 0))
+
+
 class SavePayload(BaseModel):
     save_data: dict = Field(..., description="与客户端存档 Schema v1 一致")
     version: int | None = None
+    # 客户端上次看到的版本号；不匹配说明别人改过，要 409 而不是静默覆盖
+    base_rev: int | None = None
 
 
 def _require_device(x_device_id: str | None) -> str:
@@ -77,6 +84,7 @@ def read_save(
     return {
         "slot": slot,
         "updated_at": row.updated_at.isoformat() if isinstance(row.updated_at, datetime) else str(row.updated_at),
+        "rev": _rev_of(row),
         "save_data": row.save_data,
     }
 
@@ -98,11 +106,21 @@ def write_save(
         .filter(SaveData.user_id == user.id, SaveData.slot == slot)
         .one_or_none()
     )
+    current_rev = _rev_of(row) if row is not None else 0
+    if payload.base_rev is not None and payload.base_rev != current_rev:
+        raise HTTPException(status_code=409, detail={
+            "message": "存档已被别处修改",
+            "rev": current_rev,
+            "save_data": row.save_data if row is not None else None,
+        })
+
+    data = dict(payload.save_data)
+    data["_rev"] = current_rev + 1
     if row is None:
-        row = SaveData(user_id=user.id, slot=slot, save_data=payload.save_data)
+        row = SaveData(user_id=user.id, slot=slot, save_data=data)
         db.add(row)
     else:
-        row.save_data = payload.save_data
+        row.save_data = data
 
     db.commit()
     db.refresh(row)
@@ -110,5 +128,6 @@ def write_save(
     return {
         "slot": slot,
         "updated_at": row.updated_at.isoformat() if isinstance(row.updated_at, datetime) else str(row.updated_at),
-        "bytes": len(str(payload.save_data)),
+        "rev": data["_rev"],
+        "bytes": len(str(data)),
     }

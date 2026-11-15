@@ -87,7 +87,11 @@ func _on_flush_completed(result: int, code: int, _headers: PackedStringArray, _b
 ## 之后每次请求带 X-Device-Id，服务端据此隔离各台机器的存档。
 signal save_pulled(slot: int, data: Dictionary)
 signal save_pull_failed(slot: int, reason: String)
-signal save_pushed(slot: int)
+signal save_pushed(slot: int, rev: int)
+signal save_conflict(slot: int, rev: int, data: Dictionary)
+
+## 每个槽位最后见到的云端版本号，用来做乐观并发（base_rev）
+var _save_rev: Dictionary = {}
 
 const DEVICE_FILE := "user://device.id"
 
@@ -108,28 +112,49 @@ func _ensure_device_id() -> String:
 	return device_id
 
 
-func push_save(slot: int, data: Dictionary) -> void:
+func push_save(slot: int, data: Dictionary, base_rev_override: int = -1) -> void:
 	_save_cache[slot] = data
 	if offline:
 		return
 	var http := HTTPRequest.new()
 	add_child(http)
+	var base_rev: int = base_rev_override if base_rev_override >= 0 else int(_save_rev.get(slot, 0))
 	http.request_completed.connect(_on_push_completed.bind(http, slot))
 	_apply_tls(http)
 	http.request(
 		"%s/saves/%d" % [base_url, slot],
 		_headers(),
 		HTTPClient.METHOD_PUT,
-		JSON.stringify({"save_data": data, "version": data.get("version", 1)})
+		JSON.stringify({"save_data": data, "version": data.get("version", 1), "base_rev": base_rev})
 	)
 
 
+## 409：别处改过这份存档。不静默覆盖——把云端那份交给 SaveSystem 存成冲突副本，
+## 然后用云端的新版本号重推本地这份，保证玩家当前进度不丢。
+func _handle_conflict(slot: int, body: PackedByteArray) -> void:
+	var parsed = JSON.parse_string(body.get_string_from_utf8())
+	var detail: Dictionary = parsed.get("detail", {}) if parsed is Dictionary else {}
+	var rev := int(detail.get("rev", 0))
+	var cloud: Dictionary = detail.get("save_data", {}) if detail.get("save_data") is Dictionary else {}
+	_save_rev[slot] = rev
+	push_warning("[Network] 存档冲突 slot=%d 云端 rev=%d，保留双方" % [slot, rev])
+	save_conflict.emit(slot, rev, cloud)
+
 func _on_push_completed(result: int, code: int, _headers: PackedStringArray, _body: PackedByteArray, http: HTTPRequest, slot: int) -> void:
 	http.queue_free()
-	if result != HTTPRequest.RESULT_SUCCESS or code != 200:
-		push_warning("[Network] 云端存档写入失败 slot=%d code=%d" % [slot, code])
+	if result != HTTPRequest.RESULT_SUCCESS:
+		push_warning("[Network] 云端存档写入失败 slot=%d" % slot)
 		return
-	save_pushed.emit(slot)
+	if code == 409:
+		_handle_conflict(slot, _body)
+		return
+	if code != 200:
+		push_warning("[Network] 云端存档写入被拒 slot=%d code=%d" % [slot, code])
+		return
+	var parsed = JSON.parse_string(_body.get_string_from_utf8())
+	if parsed is Dictionary:
+		_save_rev[slot] = int(parsed.get("rev", 0))
+	save_pushed.emit(slot, int(_save_rev.get(slot, 0)))
 
 
 func pull_save(slot: int) -> void:
@@ -158,6 +183,7 @@ func _on_pull_completed(result: int, code: int, _headers: PackedStringArray, bod
 	if typeof(parsed) != TYPE_DICTIONARY or not parsed.has("save_data"):
 		save_pull_failed.emit(slot, "bad_body")
 		return
+	_save_rev[slot] = int(parsed.get("rev", 0))
 	save_pulled.emit(slot, parsed["save_data"])
 
 

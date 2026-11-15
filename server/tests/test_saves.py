@@ -94,3 +94,24 @@ def test_first_put_creates_anonymous_user(api):
     with Session() as db:
         user = db.query(User).filter(User.username == "device:" + DEVICE).one()
     assert user.password_hash == "!", "匿名设备账号不该有可登录的密码"
+
+def test_rev_increments_and_conflict_returns_409(api):
+    """带 base_rev 的写入：版本对得上才写，对不上返回 409 并把云端那份带回来。"""
+    client, _ = api
+    first = client.put("/api/v1/saves/1", json={"save_data": {"hp": 4}, "base_rev": 0},
+                       headers={"X-Device-Id": DEVICE})
+    assert first.status_code == 200
+    rev = first.json()["rev"]
+    assert rev == 1
+
+    stale = client.put("/api/v1/saves/1", json={"save_data": {"hp": 1}, "base_rev": 0},
+                       headers={"X-Device-Id": DEVICE})
+    assert stale.status_code == 409
+    detail = stale.json()["detail"]
+    assert detail["rev"] == 1
+    assert detail["save_data"]["hp"] == 4
+
+    ok = client.put("/api/v1/saves/1", json={"save_data": {"hp": 3}, "base_rev": 1},
+                    headers={"X-Device-Id": DEVICE})
+    assert ok.status_code == 200
+    assert ok.json()["rev"] == 2

@@ -27,6 +27,7 @@ func _ready() -> void:
 func pull_remote(slot: int, load_after: bool = false) -> void:
 	if not Network.save_pulled.is_connected(_on_save_pulled):
 		Network.save_pulled.connect(_on_save_pulled)
+		Network.save_conflict.connect(_on_save_conflict)
 		Network.save_pull_failed.connect(_on_save_pull_failed)
 	_pull_then_load[slot] = load_after
 	Network.pull_save(slot)
@@ -46,6 +47,20 @@ func _on_save_pulled(slot: int, data: Dictionary) -> void:
 		# 必须写 self.：裸 load() 会解析成 Godot 内置的资源加载函数
 		self.load(slot)
 
+
+## 云端与本地的同一槽位都改过：把云端那份另存成 .conflict 副本（不丢），
+## 再用云端的新版本号把本地这份重推上去，保证当前进度胜出。
+func _on_save_conflict(slot: int, rev: int, cloud: Dictionary) -> void:
+	if not cloud.is_empty():
+		var path := "%s/slot_%d.conflict.json" % [SAVE_DIR, slot]
+		var f := FileAccess.open(path, FileAccess.WRITE)
+		if f != null:
+			f.store_string(JSON.stringify(cloud, "\t"))
+			f.close()
+	EventBus.log_event("save_conflict", {"slot": slot, "cloud_rev": rev})
+	var mine := _read_slot(slot)
+	if not mine.is_empty():
+		Network.push_save(slot, mine, rev)
 
 func _on_save_pull_failed(slot: int, reason: String) -> void:
 	_pull_then_load.erase(slot)
@@ -71,6 +86,41 @@ func _save_path(slot: int) -> String:
 func has_save(slot: int) -> bool:
 	return FileAccess.file_exists(_save_path(slot))
 
+## 原子写：先写 .tmp，落盘成功再改名成正式档；旧档先转成 .bak。
+## 直接覆盖写在断电/关页面时会留下半个 JSON，读档就废了。
+func _write_atomic(path: String, text: String) -> bool:
+	var tmp := path + ".tmp"
+	var f := FileAccess.open(tmp, FileAccess.WRITE)
+	if f == null:
+		return false
+	f.store_string(text)
+	f.flush()
+	f.close()
+
+	if FileAccess.file_exists(path):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(path + ".bak"))
+		DirAccess.rename_absolute(
+			ProjectSettings.globalize_path(path),
+			ProjectSettings.globalize_path(path + ".bak")
+		)
+	return DirAccess.rename_absolute(
+		ProjectSettings.globalize_path(tmp),
+		ProjectSettings.globalize_path(path)
+	) == OK
+
+## 读档：主档坏了就回退 .bak，而不是当成"没有存档"
+func _read_slot(slot: int) -> Dictionary:
+	for candidate in [_save_path(slot), _save_path(slot) + ".bak"]:
+		if not FileAccess.file_exists(candidate):
+			continue
+		var parsed = JSON.parse_string(FileAccess.get_file_as_string(candidate))
+		if parsed is Dictionary:
+			if candidate.ends_with(".bak"):
+				push_warning("SaveSystem: 主档损坏，已回退备份 %s" % candidate)
+				EventBus.log_event("save_recovered", {"slot": slot})
+			return parsed
+	return {}
+
 func save(slot: int) -> void:
 	if slot < 0 or slot >= MAX_SLOTS:
 		EventBus.save_failed.emit(slot, "invalid_slot")
@@ -78,23 +128,38 @@ func save(slot: int) -> void:
 	var data := _collect()
 	data["version"] = SAVE_VERSION
 	data["saved_at"] = Time.get_datetime_string_from_system()
-	var f := FileAccess.open(_save_path(slot), FileAccess.WRITE)
-	if f == null:
+	if not _write_atomic(_save_path(slot), JSON.stringify(data, "\t")):
 		push_error("SaveSystem: 无法写入存档 %s" % _save_path(slot))
 		EventBus.save_failed.emit(slot, "write_failed")
 		return
-	f.store_string(JSON.stringify(data, "\t"))
 	save_completed.emit(slot)
 	EventBus.log_event("save", {"slot": slot})
 	Network.push_save(slot, data)   # 异步远程同步（离线自动忽略）
 
+## 导出存档码：base64(JSON)，可以抄走，到别的浏览器/机器上导入。
+## 这是不用账号也能跨端搬档的最小方案，很多单机游戏都这么做。
+func export_code(slot: int) -> String:
+	var data := _read_slot(slot)
+	if data.is_empty():
+		return ""
+	return Marshalls.utf8_to_base64(JSON.stringify(data))
+
+## 导入存档码：校验能解析、带 version 才写；返回是否成功
+func import_code(code: String) -> bool:
+	var raw := Marshalls.base64_to_utf8(code.strip_edges())
+	var parsed = JSON.parse_string(raw)
+	if not (parsed is Dictionary) or not parsed.has("version"):
+		return false
+	var slot := int(parsed.get("slot_hint", 0))
+	return _write_atomic(_save_path(slot), JSON.stringify(parsed, "\t"))
+
 func load(slot: int) -> void:
-	if not has_save(slot):
+	if not has_save(slot) and not FileAccess.file_exists(_save_path(slot) + ".bak"):
 		push_warning("SaveSystem: 存档不存在 slot=%d" % slot)
 		EventBus.save_failed.emit(slot, "not_found")
 		return
-	var parsed = JSON.parse_string(FileAccess.get_file_as_string(_save_path(slot)))
-	if parsed == null:
+	var parsed := _read_slot(slot)
+	if parsed.is_empty():
 		EventBus.save_failed.emit(slot, "corrupted")
 		return
 	_restore(parsed)
