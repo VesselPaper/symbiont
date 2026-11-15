@@ -116,7 +116,7 @@ func _run() -> void:
 		var ca: float = (level.get("_soul_core") as Node2D).modulate.a
 		print("[prologue] 坠落 3.0s：骑士 alpha=%.2f 魂光 haze=%.2f core=%.2f" % [ka, ha, ca])
 		# M4-43：现在有"轮廓 → 真实角色"的交叉淡入，两者至少有一个可见
-		var real: Node2D = level.get("_real_body")
+		var real: Node2D = null
 		var ra := real.modulate.a if real != null else 0.0
 		_check(ka + ra >= 0.35, "往下掉的时候角色还没显出来（knight=%.2f real=%.2f）" % [ka, ra])
 		_check(ha <= 0.75 and ca <= 0.75, "魂光没有褪（haze=%.2f core=%.2f）" % [ha, ca])

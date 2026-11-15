@@ -80,8 +80,9 @@ var _descending := false
 ## 下落演出的节拍与脉冲：鼓点从 5s 一拍渐快到 1s 一拍，明暗与它同拍
 const BEAT_START := 5.0
 const BEAT_END := 1.0
-const FORM_TIME := 3.2      # 轮廓长成角色的时间
-const FULL_FALL_HOLD := 16.8 # 成形后继续全速下落的时长（成形 3.2 + 16.8 = 全程 20 秒）
+const MIST_TIME := 10.0     # 黑雾钻进身体的过程
+const FORM_TIME := 6.0      # 灵魂几何变形到角色的时间
+const FULL_FALL_HOLD := 14.0 # 成形后继续全速下落的时长（成形 6 + 14 = 全程 20 秒）
 const TERMINAL_FALL_SPEED := 900.0  # 与 player.gd 的 MAX_FALL_SPEED 一致
 const FALL_GRAVITY := 2550.0        # 与 player.gd 的 GRAVITY 一致
 const HOLD_DARK := 1.0
@@ -90,7 +91,6 @@ var _desc_phase := 0            # 0 静止 / 1 下落 / 2 停在暗拍 / 3 从�
 var _desc_t := 0.0
 var _form_t := 0.0
 var _fall_vy := 0.0
-var _real_body: Node2D
 var _beat_accum := 0.0
 var _beat_interval := BEAT_START
 var _beat_flash := 0.0
@@ -114,6 +114,13 @@ var _note_tween: Tween
 var _heart_note_tween: Tween
 ## M4-28：融合后要显出的“玩家正常样子”（先做好藏在灵魂里，坠落时淡入）
 var _knight: Node2D
+var _k_cloak: Polygon2D
+var _k_hood: Polygon2D
+var _k_face: Polygon2D
+var _k_eye: Polygon2D
+var _k_rim: Line2D
+var _k_leg_l: Polygon2D
+var _k_leg_r: Polygon2D
 var _shake_timer := 0.0
 var _shake_strength := 0.0
 
@@ -314,6 +321,7 @@ func _build_soul() -> void:
 		Vector2(-4, -24), Vector2(0, -27), Vector2(4, -24), Vector2(9, -16),
 		Vector2(13, -6), Vector2(16, 8), Vector2(13, 22), Vector2(5, 25), Vector2(-5, 25),
 	])
+	_k_cloak = cloak
 	_knight.add_child(cloak)
 
 	var hood := Polygon2D.new()
@@ -322,6 +330,7 @@ func _build_soul() -> void:
 		Vector2(-10, -14), Vector2(-7, -26), Vector2(0, -30),
 		Vector2(7, -26), Vector2(10, -14), Vector2(6, -8), Vector2(-6, -8),
 	])
+	_k_hood = hood
 	_knight.add_child(hood)
 
 	# 兜帽里是空的：一团比斗篷更深的黑，只有一点眼白
@@ -329,12 +338,14 @@ func _build_soul() -> void:
 	face.color = Color(0.020, 0.024, 0.030, 1.0)
 	face.polygon = _ellipse(6.5, 8.0, 12)
 	face.position = Vector2(0, -17)
+	_k_face = face
 	_knight.add_child(face)
 
 	var eye := Polygon2D.new()
 	eye.color = Color(0.90, 0.94, 0.86, 0.95)
 	eye.polygon = _ellipse(1.8, 2.6, 10)
 	eye.position = Vector2(1.6, -18)
+	_k_eye = eye
 	_knight.add_child(eye)
 
 	var rim := Line2D.new()
@@ -344,7 +355,22 @@ func _build_soul() -> void:
 		Vector2(-13, 22), Vector2(-16, 8), Vector2(-13, -6),
 		Vector2(-9, -16), Vector2(-4, -24), Vector2(0, -27),
 	])
+	_k_rim = rim
 	_knight.add_child(rim)
+
+	# 两条腿：灵魂阶段完全透明，变形最后一段才长出来，读完就是站立的角色
+	for side in [-1, 1]:
+		var leg := Polygon2D.new()
+		leg.color = Color(0.130, 0.142, 0.162, 0.0)
+		leg.polygon = PackedVector2Array([
+			Vector2(-2.6, 22), Vector2(2.6, 22), Vector2(2.2, 30), Vector2(-2.2, 30),
+		])
+		leg.position = Vector2(5.0 * float(side), 0)
+		_knight.add_child(leg)
+		if side < 0:
+			_k_leg_l = leg
+		else:
+			_k_leg_r = leg
 
 # ---------- 身影 ----------
 
@@ -703,9 +729,10 @@ func _fuse() -> void:
 	# M4-41：不再"扑过来三次、每次放大缩小"。本心在原地直接化成一整片黑雾，
 	# 由雾自己去收束成漏斗钻进胸口（视觉交给 mist_funnel）。
 	tw.tween_callback(_heart_scatter)
-	tw.tween_property(_heart, "scale", Vector2(0.22, 0.22), 1.4)
-	tw.parallel().tween_property(_heart, "position", target, 1.4)
-	tw.parallel().tween_property(_heart_cloak, "modulate:a", 0.0, 1.4)
+	# 黑雾钻进身体的过程放慢到 10 秒
+	tw.tween_property(_heart, "scale", Vector2(0.22, 0.22), MIST_TIME)
+	tw.parallel().tween_property(_heart, "position", target, MIST_TIME)
+	tw.parallel().tween_property(_heart_cloak, "modulate:a", 0.0, MIST_TIME)
 	tw.tween_callback(_after_fuse)
 
 ## 每一次扑击的反馈：冲击环 + 抖动 + 灵魂被“撞歪”一下
@@ -760,11 +787,11 @@ func _heart_scatter() -> void:
 	funnel.name = "MistFunnel"
 	funnel.z_index = 3
 	add_child(funnel)
-	funnel.play(_heart.global_position, _soul.global_position + Vector2(0, -12), 1.6)
+	funnel.play(_heart.global_position, _soul.global_position + Vector2(0, -12), MIST_TIME)
 	_shake(1.4, 6.0)
 	# 身体抖动：不是整体平移，是高频小幅缩放 + 左右微摆，读起来像"有东西钻进来"
 	var jitter := create_tween()
-	jitter.set_loops(9)
+	jitter.set_loops(34)
 	jitter.tween_property(_soul, "scale", Vector2(1.04, 0.97), 0.06)
 	jitter.tween_property(_soul, "scale", Vector2(0.97, 1.03), 0.06)
 	jitter.tween_property(_soul, "scale", Vector2(1.0, 1.0), 0.08)
@@ -826,24 +853,7 @@ func _begin_descent() -> void:
 	tw.tween_property(_soul_haze, "modulate:a", 0.0, 2.0)
 	tw.tween_property(_knight, "modulate:a", 1.0, 1.5)
 
-	# 真实角色模型：现在挂出来但完全透明，成形时交叉淡入
-	_spawn_real_body()
 
-## 把 player.tscn 的可见部分挂到灵魂身上：只当模型用，关掉物理与处理
-func _spawn_real_body() -> void:
-	if _real_body != null and is_instance_valid(_real_body):
-		return
-	var scene = load("res://scenes/player/player.tscn")
-	if scene == null:
-		return
-	_real_body = scene.instantiate() as Node2D
-	_real_body.name = "RealBody"
-	_real_body.modulate = Color(1, 1, 1, 0)
-	# 只跑动画、不跑物理：否则它会在虚空里自由下落，越跑越远
-	_real_body.set("display_only", true)
-	_real_body.set("has_weapon", true)
-	_real_body.scale = Vector2.ONE * 0.62
-	_soul.add_child(_real_body)
 
 ## 下落期间的节拍器：鼓点间隔从 5s 收紧到 1s，音量渐强，明暗与它同拍。
 ## 速度按角色正常物理下落（重力加速到终端速度 900），不再用固定时长的 tween。
@@ -862,14 +872,27 @@ func _update_descent_pulse(delta: float) -> void:
 	_fall_vy = minf(_fall_vy + FALL_GRAVITY * delta, TERMINAL_FALL_SPEED)
 	_soul.position.y += _fall_vy * delta
 
-	# 从"灵魂轮廓"长成"真实角色"：先放大轮廓，后段交叉淡入真实模型
+	# 几何变形：灵魂的斗篷/兜帽沿两个轴拉长张开，最后长出两条腿
+	# （不再挂 player.tscn —— 那样会连剑一起带出来，而且只是"套了个模型"不是变形）
 	var grow := clampf(_form_t / FORM_TIME, 0.0, 1.0)
 	_knight.scale = Vector2.ONE * lerpf(0.62, 1.0, grow)
-	if _real_body != null and is_instance_valid(_real_body):
-		var swap := clampf((grow - 0.72) / 0.28, 0.0, 1.0)
-		_real_body.modulate.a = swap
-		_real_body.scale = Vector2.ONE * lerpf(0.62, 1.0, grow)
-		_knight.modulate.a = 1.0 - swap
+	_knight.modulate.a = clampf(grow / 0.25, 0.0, 1.0)
+	if _k_cloak != null:
+		_k_cloak.scale = Vector2(lerpf(0.46, 1.0, grow), lerpf(0.68, 1.0, grow))
+	if _k_hood != null:
+		_k_hood.scale = Vector2(lerpf(0.55, 1.0, grow), lerpf(0.62, 1.0, grow))
+		_k_hood.position.y = lerpf(4.0, 0.0, grow)
+	if _k_face != null:
+		_k_face.modulate.a = clampf((grow - 0.35) / 0.4, 0.0, 1.0)
+	if _k_eye != null:
+		_k_eye.modulate.a = clampf((grow - 0.55) / 0.3, 0.0, 1.0)
+	if _k_rim != null:
+		_k_rim.modulate.a = clampf((grow - 0.4) / 0.4, 0.0, 0.55)
+	var legs := clampf((grow - 0.72) / 0.28, 0.0, 1.0)
+	if _k_leg_l != null:
+		_k_leg_l.color.a = legs
+	if _k_leg_r != null:
+		_k_leg_r.color.a = legs
 
 	# 鼓点：间隔收紧 + 音量渐强
 	_beat_interval = lerpf(BEAT_START, BEAT_END, k * k)

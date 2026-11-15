@@ -46,11 +46,11 @@ func _run() -> void:
 	var beat1 := float(_p.get("_beat_interval"))
 	_check(beat1 < beat0, "鼓点间隔没有收紧（%.2f → %.2f）" % [beat0, beat1])
 	# 越接近落地越急促：把时间拨到 95%%，间隔应接近 1 秒`n	_p.set("_form_t", 19.0)`n	await create_timer(0.1).timeout`n	var beat_end := float(_p.get("_beat_interval"))`n	_check(beat_end < 1.4, "临落地时鼓点没有到 1 秒（%.2f）" % beat_end)`n	# 真实角色模型必须真的显现（之前只换皮、没换模型，测试没盯住）
-	var real: Node2D = _p.get("_real_body")
-	_check(real != null, "没有生成真实角色模型")
-	if real != null:
-		_check(real.modulate.a > 0.5, "真实角色还没显现（alpha=%.2f）" % real.modulate.a)
-		_check(_p.get("_knight").modulate.a < 0.4, "剪影没有让位给真实角色（knight=%.2f）" % _p.get("_knight").modulate.a)
+	# 几何变形：斗篷横向张开、两条腿长出来（不再挂 player.tscn）
+	var cloak: Polygon2D = _p.get("_k_cloak")
+	var leg: Polygon2D = _p.get("_k_leg_l")
+	_check(cloak != null and cloak.scale.x > 0.9, "斗篷没有张开到角色宽度（%.2f）" % (cloak.scale.x if cloak != null else 0.0))
+	_check(leg != null and leg.color.a > 0.5, "腿没有长出来（alpha=%.2f）" % (leg.color.a if leg != null else 0.0))
 	# 身体在生长
 	_check(knight.scale.x > 0.63, "骑士没有生长（scale=%.2f）" % knight.scale.x)
 
