@@ -828,7 +828,8 @@ func _update_descent_pulse(delta: float) -> void:
 		# 鼓点先用现有的低频受击音顶位，音量压到底只留"咚"的质感
 		GameManager.play_sfx("drum", lerpf(-16.0, -2.0, k), 1.0)
 
-	_camera.position = Vector2(640.0, _soul.global_position.y)
+	# X 也要跟：虚空里角色可能停在 x=250 之类的任意位置，只锁 Y 会把人放到画面左侧
+	_camera.position = _soul.global_position
 	_camera.offset = Vector2.ZERO   # 下落时不要震屏残留，否则人会偏出画面中心
 	_camera.zoom = Vector2.ONE * lerpf(_desc_zoom_from, _desc_zoom_to, k)
 	if _descent_bg != null:

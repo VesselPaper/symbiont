@@ -38,8 +38,8 @@ func _run() -> void:
 	await create_timer(6.0).timeout
 
 	# 镜头锁玩家
-	_check(absf(cam.global_position.y - soul.global_position.y) < 4.0,
-			"镜头没锁住玩家（差 %.0fpx）" % absf(cam.global_position.y - soul.global_position.y))
+	_check(cam.global_position.distance_to(soul.global_position) < 6.0,
+			"镜头没锁住玩家（差 %.0fpx）" % cam.global_position.distance_to(soul.global_position))
 	# 镜头在拉远
 	_check(cam.zoom.x < 0.995, "镜头没有拉远（zoom=%.3f）" % cam.zoom.x)
 	# 鼓点在收紧
