@@ -25,3 +25,35 @@ def test_openapi_registers_routes():
     assert r.status_code == 200
     paths = r.json()["paths"]
     assert "/api/v1/health" in paths
+
+
+def test_health_reports_instance(monkeypatch):
+    """多副本部署时探针要能报出"我是谁"，否则看不出请求落到了哪台。"""
+    monkeypatch.setenv("SYMBIONT_INSTANCE", "node-2")
+    r = client.get("/api/v1/health")
+    assert r.json()["instance"] == "node-2"
+
+
+def test_health_instance_empty_when_unset(monkeypatch):
+    """单机运行时没有实例号，不能凭空编一个。"""
+    monkeypatch.delenv("SYMBIONT_INSTANCE", raising=False)
+    r = client.get("/api/v1/health")
+    assert r.json()["instance"] == ""
+
+
+def test_health_prefers_forwarded_for():
+    """经代理后取 X-Forwarded-For 最左边那个，也就是原始客户端。"""
+    r = client.get("/api/v1/health", headers={"X-Forwarded-For": "203.0.113.7, 10.0.0.2"})
+    assert r.json()["client_ip"] == "203.0.113.7"
+
+
+def test_health_falls_back_to_real_ip():
+    """只有 X-Real-IP 时也能取到。"""
+    r = client.get("/api/v1/health", headers={"X-Real-IP": "203.0.113.9"})
+    assert r.json()["client_ip"] == "203.0.113.9"
+
+
+def test_health_empty_forwarded_header_falls_back():
+    """转发头为空时回退到连接对端地址，不能返回空字符串。"""
+    r = client.get("/api/v1/health", headers={"X-Forwarded-For": ""})
+    assert r.json()["client_ip"] == "testclient"

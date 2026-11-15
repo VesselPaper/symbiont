@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>共生之缚 · Web 入口</title>
+<style>
+  :root { color-scheme: dark; }
+  body {
+    margin: 0; min-height: 100vh; display: grid; place-items: center;
+    background: #0a0c10; color: #cfd6e4;
+    font: 16px/1.7 "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+  }
+  main { width: min(560px, 86vw); }
+  h1 { font-size: 22px; font-weight: 600; letter-spacing: .06em; margin: 0 0 4px; }
+  .sub { color: #6c7891; font-size: 13px; margin-bottom: 28px; }
+  .card {
+    border: 1px solid #1e2530; background: #0f1319; border-radius: 6px;
+    padding: 18px 20px; margin-bottom: 14px;
+  }
+  .card h2 { font-size: 14px; font-weight: 600; margin: 0 0 8px; color: #9fb0c8; }
+  .card p { margin: 0; font-size: 14px; color: #8a95a8; }
+  a.btn {
+    display: inline-block; margin-top: 10px; padding: 8px 16px;
+    border: 1px solid #2b3646; border-radius: 4px;
+    background: #151b24; color: #9ec1ff; text-decoration: none; font-size: 14px;
+  }
+  a.btn:hover { background: #1b2430; border-color: #3a4a60; }
+  code { color: #8fb8ff; font-size: 13px; background: #10151d; padding: 1px 5px; border-radius: 3px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>共生之缚</h1>
+  <div class="sub">Web 入口网关 · Symbiont Gateway</div>
+
+  <div class="card" id="game-card" hidden>
+    <h2>游戏</h2>
+    <a class="btn" href="/game/index.html">进入游戏</a>
+  </div>
+
+  <div class="card">
+    <h2>游戏包未导出</h2>
+    <p>
+      这台网关目前只提供状态页。要把游戏放到浏览器里跑，
+      先在开发机上执行 <code>scripts/export_web.ps1</code>，
+      再把 <code>client/build/web</code> 挂到 <code>/game</code>。
+    </p>
+  </div>
+
+  <div class="card">
+    <h2>网关状态</h2>
+    <p>看三台后端怎么分活、限流是不是真的拦住了。</p>
+    <a class="btn" href="/status.html">打开状态页</a>
+  </div>
+</main>
+
+<script>
+  // 有游戏包就把入口露出来，没有就保持上面的提示
+  fetch('/game/index.html', { method: 'HEAD' })
+    .then(function (r) { if (r.ok) { document.getElementById('game-card').hidden = false; } })
+    .catch(function () {});
+</script>
+</body>
+</html>

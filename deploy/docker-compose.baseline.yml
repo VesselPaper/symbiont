@@ -1,0 +1,54 @@
+# 对照用编排：没有网关的"裸奔"架构。
+#
+# 只在演示里用来做前后对比，不要用于部署。
+#
+# name 必须跟 docker-compose.yml 区分开，否则两个文件会被当成同一个 compose 项目，
+# 起这个就会把网关那套容器顶掉（踩过）。
+#
+#   docker compose -f deploy/docker-compose.baseline.yml up -d --build
+#   curl -i http://localhost:18081/api/v1/health    # 直连源站：通，且是明文
+#   curl -i http://localhost:18081/docs             # 接口文档也直接暴露
+#
+# 对照 docker-compose.yml 看三件事：
+#   1. 这里后端和数据库都 publish 到宿主机 —— 源站可被直连
+#   2. 这里没有 TLS —— 全链路明文，中间任何一个节点都能看见内容
+#   3. 这里只有一台后端 —— 它挂了服务就没了
+#
+# 端口用 18081 / 13307：本机的打印控件占了 8000 和 18000、
+# 本机 MySQL 占了 3306，直接映射会起不来。换成别的端口不影响这次对比的结论。
+name: symbiont-baseline
+
+services:
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: symbiont
+      MYSQL_USER: symbiont
+      MYSQL_PASSWORD: symbiont
+    volumes:
+      - mysql_data_baseline:/var/lib/mysql
+      - ../database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ../database/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
+    ports:
+      - "13307:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-proot"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  server:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.server
+    environment:
+      SYMBIONT_DATABASE_URL: "mysql+pymysql://symbiont:symbiont@mysql:3306/symbiont?charset=utf8mb4"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    ports:
+      - "18081:8000"
+
+volumes:
+  mysql_data_baseline:

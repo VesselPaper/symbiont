@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>共生之缚 · 网关状态</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 32px 24px 48px;
+    background: #0a0c10; color: #cfd6e4;
+    font: 14px/1.6 "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; }
+  h1 { font-size: 20px; font-weight: 600; margin: 0 0 2px; }
+  .sub { color: #6c7891; font-size: 12px; margin-bottom: 24px; }
+
+  .bar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 18px; }
+  button {
+    padding: 7px 14px; border: 1px solid #2b3646; border-radius: 4px;
+    background: #151b24; color: #9ec1ff; font: inherit; cursor: pointer;
+  }
+  button:hover:not(:disabled) { background: #1b2430; border-color: #3a4a60; }
+  button:disabled { opacity: .45; cursor: default; }
+  .hint { color: #5d6879; font-size: 12px; }
+
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 22px; }
+  .stat { border: 1px solid #1e2530; background: #0f1319; border-radius: 6px; padding: 14px 16px; }
+  .stat .k { color: #6c7891; font-size: 12px; margin-bottom: 6px; }
+  .stat .v { font-size: 20px; font-weight: 600; color: #dfe7f5; font-variant-numeric: tabular-nums; }
+
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  thead th {
+    text-align: left; font-weight: 500; color: #6c7891; font-size: 12px;
+    padding: 8px 10px; border-bottom: 1px solid #1e2530;
+  }
+  tbody td { padding: 7px 10px; border-bottom: 1px solid #141a23; }
+  .ok { color: #7ddba3; }
+  .bad { color: #ff8f7a; }
+  #log { max-height: 420px; overflow: auto; }
+
+  .nodes { margin-bottom: 26px; }
+  .node { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+  .node .name { width: 92px; color: #9fb0c8; }
+  .node .track { flex: 1; height: 8px; background: #131923; border-radius: 4px; overflow: hidden; }
+  .node .fill { height: 100%; width: 0; background: linear-gradient(90deg, #3f6fd4, #6ea8fe); transition: width .25s; }
+  .node .num { width: 56px; text-align: right; color: #8a95a8; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>网关状态</h1>
+  <div class="sub">
+    经 nginx 反向代理打到三台后端，看它们怎么分活、限流是不是真的拦住了。
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="k">入口协议</div><div class="v" id="proto">—</div></div>
+    <div class="stat"><div class="k">成功率</div><div class="v" id="rate">—</div></div>
+    <div class="stat"><div class="k">平均耗时</div><div class="v" id="avg">—</div></div>
+  </div>
+
+  <div class="bar">
+    <button id="btn-seq">依次请求 12 次</button>
+    <button id="btn-burst">并发请求 40 次（试限流）</button>
+    <button id="btn-clear">清空</button>
+    <span class="hint">依次请求用来观察分流；并发请求会撞上 8r/s 的限流，应该出现 429。</span>
+  </div>
+
+  <div class="nodes" id="nodes"></div>
+
+  <div id="log">
+    <table>
+      <thead>
+        <tr><th style="width:56px">序号</th><th style="width:96px">后端</th><th style="width:140px">客户端 IP</th><th style="width:80px">耗时</th><th style="width:72px">状态</th></tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  var API = '/api/v1/health';
+  var rowsEl = document.getElementById('rows');
+  var nodesEl = document.getElementById('nodes');
+  var hits = {};        // 每台后端命中次数
+  var total = 0, okCount = 0, msSum = 0;
+
+  document.getElementById('proto').textContent = location.protocol === 'https:' ? 'HTTPS' : 'HTTP';
+
+  function reset() {
+    rowsEl.innerHTML = ''; hits = {}; total = 0; okCount = 0; msSum = 0;
+    renderNodes(); renderStats();
+  }
+
+  function renderNodes() {
+    var names = Object.keys(hits).filter(function (k) { return k !== '（无响应）'; }).sort();
+    if (names.indexOf('（无响应）') < 0 && hits['（无响应）']) { names.push('（无响应）'); }
+    var max = 1;
+    names.forEach(function (n) { if (hits[n] > max) { max = hits[n]; } });
+    nodesEl.innerHTML = names.length ? '' : '<div class="hint">还没有数据，点上面的按钮开始。</div>';
+    names.forEach(function (n) {
+      var pct = Math.round(hits[n] / max * 100);
+      var div = document.createElement('div');
+      div.className = 'node';
+      div.innerHTML = '<span class="name"></span><span class="track"><span class="fill"></span></span><span class="num"></span>';
+      div.querySelector('.name').textContent = n;
+      div.querySelector('.fill').style.width = pct + '%';
+      div.querySelector('.num').textContent = hits[n] + ' 次';
+      nodesEl.appendChild(div);
+    });
+  }
+
+  function renderStats() {
+    document.getElementById('rate').textContent = total ? Math.round(okCount / total * 100) + '%' : '—';
+    document.getElementById('avg').textContent = okCount ? Math.round(msSum / okCount) + ' ms' : '—';
+  }
+
+  function addRow(seq, node, ip, ms, status) {
+    var tr = document.createElement('tr');
+    var cls = status === 200 ? 'ok' : 'bad';
+    tr.innerHTML =
+      '<td>' + seq + '</td><td></td><td></td><td>' + ms + ' ms</td>' +
+      '<td class="' + cls + '">' + status + '</td>';
+    tr.children[1].textContent = node;
+    tr.children[2].textContent = ip || '—';
+    rowsEl.insertBefore(tr, rowsEl.firstChild);
+  }
+
+  function one(seq) {
+    var t0 = performance.now();
+    return fetch(API, { headers: { 'Accept': 'application/json' } })
+      .then(function (r) { return r.text().then(function (txt) { return { status: r.status, txt: txt }; }); })
+      .then(function (res) {
+        var ms = Math.round(performance.now() - t0);
+        var node = '—', ip = '';
+        try {
+          var body = JSON.parse(res.txt);
+          node = body.instance || '（未标注实例）';
+          ip = body.client_ip || '';
+        } catch (e) { /* 429 返回的是 nginx 的 HTML 页 */ }
+        if (res.status !== 200) { node = '被限流拦下'; }
+        hits[node] = (hits[node] || 0) + 1;
+        total++; if (res.status === 200) { okCount++; msSum += ms; }
+        addRow(seq, node, ip, ms, res.status);
+        renderNodes(); renderStats();
+      })
+      .catch(function () {
+        hits['（无响应）'] = (hits['（无响应）'] || 0) + 1;
+        total++; renderNodes(); renderStats();
+        addRow(seq, '（无响应）', '', 0, 0);
+      });
+  }
+
+  function runSeq(n, gap) {
+    var p = Promise.resolve();
+    for (var i = 1; i <= n; i++) {
+      p = p.then(function (idx) { return function () {
+        return new Promise(function (res) { setTimeout(res, gap); }).then(function () { return one(idx); });
+      }; }(i));
+    }
+    return p;
+  }
+
+  function runBurst(n) {
+    var all = [];
+    for (var i = 1; i <= n; i++) { all.push(one(i)); }
+    return Promise.all(all);
+  }
+
+  function lock(v) {
+    document.getElementById('btn-seq').disabled = v;
+    document.getElementById('btn-burst').disabled = v;
+  }
+
+  document.getElementById('btn-seq').addEventListener('click', function () {
+    lock(true); reset();
+    runSeq(12, 150).then(function () { lock(false); });
+  });
+
+  document.getElementById('btn-burst').addEventListener('click', function () {
+    lock(true); reset();
+    runBurst(40).then(function () { lock(false); });
+  });
+
+  document.getElementById('btn-clear').addEventListener('click', reset);
+</script>
+</body>
+</html>
