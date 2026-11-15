@@ -227,9 +227,15 @@ func _void_arrival() -> void:
 	tw.tween_property(soul, "modulate:a", 0.0, 0.3)
 	tw.tween_callback(soul.queue_free)
 	await tw.finished
-	# 灵魂入体后起身
+	# 灵魂入体后起身：侧撑 → 跪起 → 站直，带一点过冲，别像直接翻正
+	var y0 := player.global_position.y
 	var stand := create_tween()
-	stand.tween_property(player, "rotation", 0.0, 0.9).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	stand.tween_property(player, "rotation", -0.38, 0.40).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	stand.parallel().tween_property(player, "global_position:y", y0 - 4.0, 0.40)
+	stand.tween_property(player, "rotation", 0.14, 0.38).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	stand.parallel().tween_property(player, "scale", Vector2(0.95, 1.05), 0.38)
+	stand.tween_property(player, "rotation", 0.0, 0.24).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	stand.parallel().tween_property(player, "scale", Vector2.ONE, 0.24)
 	await stand.finished
 	player.set("_input_locked", false)
 	_build_fade_in()

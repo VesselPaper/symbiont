@@ -83,7 +83,7 @@ const BEAT_END := 1.0
 const MIST_TIME := 10.0     # 黑雾钻进身体的过程
 const FORM_TIME := 6.0      # 灵魂几何变形到角色的时间
 const FULL_FALL_HOLD := 14.0 # 成形后继续全速下落的时长（成形 6 + 14 = 全程 20 秒）
-const TERMINAL_FALL_SPEED := 900.0  # 与 player.gd 的 MAX_FALL_SPEED 一致
+const TERMINAL_FALL_SPEED := 1500.0 # 演出用：比角色正常下落更快，才有坠落感
 const FALL_GRAVITY := 2550.0        # 与 player.gd 的 GRAVITY 一致
 const HOLD_DARK := 1.0
 const REVEAL_TIME := 2.0
@@ -879,8 +879,10 @@ func _update_descent_pulse(delta: float) -> void:
 	_knight.modulate.a = 0.0
 
 	# 鼓点：间隔收紧 + 音量渐强
-	# 线性收紧：每一拍都要比上一拍明显更快（用 k² 会前 15 秒几乎没变化）
-	_beat_interval = lerpf(BEAT_START, BEAT_END, k)
+	# 线性收紧到 1 秒一拍，然后**保持 5 秒**不再变化
+	var ramp_span := maxf(total - 5.0, 0.1)
+	var ramp := clampf(_form_t / ramp_span, 0.0, 1.0)
+	_beat_interval = lerpf(BEAT_START, BEAT_END, ramp)
 	_beat_accum += delta
 	if _beat_accum >= _beat_interval:
 		_beat_accum = 0.0
@@ -954,6 +956,8 @@ func _build_pulse_rect() -> void:
 	_pulse_rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	if _ui_layer != null:
 		_ui_layer.add_child(_pulse_rect)
+		# 遮罩压在最底层：字幕/提示要浮在明暗之上，否则变暗时字也没了
+		_ui_layer.move_child(_pulse_rect, 0)
 
 ## 下落时的背景：远处一片雾、两侧暗柱、飘落的尘埃。
 ## 之前是纯黑虚空，掉下去像掉进空文件，得有参照物才看得出在"往下"。

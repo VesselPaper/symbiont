@@ -45,7 +45,7 @@ func _run() -> void:
 	# 鼓点在收紧
 	var beat1 := float(_p.get("_beat_interval"))
 	_check(beat1 < beat0, "鼓点间隔没有收紧（%.2f → %.2f）" % [beat0, beat1])
-	# 越接近落地越急促：把时间拨到 95%%，间隔应接近 1 秒`n	_p.set("_form_t", 19.0)`n	await create_timer(0.1).timeout`n	var beat_end := float(_p.get("_beat_interval"))`n	_check(beat_end < 1.4, "临落地时鼓点没有到 1 秒（%.2f）" % beat_end)`n	# 真实角色模型必须真的显现（之前只换皮、没换模型，测试没盯住）
+	# 越接近落地越急促：把时间拨到 95%%，间隔应接近 1 秒`n	_p.set("_form_t", 19.0)`n	await create_timer(0.1).timeout`n	var beat_end := float(_p.get("_beat_interval"))`n	_check(beat_end < 1.05 and beat_end > 0.95, "临落地时鼓点没停在 1 秒（%.2f）" % beat_end)`n	# 真实角色模型必须真的显现（之前只换皮、没换模型，测试没盯住）
 	# M4-49：下落的是灵魂本体，人形剪影保持隐身
 	_check(knight.modulate.a <= 0.05, "人形剪影不该在下落时出现（%.2f）" % knight.modulate.a)
 	_check(soul.global_position.y > 700.0, "灵魂没有在往下掉（y=%.0f）" % soul.global_position.y)
