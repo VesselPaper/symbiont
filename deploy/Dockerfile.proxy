@@ -1,14 +1,39 @@
 # 共生之缚 入口网关镜像
 #
-# 不是单纯的静态托管：这个 nginx 同时负责 TLS 终止、限流、静态托管与后端反代。
+# 镜像里只有配置与落地页。游戏包属于部署产物，按环境挂载到 /usr/share/nginx/html/game，
+# 这样同一个镜像能用于任何环境，不会因为"没导出 Web 版"就构建不出来。
 #
-# 游戏 Web 版由 scripts/export_web.ps1 导出到 client/build/web（不进镜像，
-# 缺省时只提供 /index.html 落地页与 /status.html 网关状态页，代理与负载均衡照常可用）。
-# 要挂真实游戏包，在 compose 里解开这条挂载：
-#   - ../client/build/web:/usr/share/nginx/html/game:ro
+# 配置是模板：nginx 官方镜像的入口脚本会把 /etc/nginx/templates/*.template
+# 用 envsubst 渲染到 /etc/nginx/conf.d/。NGINX_ENVSUBST_FILTER 限定只替换 SYMBIONT_ 前缀，
+# 否则 nginx 自己的 $host、$uri 会被一起替换掉（这是个经典坑）。
+#
+# 运行身份是非 root：容器内监听 8080/8443，宿主机再映射成 80/443。
+# 绑定 1024 以下的端口需要特权，把这件事交给宿主机做，容器里就没有特权进程。
+
 FROM nginx:alpine
 
-COPY deploy/nginx.conf /etc/nginx/conf.d/default.conf
-COPY deploy/html/ /usr/share/nginx/html/
+ENV NGINX_ENVSUBST_FILTER="^SYMBIONT_"
 
-RUN mkdir -p /usr/share/nginx/html/game
+COPY nginx/templates/ /etc/nginx/templates/
+COPY html/ /usr/share/nginx/html/
+
+# 入口脚本要往 conf.d 写渲染结果，缓存和 pid 也要写，这些目录得归 nginx 用户。
+# 注意 /var/run 是指向 /run 的符号链接，要改的是 /run 本身。
+RUN mkdir -p /usr/share/nginx/html/game \
+ && chown -R nginx:nginx \
+      /etc/nginx/conf.d \
+      /etc/nginx/templates \
+      /var/cache/nginx \
+      /run \
+      /usr/share/nginx/html
+
+USER nginx
+
+EXPOSE 8080 8443
+
+# 探针打 HTTPS 端口本身：80 那个 listener 只做跳转，跟着 30x 会跟到容器里没监听的 443。
+# 自签证书要跳过校验，所以加 --no-check-certificate。
+HEALTHCHECK --interval=10s --timeout=3s --retries=5 \
+    CMD wget -q --no-check-certificate -O /dev/null https://127.0.0.1:8443/healthz || exit 1
+
+CMD ["nginx", "-g", "daemon off;"]

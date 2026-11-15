@@ -1,0 +1,115 @@
+# 共生之缚 Web 入口网关（模板）
+#
+# nginx 官方镜像的入口脚本会把 templates/ 下的 *.template 渲染到 /etc/nginx/conf.d/。
+# 只有 SYMBIONT_ 前缀的变量会被替换（见 Dockerfile.proxy 的 NGINX_ENVSUBST_FILTER），
+# 所以下面 nginx 自己的 $host、$uri、$binary_remote_addr 不受影响。
+#
+# 后端地址池在同目录的 upstream.conf.template，扩容时只换那一个文件。
+
+# ---------- 限流 ----------
+# 代理是唯一入口，$binary_remote_addr 就是真实客户端地址。
+# 若前面再加 CDN，这里必须改用 realip 模块，否则所有用户会被当成同一个 IP。
+limit_req_zone  $binary_remote_addr zone=api_limit:10m rate=${SYMBIONT_RATE_LIMIT};
+limit_conn_zone $binary_remote_addr zone=conn_limit:10m;
+
+# 默认是 503（"服务不可用"），会让客户端以为后端坏了；429 才是"你请求太多"
+limit_req_status  429;
+limit_conn_status 429;
+
+# ---------- 访问日志 ----------
+# 带上游地址与耗时，排障时一眼看出是哪台后端、慢在哪一段
+log_format symbiont '$remote_addr "$request" $status $body_bytes_sent '
+                    'rt=$request_time urt=$upstream_response_time ua=$upstream_addr';
+
+# ---------- 明文入口：只做跳转 ----------
+server {
+    listen 8080;
+    server_name _;
+
+    # 容器内用非特权端口，宿主机再映射到 80，这样网关不必以 root 运行。
+    # 这个 listener 只做跳转，不留任何明文内容端点（探针走 8443，见 Dockerfile.proxy）。
+    return 308 https://$host$request_uri;
+}
+
+# ---------- HTTPS 入口 ----------
+server {
+    listen 8443 ssl;
+    http2 on;
+    server_name _;
+
+    ssl_certificate     ${SYMBIONT_TLS_CERT};
+    ssl_certificate_key ${SYMBIONT_TLS_KEY};
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_session_cache   shared:SSL:10m;
+    ssl_session_timeout 10m;
+
+    # 只抹版本号，"nginx" 这三个字母去不掉（要彻底去掉得装 headers-more 模块）
+    server_tokens off;
+
+    root /usr/share/nginx/html;
+
+    # 下面这些头对所有响应生效。
+    # 注意 nginx 的继承规则：location 里只要出现一个 add_header，这一整组会被覆盖。
+    add_header X-Upstream $upstream_addr always;
+    add_header X-Content-Type-Options nosniff always;
+    add_header X-Frame-Options SAMEORIGIN always;
+    add_header Referrer-Policy no-referrer-when-downgrade always;
+
+    client_max_body_size ${SYMBIONT_MAX_BODY_SIZE};
+    client_header_timeout 15s;
+    client_body_timeout 15s;
+
+    gzip on;
+    gzip_comp_level 5;
+    gzip_min_length 1024;
+    gzip_types text/plain text/css application/javascript application/json image/svg+xml application/wasm;
+
+    access_log /var/log/nginx/access.log symbiont;
+
+    # 根路径：有游戏就进游戏，没导出就退回落地页
+    location = / {
+        try_files /game/index.html /index.html;
+    }
+
+    # 游戏包（由 compose 挂载进来）
+    location /game/ {
+        try_files $uri $uri/ =404;
+        expires -1;
+    }
+
+    # 带内容哈希的产物可以长缓存：wasm / pck 动辄几十 MB，第二次进游戏全靠这里
+    location ~* \.(wasm|pck|png|jpg|svg|woff2|ogg)$ {
+        expires 30d;
+    }
+
+    # 后端反代：Web 版与后端同源访问 /api
+    location /api/ {
+        limit_req  zone=api_limit burst=${SYMBIONT_RATE_BURST} nodelay;
+        limit_conn conn_limit ${SYMBIONT_RATE_CONN};
+
+        proxy_pass http://symbiont_backend;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+
+        # 后端看到的是网关地址，真实来源只能靠这几个头 —— 信任链的起点
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # 一台挂了自动换下一台
+        proxy_next_upstream error timeout http_502 http_503 http_504;
+        proxy_next_upstream_tries 2;
+
+        proxy_connect_timeout 5s;
+        proxy_send_timeout    30s;
+        proxy_read_timeout    30s;
+    }
+
+    # 网关自身探针，不记日志
+    location = /healthz {
+        access_log off;
+        default_type application/json;
+        return 200 '{"status":"ok","layer":"proxy"}';
+    }
+}

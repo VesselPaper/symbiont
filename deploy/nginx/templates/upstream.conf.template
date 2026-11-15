@@ -1,0 +1,20 @@
+# 后端地址池（模板）
+#
+# 单独成文件是为了让"扩容"只改这一处：
+# 单副本用本文件，三副本时 deploy/docker-compose.scale.yml 会把
+# nginx/scale/upstream.conf.template 挂到同一路径上覆盖它，
+# 主配置 default.conf.template 一个字都不用动。
+
+upstream symbiont_backend {
+    # zone 不能省：不加的话每个 worker 各算各的轮询计数，请求量小时看起来全打第一台
+    zone symbiont_backend 64k;
+
+    # 谁手上连接少给谁，比轮询更抗慢请求
+    least_conn;
+
+    # 连续失败 2 次摘掉，10 秒后试着放回来 —— 这就是故障转移
+    server ${SYMBIONT_API_HOST}:${SYMBIONT_API_PORT} max_fails=2 fail_timeout=10s;
+
+    # 到后端的连接复用，省掉每请求一次握手
+    keepalive 16;
+}

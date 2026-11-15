@@ -40,8 +40,7 @@ services:
 
   server:
     build:
-      context: ..
-      dockerfile: deploy/Dockerfile.server
+      context: ../../server
     environment:
       SYMBIONT_DATABASE_URL: "mysql+pymysql://symbiont:symbiont@mysql:3306/symbiont?charset=utf8mb4"
     depends_on:

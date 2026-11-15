@@ -1,107 +1,94 @@
-# 共生之缚 全栈一键启动：MySQL + 后端 ×3 + 入口网关（nginx）
+# 共生之缚 全栈部署（默认单副本）
 #
-# name 必须写死：两个编排文件都在 deploy/ 目录下，不写的话 compose 会按目录名
-# 把它们当成同一个项目（都叫 deploy），起 baseline 时会把网关这套容器顶掉。
+#   scripts/gen_env.ps1            首次部署前生成 .env（含随机密码与镜像 tag）
+#   scripts/build_images.ps1       构建镜像并按 git sha 打 tag
+#   docker compose -f deploy/docker-compose.yml up -d
+#
+# 架构：浏览器 → proxy(80/443) → server(内网 8000) → mysql(内网 3306)
+# 对外只开 80/443，后端与数据库不映射宿主机端口 —— 源站不出内网。
+#
+# 扩容不在这个文件里：三副本见 docker-compose.scale.yml，副本数是部署决策，不是代码。
+#
+# name 必须显式写：两个编排都在 deploy/ 目录下，不写会按目录名当成同一个项目互相顶替。
 name: symbiont
-#
-# 架构（括号里是端口可见性，只有第一层对宿主机开放）：
-#
-#   浏览器 ──► proxy (80/443，唯一对外) ──┬──► server-1 (内网 8000)
-#                                          ├──► server-2 (内网 8000)
-#                                          └──► server-3 (内网 8000)
-#                                                 │
-#                                                 └──► mysql (内网 3306)
-#
-# 与旧编排的区别：旧版把 8000 和 3306 直接映射到宿主机，等于源站没藏住，
-# 代理也就失去了一半意义。现在这两层都只活在内网，外面只能从 443 进。
-#
-# 用法： docker compose -f deploy/docker-compose.yml up -d --build
-# 访问： https://localhost             落地页（自签证书，浏览器需点“继续访问”）
-#        https://localhost/status.html 网关状态页，看三台后端怎么分活
 
-x-db-url: &db_url "mysql+pymysql://symbiont:symbiont@mysql:3306/symbiont?charset=utf8mb4"
-
-x-backend: &backend
-  build:
-    context: ..
-    dockerfile: deploy/Dockerfile.server
-  expose:
-    - "8000"
-  depends_on:
-    mysql:
-      condition: service_healthy
-  healthcheck:
-    # python:3.12-slim 里没有 curl，用标准库探针
-    test: ["CMD", "python", "-c", "import urllib.request,sys; r=urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=3); sys.exit(0 if r.status == 200 else 1)"]
-    interval: 5s
-    timeout: 3s
-    retries: 12
-    start_period: 10s
-  restart: unless-stopped
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
 
 services:
   mysql:
     image: mysql:8.4
+    restart: unless-stopped
+    logging: *default-logging
     environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: symbiont
-      MYSQL_USER: symbiont
-      MYSQL_PASSWORD: symbiont
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?请先运行 scripts/gen_env.ps1 生成 deploy/.env}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-symbiont}
+      MYSQL_USER: ${MYSQL_USER:-symbiont}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?请先运行 scripts/gen_env.ps1 生成 deploy/.env}
+    expose:
+      - "3306"
+    mem_limit: 512m
     volumes:
       - mysql_data:/var/lib/mysql
       # 首次启动自动执行数据库脚本（课程交付：数据库脚本）
       - ../database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
       - ../database/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
-    # 不发布端口：数据库只活在内网，宿主机和外部都连不上
-    expose:
-      - "3306"
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-proot"]
+      # mysqladmin ping 在认证失败时也返回 0，所以不需要带密码
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "--silent"]
       interval: 5s
       timeout: 3s
-      retries: 30
+      retries: 24
+      start_period: 20s
+
+  server:
+    image: symbiont-server:${IMAGE_TAG:-local}
+    build:
+      context: ../server
     restart: unless-stopped
-
-  # 三台无状态后端。SYMBIONT_INSTANCE 只是让探针能报出"我是谁"，
-  # 业务代码里不要依赖它 —— 有状态的东西都应该在 MySQL 里。
-  server-1:
-    <<: *backend
+    logging: *default-logging
     environment:
-      SYMBIONT_DATABASE_URL: *db_url
-      SYMBIONT_INSTANCE: "node-1"
-
-  server-2:
-    <<: *backend
-    environment:
-      SYMBIONT_DATABASE_URL: *db_url
-      SYMBIONT_INSTANCE: "node-2"
-
-  server-3:
-    <<: *backend
-    environment:
-      SYMBIONT_DATABASE_URL: *db_url
-      SYMBIONT_INSTANCE: "node-3"
+      SYMBIONT_DATABASE_URL: "mysql+pymysql://${MYSQL_USER:-symbiont}:${MYSQL_PASSWORD}@mysql:3306/${MYSQL_DATABASE:-symbiont}?charset=utf8mb4"
+      SYMBIONT_INSTANCE: ${SYMBIONT_INSTANCE:-node-1}
+    expose:
+      - "8000"
+    mem_limit: 256m
+    depends_on:
+      mysql:
+        condition: service_healthy
+    # 健康检查写在镜像里（deploy/Dockerfile.server），这里不重复
 
   proxy:
+    image: symbiont-proxy:${IMAGE_TAG:-local}
     build:
-      context: ..
-      dockerfile: deploy/Dockerfile.proxy
+      context: deploy
+      dockerfile: Dockerfile.proxy
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      SYMBIONT_API_HOST: ${SYMBIONT_API_HOST:-server}
+      SYMBIONT_API_PORT: ${SYMBIONT_API_PORT:-8000}
+      SYMBIONT_TLS_CERT: ${SYMBIONT_TLS_CERT:-/etc/nginx/certs/server.crt}
+      SYMBIONT_TLS_KEY: ${SYMBIONT_TLS_KEY:-/etc/nginx/certs/server.key}
+      SYMBIONT_RATE_LIMIT: ${SYMBIONT_RATE_LIMIT:-8r/s}
+      SYMBIONT_RATE_BURST: ${SYMBIONT_RATE_BURST:-20}
+      SYMBIONT_RATE_CONN: ${SYMBIONT_RATE_CONN:-20}
+      SYMBIONT_MAX_BODY_SIZE: ${SYMBIONT_MAX_BODY_SIZE:-4m}
     ports:
-      - "80:80"
-      - "443:443"
+      # 容器内是非特权端口 8080/8443，宿主机映射成 80/443
+      - "80:8080"
+      - "443:8443"
+    mem_limit: 128m
     volumes:
       - ./certs:/etc/nginx/certs:ro
-      # 挂真实游戏包时解开（先跑 scripts/export_web.ps1）
-      # - ../client/build/web:/usr/share/nginx/html/game:ro
+      # 游戏包是部署产物，不打进镜像：由 scripts/export_web.ps1 生成后挂进来
+      - ../client/build/web:/usr/share/nginx/html/game:ro
     depends_on:
-      # nginx 只在启动时解析一次 upstream，所以三台都得先就绪
-      server-1:
+      server:
         condition: service_healthy
-      server-2:
-        condition: service_healthy
-      server-3:
-        condition: service_healthy
-    restart: unless-stopped
 
 volumes:
   mysql_data:

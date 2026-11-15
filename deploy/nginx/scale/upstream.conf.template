@@ -1,0 +1,16 @@
+# 三副本地址池（扩容叠加层专用）
+#
+# 由 deploy/docker-compose.scale.yml 挂到 /etc/nginx/templates/upstream.conf.template，
+# 覆盖镜像里单副本的那一份。主配置一个字不改，扩容只换这一个文件。
+
+upstream symbiont_backend {
+    zone symbiont_backend 64k;
+
+    least_conn;
+
+    server ${SYMBIONT_API_HOST}:${SYMBIONT_API_PORT}     max_fails=2 fail_timeout=10s;
+    server ${SYMBIONT_API_HOST_2}:${SYMBIONT_API_PORT}   max_fails=2 fail_timeout=10s;
+    server ${SYMBIONT_API_HOST_3}:${SYMBIONT_API_PORT}   max_fails=2 fail_timeout=10s;
+
+    keepalive 24;
+}

@@ -16,8 +16,12 @@ venv/
 client/build/
 client/export/
 deploy/web/
-# 入口网关的自签证书（由 scripts/gen_cert.ps1 生成，换机器/换域名都要重签，不进仓库）
+# 入口网关的自签证书（由 scripts/make_ca.ps1 生成，换机器/换域名都要重签，不进仓库）
 deploy/certs/
+# 部署环境变量（含随机数据库密码，由 scripts/gen_env.ps1 生成）
+deploy/.env
+# 数据库备份产物
+backups/
 # 生成的数据库（由 tools/build_game_data.py 生成）
 database/game_data/game_data.db
 # 后端上传目录：测试/联调产生的文件块与 sqlite 库，体积到 GB 级，不属于源码

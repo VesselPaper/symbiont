@@ -1,0 +1,13 @@
+# 只有 app/ 和 requirements.txt 需要进镜像
+.venv
+venv
+__pycache__
+*.py[cod]
+.pytest_cache
+.mypy_cache
+tests
+Dockerfile
+README.md
+pytest.ini
+conftest.py
+storage
