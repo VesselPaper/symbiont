@@ -679,10 +679,11 @@ func _fuse() -> void:
 	GameManager.set_flag("prologue_seen")
 
 	# 镜头：先猛地推近，压得人喘不过气
+	# 注意：这里只推 zoom，不动 position —— 位置由 _process 里的跟随统一负责，
+	# 两边同时写位置会互相拉扯，表现就是"人一会儿在中间、一会儿被甩到右下角"
 	var cam_tw := create_tween()
 	cam_tw.set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
 	cam_tw.tween_property(_camera, "zoom", Vector2(1.42, 1.42), 0.7)
-	cam_tw.tween_property(_camera, "position", Vector2(880, 400), 1.2)
 	_shake(1.2, 9.0)
 	_whisper_heart("……你碰到我了。", 2.2)
 
@@ -806,6 +807,8 @@ func _begin_descent() -> void:
 	_form_t = 0.0
 	_fall_vy = 0.0
 	_cam_following = false
+	# 从当前 zoom 接着往下拉远：融合时推到了 1.42，直接复位到 1.0 会"跳一下"
+	_desc_zoom_from = _camera.zoom.x
 	_beat_accum = _beat_interval
 	_build_pulse_rect()
 	_build_descent_bg()
