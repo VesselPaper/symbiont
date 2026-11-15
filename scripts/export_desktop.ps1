@@ -19,7 +19,9 @@ if (-not (Test-Path $PresetFile)) { throw "缺少导出预设：$PresetFile" }
 
 $version = (& $GodotExe --headless --version 2>$null | Select-Object -First 1)
 if (-not $version) { throw '读不到 Godot 版本' }
-$version = ($version -replace '^.*v', '').Trim()
+# --version 输出形如 4.7.2.stable.official.ed1daf0bf，而模板目录只用到 4.7.2.stable 这一段
+# （Godot 自己也是按这个短版本号找模板的，带 .official.<hash> 反而找不到）
+if ($version -match '(\d+\.\d+\.\d+\.\w+)') { $version = $Matches[1] } else { throw "无法从版本串解析目录名：$version" }
 $templateDir = Join-Path $env:APPDATA "Godot\export_templates\$version"
 
 if (-not (Test-Path $templateDir)) {

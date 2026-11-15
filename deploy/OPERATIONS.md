@@ -105,9 +105,8 @@ scripts/db_restore.ps1 -File backups\symbiont-20261115-185033.sql.gz
 
 1. 代理自身是单点：只有一台网关，它挂了服务就断。要消除得在外层再做一次均衡，未做。
 2. 内网 CA 没有 CRL，Windows 命令行客户端需要 `--ssl-no-revoke`。
-3. **Web 版导出目前被环境卡住**：`client/export_presets.cfg` 已就绪、`scripts/export_web.ps1`
-   已是真导出流程，但本机 Godot 是 `4.7.2.stable.official.ed1daf0bf` 这个带哈希的自建版本，
-   对应的导出模板（`%APPDATA%\Godot\export_templates\<同一版本串>\`）不存在，也没法从官网下到。
-   模板装好后直接重跑 `scripts/export_web.ps1` 即可，不需要改任何代码；
-   在此之前根路径会回退到落地页，`/game/` 是空的。
+3. Web 版导出：需要先装与引擎同版本的导出模板（编辑器 → 管理导出模板）。
+   注意模板目录名是 `4.7.2.stable`，**不带** `.official.<commit>` 那一段——
+   `--version` 会打出带哈希的完整串，脚本已经按短版本号解析。
+   装好模板后 `scripts/export_web.ps1` 一条命令导出（本次约 100 MB：wasm 38 MB + pck 59 MB）。
 4. 没有监控面板：靠日志、`smoke_test.ps1` 和 `ops/bench.py` 手工验。
