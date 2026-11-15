@@ -51,6 +51,20 @@ func _on_save_pull_failed(slot: int, reason: String) -> void:
 	_pull_then_load.erase(slot)
 	EventBus.save_failed.emit(slot, "remote_" + reason)
 
+## 新游戏用哪个槽：优先空槽，全满就覆盖最旧的一个，别把旧档直接盖掉
+func pick_new_slot() -> int:
+	for slot in range(MAX_SLOTS):
+		if not has_save(slot):
+			return slot
+	var oldest := 0
+	var oldest_time := 0
+	for slot in range(MAX_SLOTS):
+		var t := FileAccess.get_modified_time(_save_path(slot))
+		if oldest_time == 0 or t < oldest_time:
+			oldest_time = t
+			oldest = slot
+	return oldest
+
 func _save_path(slot: int) -> String:
 	return "%s/slot_%d.json" % [SAVE_DIR, slot]
 

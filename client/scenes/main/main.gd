@@ -156,6 +156,10 @@ func _build_ui() -> void:
 	_continue_button = _make_button("继续游戏", "ContinueButton", false)
 	_continue_button.pressed.connect(_on_continue_pressed)
 	_continue_button.visible = _latest_save_slot() >= 0
+	# 本地没有存档时试一次云端：换机器、清过浏览器缓存都能救回来
+	if _latest_save_slot() < 0:
+		Network.save_pulled.connect(_on_remote_save_ready)
+		SaveSystem.pull_remote(0, false)
 	vbox.add_child(_continue_button)
 
 	_quit_button = _make_button("退出", "QuitButton", false)
@@ -226,6 +230,9 @@ func _button_style(bg: Color, border: Color, width: int) -> StyleBoxFlat:
 	style.content_margin_bottom = 12
 	return style
 
+func _on_remote_save_ready(_slot: int, _data: Dictionary) -> void:
+	_continue_button.visible = _latest_save_slot() >= 0
+
 func _latest_save_slot() -> int:
 	for slot in range(SaveSystem.MAX_SLOTS - 1, -1, -1):
 		if SaveSystem.has_save(slot):
@@ -235,6 +242,8 @@ func _latest_save_slot() -> int:
 func _on_start_pressed() -> void:
 	if _leaving:
 		return
+	# 新游戏挑一个空槽，不去覆盖手上已有的进度
+	GameManager.active_slot = SaveSystem.pick_new_slot()
 	GameManager.start_new_game()
 	# 先演序章：灵魂在虚无里苏醒、触碰寄生物的本心、获得躯体，再进教学关
 	_enter_scene(PROLOGUE)
@@ -245,6 +254,7 @@ func _on_continue_pressed() -> void:
 	var slot := _latest_save_slot()
 	if slot < 0:
 		return
+	GameManager.active_slot = slot
 	SaveSystem.load(slot)
 	GameManager.state = GameManager.GameState.PLAYING
 	_enter_scene(_scene_for_progress())

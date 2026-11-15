@@ -11,6 +11,9 @@ var state: GameState = GameState.BOOT
 var sacrifice_count: int = 0          # 献祭次数（结局结算依据，见 GDD）
 var monster_limb_count: int = 0       # 怪物肢体持有数（拾取记账、献祭消耗，见 M1-04）
 var current_floor: String = "floor_1"
+var _autosave_delay := 0.0
+## 本次游玩写哪个槽：新游戏挑空槽，继续沿用读到的那个
+var active_slot := 0
 var has_weapon: bool = false          # 跨层/复活保留铁剑；不能只存在 Player 实例里
 var has_steam_boots: bool = false     # 蒸汽靴（二段跳）；宝箱开启后跨层/复活保留
 var faction: String = ""              # "" / "heretic" / "engineer"（第二层抉择）
@@ -25,6 +28,10 @@ var floor_seconds: Dictionary = {}
 
 ## 进入某层时调用（每个关卡 _ready 里一次）。会先把上一层用时落日志再重新计时。
 func mark_floor_start(floor_id: String) -> void:
+	# 进层排队一次自动存档：玩家不需要记得手动存，退出重进能回到本层开头。
+	# 序章是过场，不存——否则"继续"又把人送回虚空。
+	if floor_id != "prologue" and OS.get_environment("SYMBIONT_NO_AUTOSAVE") != "1":
+		_autosave_delay = 0.8
 	var now := Time.get_ticks_msec()
 	if _pacing_floor != "" and _pacing_mark_ms > 0:
 		var seconds := float(now - _pacing_mark_ms) / 1000.0
@@ -40,6 +47,21 @@ func current_floor_seconds() -> float:
 	if _pacing_mark_ms <= 0:
 		return 0.0
 	return float(Time.get_ticks_msec() - _pacing_mark_ms) / 1000.0
+
+func _process(delta: float) -> void:
+	if _autosave_delay > 0.0:
+		_autosave_delay = maxf(_autosave_delay - delta, 0.0)
+		if _autosave_delay <= 0.0:
+			autosave()
+
+## 自动存档：只在关卡里、玩家已存在时写本地 + 推云端
+## 无头回归会设 SYMBIONT_NO_AUTOSAVE=1 关掉，避免测试互相覆盖存档
+func autosave() -> void:
+	if state != GameState.PLAYING:
+		return
+	if get_tree().get_first_node_in_group("player") == null:
+		return
+	SaveSystem.save(active_slot)
 
 func _ready() -> void:
 	state = GameState.MAIN_MENU
