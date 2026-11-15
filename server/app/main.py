@@ -3,7 +3,7 @@
 启动: uvicorn app.main:app --reload --port 8000
 文档: http://127.0.0.1:8000/docs（OpenAPI，随实现自动生成，即接口设计文档素材）
 """
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 
 from .config import settings
 from .routers import health
@@ -21,8 +21,13 @@ app.include_router(health.router, prefix=settings.api_prefix)
 
 
 @app.get("/healthz", include_in_schema=False)
-def healthz() -> dict:
-    return {"status": "ok", "service": "symbiont-server", "version": "0.1.0"}
+def healthz(request: Request) -> dict:
+    """基础设施探针路径（不带 /api/v1 前缀，给 compose healthcheck 和 k8s 用）。
+
+    必须复用 routers/health.py 那一份实现：两处各写一个，字段早晚会漂，
+    之前就是这样——根路径少了 instance 和 client_ip。
+    """
+    return health.health(request)
 
 
 @app.get("/")

@@ -57,3 +57,14 @@ def test_health_empty_forwarded_header_falls_back():
     """转发头为空时回退到连接对端地址，不能返回空字符串。"""
     r = client.get("/api/v1/health", headers={"X-Forwarded-For": ""})
     assert r.json()["client_ip"] == "testclient"
+
+
+def test_root_healthz_matches_api_health():
+    """根路径 /healthz 和 /api/v1/health 必须返回同一份字段。
+
+    这两个路径以前是各写各的，根路径少了 instance / client_ip，
+    容器 healthcheck 和接口文档就对不上了。
+    """
+    root = client.get("/healthz").json()
+    api = client.get("/api/v1/health").json()
+    assert root == api
