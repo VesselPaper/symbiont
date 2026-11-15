@@ -1,4 +1,4 @@
-extends Node2D
+﻿extends Node2D
 ## 序章 · 虚无里的苏醒（M4-24 / M4-25）
 ##
 ## 剧情：没有视觉、没有听觉、没有身体的一小团灰白，浮在无边的黑里。
@@ -58,6 +58,9 @@ var _heart_cloak: Polygon2D
 var _soul_label: Label
 var _heart_label: Label
 var _vignette: TextureRect
+## M4-29：只给角色周围一小圈光，其余全黑（屏幕空间挖洞，而不是整屏压暗）
+var _darkness: ColorRect
+var _dark_mat: ShaderMaterial
 var _fade: ColorRect
 var _camera: Camera2D
 var _pulse: Sprite2D
@@ -66,6 +69,8 @@ var _fog_layers: Array[Dictionary] = []
 var _depth_glows: Array[Dictionary] = []
 var _mist_columns: Array[Dictionary] = []
 var _far_shards: Array[Dictionary] = []
+## 黑火的火舌（M4-29）与黑幕挖洞参数
+var _heart_licks: Array[Dictionary] = []
 
 var _time := 0.0
 var _beat_index := 0
@@ -79,6 +84,10 @@ var _tilt := 0.0
 var _bob := 0.0
 var _note_tween: Tween
 var _heart_note_tween: Tween
+## M4-28：融合后要显出的“玩家正常样子”（先做好藏在灵魂里，坠落时淡入）
+var _knight: Node2D
+var _shake_timer := 0.0
+var _shake_strength := 0.0
 
 func _ready() -> void:
 	GameManager.mark_floor_start("prologue")
@@ -261,6 +270,54 @@ func _build_soul() -> void:
 	_soul_glow.position = Vector2(0, -4)
 	_soul.add_child(_soul_glow)
 
+	# 玩家正常样子：兜帽骑士的剪影。先藏起来（透明），等融合后往下坠时淡入，
+	# 让“灵魂变成人形”这件事是渐变出来的，而不是切场景时突然换了个角色。
+	_knight = Node2D.new()
+	_knight.name = "Knight"
+	_knight.position = Vector2(0, -6)
+	_knight.scale = Vector2(0.62, 0.62)
+	_knight.modulate = Color(1, 1, 1, 0.0)
+	_soul.add_child(_knight)
+
+	var cloak := Polygon2D.new()
+	cloak.color = Color(0.150, 0.164, 0.186, 1.0)
+	cloak.polygon = PackedVector2Array([
+		Vector2(-13, 22), Vector2(-16, 8), Vector2(-13, -6), Vector2(-9, -16),
+		Vector2(-4, -24), Vector2(0, -27), Vector2(4, -24), Vector2(9, -16),
+		Vector2(13, -6), Vector2(16, 8), Vector2(13, 22), Vector2(5, 25), Vector2(-5, 25),
+	])
+	_knight.add_child(cloak)
+
+	var hood := Polygon2D.new()
+	hood.color = Color(0.100, 0.110, 0.128, 1.0)
+	hood.polygon = PackedVector2Array([
+		Vector2(-10, -14), Vector2(-7, -26), Vector2(0, -30),
+		Vector2(7, -26), Vector2(10, -14), Vector2(6, -8), Vector2(-6, -8),
+	])
+	_knight.add_child(hood)
+
+	# 兜帽里是空的：一团比斗篷更深的黑，只有一点眼白
+	var face := Polygon2D.new()
+	face.color = Color(0.020, 0.024, 0.030, 1.0)
+	face.polygon = _ellipse(6.5, 8.0, 12)
+	face.position = Vector2(0, -17)
+	_knight.add_child(face)
+
+	var eye := Polygon2D.new()
+	eye.color = Color(0.90, 0.94, 0.86, 0.95)
+	eye.polygon = _ellipse(1.8, 2.6, 10)
+	eye.position = Vector2(1.6, -18)
+	_knight.add_child(eye)
+
+	var rim := Line2D.new()
+	rim.width = 1.2
+	rim.default_color = Color(0.42, 0.48, 0.54, 0.55)
+	rim.points = PackedVector2Array([
+		Vector2(-13, 22), Vector2(-16, 8), Vector2(-13, -6),
+		Vector2(-9, -16), Vector2(-4, -24), Vector2(0, -27),
+	])
+	_knight.add_child(rim)
+
 # ---------- 身影 ----------
 
 func _build_heart() -> void:
@@ -270,16 +327,30 @@ func _build_heart() -> void:
 	_heart.z_index = 1
 	add_child(_heart)
 
+	# M4-29 组长：寄生体的黑影改成“黑色的火焰”。
+	# 轮廓照着一团往上舔的火：底宽、腰收、顶端分几股尖，边缘故意不对齐。
 	_heart_cloak = Polygon2D.new()
-	_heart_cloak.name = "Cloak"
-	_heart_cloak.color = Color(0.010, 0.012, 0.017, 1.0)
+	_heart_cloak.name = "Flame"
+	_heart_cloak.color = Color(0.006, 0.007, 0.010, 1.0)
 	_heart_cloak.polygon = PackedVector2Array([
-		Vector2(-40, 78), Vector2(-52, 40), Vector2(-46, 2), Vector2(-34, -40),
-		Vector2(-18, -74), Vector2(0, -92), Vector2(16, -76), Vector2(32, -44),
-		Vector2(40, -8), Vector2(50, 30), Vector2(44, 74), Vector2(24, 92),
-		Vector2(6, 84), Vector2(-12, 94), Vector2(-28, 84),
+		Vector2(-34, 92), Vector2(-46, 54), Vector2(-30, 20), Vector2(-40, -18),
+		Vector2(-18, -52), Vector2(-24, -96), Vector2(0, -124), Vector2(10, -88),
+		Vector2(24, -104), Vector2(20, -60), Vector2(38, -26), Vector2(30, 18),
+		Vector2(44, 56), Vector2(30, 94), Vector2(0, 104),
 	])
 	_heart.add_child(_heart_cloak)
+
+	# 火舌：几条会飘的细长舌头，让“黑火”是会动的，而不是一块剪影
+	_heart_licks.clear()
+	for i in range(4):
+		var lick := Polygon2D.new()
+		lick.color = Color(0.010, 0.011, 0.016, 0.85)
+		lick.position = Vector2(-24.0 + float(i) * 16.0, -70.0 - float(i % 2) * 10.0)
+		lick.polygon = PackedVector2Array([
+			Vector2(-5, 6), Vector2(-2, -26 - float(i) * 8.0), Vector2(3, -10), Vector2(6, 6),
+		])
+		_heart.add_child(lick)
+		_heart_licks.append({"node": lick, "phase": float(i) * 1.3})
 
 	var hood := Polygon2D.new()
 	hood.color = Color(0.004, 0.005, 0.008, 1.0)
@@ -310,10 +381,11 @@ func _build_heart() -> void:
 	_heart_outline.width = 1.6
 	_heart_outline.default_color = Color(0.40, 0.46, 0.56, 1.0)
 	_heart_outline.modulate = Color(1, 1, 1, 0.0)
+	# 轮廓要贴着黑火的形状走，否则会在火焰外面画出一个旧版斗篷的人形
 	_heart_outline.points = PackedVector2Array([
-		Vector2(-40, 78), Vector2(-52, 40), Vector2(-46, 2), Vector2(-34, -40),
-		Vector2(-18, -74), Vector2(0, -92), Vector2(16, -76), Vector2(32, -44),
-		Vector2(40, -8), Vector2(50, 30), Vector2(44, 74),
+		Vector2(-34, 92), Vector2(-46, 54), Vector2(-30, 20), Vector2(-40, -18),
+		Vector2(-18, -52), Vector2(-24, -96), Vector2(0, -124), Vector2(10, -88),
+		Vector2(24, -104), Vector2(20, -60), Vector2(38, -26), Vector2(44, 56),
 	])
 	_heart.add_child(_heart_outline)
 
@@ -346,6 +418,22 @@ func _build_ui() -> void:
 	_vignette.modulate = Color(0, 0, 0, 0.74)
 	_vignette.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	layer.add_child(_vignette)
+
+	# M4-29 组长：一开始只有角色周围一点点有光，别的地方全都看不见。
+	# 做法是一整块黑幕挖一个柔和的小洞（洞心跟着灵魂走），而不是把整屏压暗 ——
+	# 压暗只是“变灰”，挖洞才是真的“看不见”。
+	_dark_mat = ShaderMaterial.new()
+	_dark_mat.shader = _make_dark_shader()
+	_dark_mat.set_shader_parameter("hole", Vector2(250, 560))
+	_dark_mat.set_shader_parameter("radius", 108.0)
+	_dark_mat.set_shader_parameter("softness", 118.0)
+	_darkness = ColorRect.new()
+	_darkness.name = "Darkness"
+	_darkness.material = _dark_mat
+	_darkness.color = Color(0.0, 0.0, 0.0, 1.0)
+	_darkness.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_darkness.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	layer.add_child(_darkness)
 
 	# M4-26 组长定稿：虚无阶段的话直接摆在屏幕正中央 —— 这段是“旁白/内心”，
 	# 人物本身几乎没有形体，字跟着角色飘反而像标签。
@@ -386,6 +474,8 @@ func _make_label(node_name: String, font_size: int, color: Color) -> Label:
 
 func _process(delta: float) -> void:
 	_time += delta
+	_update_shake(delta)
+	_update_darkness()
 	_update_void()
 	_update_soul(delta)
 	_update_heart(delta)
@@ -397,6 +487,41 @@ func _process(delta: float) -> void:
 				_can_move = true
 		_move_soul(delta)
 		_check_touch()
+
+## 屏幕抖动：给 camera.offset 加随机偏移，逐帧衰减
+func _shake(duration: float, strength: float) -> void:
+	_shake_timer = maxf(_shake_timer, duration)
+	_shake_strength = maxf(_shake_strength, strength)
+
+## 黑幕的洞心跟着灵魂走：世界坐标 → 屏幕坐标（相机 zoom 一起算进去）
+func _update_darkness() -> void:
+	if _dark_mat == null or _soul == null or not is_instance_valid(_soul):
+		return
+	var cam_pos := Vector2(640, 360)
+	var cam_zoom := Vector2.ONE
+	if _camera != null and is_instance_valid(_camera):
+		cam_pos = _camera.global_position
+		cam_zoom = _camera.zoom
+	var view := get_viewport().get_visible_rect().size
+	var screen := (_soul.global_position - cam_pos) * cam_zoom + view * 0.5
+	_dark_mat.set_shader_parameter("hole", screen)
+	_dark_mat.set_shader_parameter("screen_size", view)
+	# 光晕轻微搏动，像“还活着的一小圈视野”
+	_dark_mat.set_shader_parameter("radius", 104.0 + sin(_time * 1.5) * 7.0)
+
+func _update_shake(delta: float) -> void:
+	if _camera == null or not is_instance_valid(_camera):
+		return
+	if _shake_timer <= 0.0:
+		_camera.offset = _camera.offset.lerp(Vector2.ZERO, 0.35)
+		_shake_strength = 0.0
+		return
+	_shake_timer -= delta
+	var k := clampf(_shake_timer / 0.4, 0.0, 1.0)
+	_camera.offset = Vector2(
+		randf_range(-1.0, 1.0) * _shake_strength * k,
+		randf_range(-1.0, 1.0) * _shake_strength * k
+	)
 
 func _update_void() -> void:
 	# 体积光：三团各自缓慢呼吸（周期不同，画面就不会一起亮一起暗）
@@ -460,6 +585,14 @@ func _update_heart(_delta: float) -> void:
 		var reveal := clampf((REVEAL_DISTANCE - dist) / REVEAL_DISTANCE, 0.0, 1.0)
 		_heart_outline.modulate.a = reveal * 0.35 + beat * 0.05
 	_heart_cloak.position.x = sin(_time * 0.7) * 2.4
+	# 黑火：火舌各自飘、长度一起一伏，像在往上舔
+	for item in _heart_licks:
+		var lick := item["node"] as Polygon2D
+		if lick == null or not is_instance_valid(lick):
+			continue
+		var ph := _time * (1.6 + float(item["phase"]) * 0.3) + float(item["phase"])
+		lick.rotation = sin(ph) * 0.14
+		lick.scale = Vector2(1.0 + sin(ph * 0.7) * 0.18, 1.0 + sin(ph) * 0.22)
 	_heart.scale = Vector2(1.0 + sin(_time * 0.5) * 0.012, 1.0 + sin(_time * 0.5 + 1.2) * 0.012)
 
 # ---------- 移动 / 触碰 ----------
@@ -492,6 +625,13 @@ func _check_touch() -> void:
 
 # ---------- 融合 ----------
 
+# ---------- 融合：要有“被夺舍”的张力 ----------
+#
+# M4-28 组长要求：融入时动画要有张力；融入后一边往下掉，一边变成玩家正常的样子。
+#
+# 张力靠四件事堆出来：① 镜头猛推 + 屏幕抖动；② 身影不再匀速飘过来，而是分三段“扑”，
+# 每扑一次闪一圈冲击环、抖一次；③ 斗篷被扯成几条流线吸进胸口；④ 全程心跳加速。
+
 func _fuse() -> void:
 	if _fused:
 		return
@@ -499,23 +639,90 @@ func _fuse() -> void:
 	_can_move = false
 	_drift = 0.0
 	GameManager.set_flag("prologue_seen")
-	var cam_tw := create_tween()
-	cam_tw.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	cam_tw.tween_property(_camera, "zoom", Vector2(1.26, 1.26), 2.6)
-	cam_tw.parallel().tween_property(_camera, "position", Vector2(760, 360), 2.6)
-	_whisper_heart("……你碰到我了。", 2.6)
 
+	# 镜头：先猛地推近，压得人喘不过气
+	var cam_tw := create_tween()
+	cam_tw.set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
+	cam_tw.tween_property(_camera, "zoom", Vector2(1.42, 1.42), 0.7)
+	cam_tw.tween_property(_camera, "position", Vector2(880, 400), 1.2)
+	_shake(1.2, 9.0)
+	_whisper_heart("……你碰到我了。", 2.2)
+
+	# 心跳加速：越靠近越快、越亮
+	var pulse_tw := create_tween()
+	pulse_tw.set_loops(6)
+	pulse_tw.tween_property(_heart_core, "scale", Vector2(1.9, 1.9), 0.24)
+	pulse_tw.parallel().tween_property(_heart_core, "modulate:a", 1.0, 0.24)
+	pulse_tw.tween_property(_heart_core, "scale", Vector2(1.2, 1.2), 0.24)
+	pulse_tw.parallel().tween_property(_heart_core, "modulate:a", 0.6, 0.24)
+
+	var start := _heart.position
+	var target := _soul.position + Vector2(0, -14)
 	var tw := create_tween()
-	tw.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	tw.tween_interval(1.8)
-	tw.tween_callback(func() -> void: _whisper_heart("别急着明白。先把这只手接过去。", 2.6))
-	tw.tween_property(_heart_core, "modulate:a", 1.0, 1.6)
-	tw.parallel().tween_property(_heart_core, "scale", Vector2(2.2, 2.2), 1.6)
-	tw.tween_interval(0.6)
-	tw.tween_property(_heart, "position", _soul.position + Vector2(0, -10), 2.2)
-	tw.parallel().tween_property(_heart, "scale", Vector2(0.35, 0.35), 2.2)
-	tw.parallel().tween_property(_heart_cloak, "modulate:a", 0.0, 2.2)
+	tw.tween_interval(1.1)
+	tw.tween_callback(func() -> void: _whisper_heart("别急着明白。先把这只手接过去。", 2.2))
+	# 三段逼近：每一段都“先缩一下再扑上来”
+	for i in range(3):
+		var step := float(i + 1) / 3.0
+		tw.tween_property(_heart, "scale", Vector2(0.86, 1.06), 0.10)
+		tw.parallel().tween_property(_heart, "position", start.lerp(target, step - 0.12 * step), 0.10)
+		tw.tween_property(_heart, "scale", Vector2(1.0, 1.0), 0.16)
+		tw.parallel().tween_property(_heart, "position", start.lerp(target, step), 0.16) \
+			.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
+		tw.tween_callback(func() -> void: _punch(i))
+		tw.tween_interval(0.20)
+	# 吞没：斗篷被扯成流线，整团黑影压进胸口
+	tw.tween_callback(_tear_cloak)
+	tw.tween_property(_heart, "scale", Vector2(0.22, 0.22), 0.85)
+	tw.parallel().tween_property(_heart, "position", target, 0.85)
+	tw.parallel().tween_property(_heart_cloak, "modulate:a", 0.0, 0.85)
 	tw.tween_callback(_after_fuse)
+
+## 每一次扑击的反馈：冲击环 + 抖动 + 灵魂被“撞歪”一下
+func _punch(step: int) -> void:
+	_shake(0.30, 7.0 + float(step) * 3.0)
+	_ring(_heart.global_position, 40.0 + float(step) * 26.0, Color(0.78, 0.62, 0.92, 0.55))
+	var tw := create_tween()
+	tw.tween_property(_soul, "scale", Vector2(1.18, 0.86), 0.08)
+	tw.tween_property(_soul, "scale", Vector2(1.0, 1.0), 0.22).set_trans(Tween.TRANS_ELASTIC)
+
+## 冲击环：一圈迅速胀开、变淡的线，读完就自己删掉
+func _ring(at: Vector2, radius: float, color: Color) -> void:
+	var ring := Line2D.new()
+	ring.width = 2.2
+	ring.default_color = color
+	var pts := PackedVector2Array()
+	for i in range(24):
+		var a := TAU * float(i) / 24.0
+		pts.append(Vector2(cos(a) * 8.0, sin(a) * 8.0))
+	ring.points = pts
+	ring.closed = true
+	ring.position = to_local(at)
+	ring.z_index = 4
+	add_child(ring)
+	var tw := create_tween()
+	tw.set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
+	tw.tween_property(ring, "scale", Vector2(radius / 8.0, radius / 8.0), 0.35)
+	tw.parallel().tween_property(ring, "default_color:a", 0.0, 0.35)
+	tw.tween_callback(ring.queue_free)
+
+## 斗篷被扯成几条流线，往灵魂胸口里流
+func _tear_cloak() -> void:
+	_shake(0.45, 10.0)
+	for i in range(5):
+		var strip := Line2D.new()
+		strip.width = 2.6
+		strip.default_color = Color(0.22, 0.20, 0.30, 0.85)
+		var from := _heart.global_position + Vector2(float(i) * 9.0 - 18.0, -30.0 + float(i) * 10.0)
+		strip.points = PackedVector2Array([to_local(from), to_local(from)])
+		strip.z_index = 3
+		add_child(strip)
+		var tw := create_tween()
+		tw.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		# Line2D 的 points 是 PackedVector2Array，不能被单点补间；直接整体平移这条流线
+		tw.tween_property(strip, "position", _soul.global_position - from, 0.5 + float(i) * 0.06)
+		tw.parallel().tween_property(strip, "modulate:a", 0.0, 0.5 + float(i) * 0.06)
+		tw.tween_callback(strip.queue_free)
 
 func _after_fuse() -> void:
 	if _heart != null and is_instance_valid(_heart):
@@ -533,31 +740,30 @@ func _after_fuse() -> void:
 	tw.tween_interval(5.6)
 	tw.tween_callback(_begin_descent)
 
-# ---------- 从虚空落到地面的过渡演出 ----------
+# ---------- 从虚空落到地面：边坠边变身 ----------
 #
-# 组长反馈：“从虚空到正式的地图要有过渡，不能一切场景人就站在地上。”
-# 这段做三件事：① 脚下那道极淡的倒影实体化成一块地板；② 视野圈收窄、四周压黑，
-# 镜头随之往下沉；③ 灵魂被这层地板“漏”下去 —— 画面拉出竖直的速度线，
-# 落地前后的黑场交给教学关那边接（见 test_arena 的 _drop_in）。
+# M4-28：融入之后不是“淡出 + 切场景”，而是 —— 脚下的虚空托不住你了，
+# 你一边往下坠，身上那层灰白的魂光一边褪掉、显出兜帽骑士的轮廓，
+# 最后带着速度砸进教学关（教学关那边 _drop_in 接住，落地扬尘）。
 
 func _begin_descent() -> void:
 	if _descending:
 		return
 	_descending = true
 	_can_move = false
-	# 地板实体化：一道冷光从脚下摊开，越摊越实，最后把整个画面托起来
+
+	# 虚空地板：一道冷光从脚下摊开，然后被踩碎
 	var floor_line := Line2D.new()
 	floor_line.name = "VoidFloor"
 	floor_line.width = 2.0
 	floor_line.default_color = Color(0.62, 0.72, 0.82, 0.0)
 	floor_line.points = PackedVector2Array([
-		Vector2(SOUL_START.x - 240.0, SOUL_START.y + 96.0),
-		Vector2(SOUL_START.x + 240.0, SOUL_START.y + 96.0),
+		Vector2(SOUL_START.x - 260.0, SOUL_START.y + 96.0),
+		Vector2(SOUL_START.x + 260.0, SOUL_START.y + 96.0),
 	])
-	floor_line.z_index = 0
 	add_child(floor_line)
 
-	# 速度线：一组竖直细线从下往上刷过，表现“在往下掉”
+	# 速度线
 	var streaks := Node2D.new()
 	streaks.name = "FallStreaks"
 	streaks.z_index = 3
@@ -568,30 +774,39 @@ func _begin_descent() -> void:
 		line.width = 1.0 + float(i % 3) * 0.6
 		line.default_color = Color(0.70, 0.80, 0.90, 0.0)
 		var x := 380.0 + float(i) * 60.0 + float(i % 4) * 9.0
-		line.points = PackedVector2Array([Vector2(x, 0), Vector2(x + 2.0, 120.0 + float(i % 5) * 40.0)])
+		line.points = PackedVector2Array([Vector2(x, -80), Vector2(x + 2.0, 150.0 + float(i % 5) * 40.0)])
 		streaks.add_child(line)
 		streak_nodes.append(line)
 
 	var tw := create_tween()
-	tw.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
-	# ① 地板亮起来，视野收窄（1.4s）
-	tw.tween_property(floor_line, "default_color:a", 0.55, 1.2)
-	tw.parallel().tween_property(_vignette, "modulate:a", 0.96, 1.6)
-	tw.parallel().tween_property(_camera, "zoom", Vector2(0.92, 0.92), 1.6)
-	tw.parallel().tween_property(_soul_glow, "energy", 0.55, 1.6)
-	# ② 速度线出现，灵魂被拉长、往下坠（1.4s）
+	tw.set_trans(Tween.TRANS_SINE)
+	# ① 地板亮起、四周压黑、镜头退开一点（0.9s）
+	tw.tween_property(floor_line, "default_color:a", 0.5, 0.7)
+	tw.parallel().tween_property(_vignette, "modulate:a", 0.94, 0.9)
+	tw.parallel().tween_property(_camera, "zoom", Vector2(0.84, 0.84), 0.9)
+	# ② 地板碎掉，开始坠落：魂光往下被拉长（0.5s）
+	tw.tween_property(floor_line, "default_color:a", 0.0, 0.4).set_ease(Tween.EASE_IN)
+	tw.parallel().tween_property(_soul, "scale", Vector2(0.78, 1.55), 0.5)
+	# ③ 边坠边变身：魂光褪、骑士轮廓显 —— 1.5 秒里两边交叉过渡
 	tw.tween_callback(func() -> void:
 		for line in streak_nodes:
 			var st := create_tween()
-			st.tween_property(line, "default_color:a", 0.55, 0.25)
-			st.tween_property(line, "default_color:a", 0.0, 0.75)
+			st.set_loops(0)
+			st.tween_property(line, "default_color:a", 0.5, 0.2)
+			st.tween_property(line, "default_color:a", 0.0, 0.5)
 	)
-	tw.tween_property(_soul, "scale", Vector2(0.72, 1.9), 1.3)
-	tw.parallel().tween_property(_soul, "position:y", SOUL_START.y + 460.0, 1.3)
-	tw.parallel().tween_property(_soul, "modulate:a", 0.0, 1.3)
-	tw.parallel().tween_property(floor_line, "default_color:a", 0.0, 1.1)
-	# ③ 黑场吞掉，交给教学关那边“落地”
-	tw.tween_property(_fade, "color:a", 1.0, 0.7)
+	tw.tween_property(_soul_core, "modulate:a", 0.0, 1.0)
+	tw.parallel().tween_property(_soul_haze, "modulate:a", 0.0, 1.0)
+	tw.parallel().tween_property(_knight, "modulate:a", 1.0, 1.0)
+	tw.parallel().tween_property(_knight, "scale", Vector2(1.0, 1.0), 1.2) \
+		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.parallel().tween_property(_soul, "position:y", SOUL_START.y + 300.0, 1.5) \
+		.set_ease(Tween.EASE_IN)
+	tw.parallel().tween_property(_soul, "scale", Vector2(1.0, 1.0), 1.2)
+	# ④ 加速下坠，黑场收尾
+	tw.tween_property(_soul, "position:y", SOUL_START.y + 780.0, 0.6).set_ease(Tween.EASE_IN)
+	tw.parallel().tween_property(_camera, "position:y", 360.0 + 180.0, 0.6)
+	tw.tween_property(_fade, "color:a", 1.0, 0.55)
 	tw.tween_interval(0.15)
 	tw.tween_callback(_leave)
 
@@ -633,6 +848,27 @@ func _whisper(who: int, text: String, hold: float, is_soul: bool) -> void:
 		_heart_note_tween = tw
 
 # ---------- 小工具 ----------
+
+## 黑幕挖洞：屏幕像素到洞心的距离落在 radius 内全透明，radius+softness 之外全黑，
+## 中间用 smoothstep 过渡，所以边界是柔的，不会出现一个硬边圆。
+const DARK_SHADER := """
+shader_type canvas_item;
+uniform vec2 hole = vec2(640.0, 360.0);
+uniform float radius = 110.0;
+uniform float softness = 120.0;
+uniform vec2 screen_size = vec2(1280.0, 720.0);
+void fragment() {
+	vec2 px = UV * screen_size;
+	float d = distance(px, hole);
+	float a = smoothstep(radius, radius + softness, d);
+	COLOR = vec4(0.0, 0.0, 0.0, a);
+}
+"""
+
+func _make_dark_shader() -> Shader:
+	var shader := Shader.new()
+	shader.code = DARK_SHADER
+	return shader
 
 func _radial_texture(soft: bool = true) -> GradientTexture2D:
 	var gradient := Gradient.new()

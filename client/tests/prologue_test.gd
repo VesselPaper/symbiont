@@ -1,4 +1,4 @@
-extends SceneTree
+﻿extends SceneTree
 ## 序章重构回归（M4-24）
 ##   Godot_v4.7.2-stable_win64_console.exe --headless --path client --script res://tests/prologue_test.gd
 ##
@@ -40,6 +40,15 @@ func _run() -> void:
 		if child is CPUParticles2D:
 			motes += 1
 	_check(motes >= 2, "尘埃层不足（%d）" % motes)
+	# M4-29：只有角色周围一小圈有光 —— 黑幕必须存在，且洞心跟着灵魂
+	var dark_mask := level.get_node_or_null("UI/Darkness") as ColorRect
+	_check(dark_mask != null, "缺少黑幕（其余区域应该是看不见的）")
+	if dark_mask != null and dark_mask.material is ShaderMaterial:
+		var mat := dark_mask.material as ShaderMaterial
+		var hole: Vector2 = mat.get_shader_parameter("hole")
+		var radius: float = float(mat.get_shader_parameter("radius"))
+		_check(radius <= 140.0, "光斑太大（radius=%.0f），整片都看得见了" % radius)
+		_check(hole.distance_to(Vector2(250, 560)) <= 40.0, "洞心没跟着灵魂（%s）" % str(hole))
 	var vignette := level.get_node_or_null("UI/Vignette") as TextureRect
 	_check(vignette != null, "缺少柔边视野圈")
 	if vignette != null:
@@ -95,6 +104,19 @@ func _run() -> void:
 	for _i in range(20):
 		await process_frame
 	_check(bool(level.get("_fused")), "贴到身影跟前没有触发融合")
+
+	# ⑥ 融合后坠落时“边掉边变身”：骑士剪影显出来、魂光褪掉（M4-28）
+	level.call("_begin_descent")
+	await create_timer(3.0).timeout
+	var knight := soul.get_node_or_null("Knight") as Node2D
+	_check(knight != null, "缺少玩家剪影 Knight")
+	if knight != null:
+		var ka: float = knight.modulate.a
+		var ha: float = (level.get("_soul_haze") as Node2D).modulate.a
+		var ca: float = (level.get("_soul_core") as Node2D).modulate.a
+		print("[prologue] 坠落 3.0s：骑士 alpha=%.2f 魂光 haze=%.2f core=%.2f" % [ka, ha, ca])
+		_check(ka >= 0.35, "往下掉的时候骑士还没显出来（alpha=%.2f）" % ka)
+		_check(ha <= 0.75 and ca <= 0.75, "魂光没有褪（haze=%.2f core=%.2f）" % [ha, ca])
 
 	_finish()
 
