@@ -52,7 +52,7 @@ func _run() -> void:
 	_p.call("_desc_hold_dark")
 	await create_timer(0.15).timeout
 	_check(int(_p.get("_desc_phase")) == 2, "没有停在暗拍")
-	_check(float(_p.get("_vignette").get("modulate").a) > 0.9, "落地时不是暗的")
+	_check(float(_p.get("_pulse_rect").get("color").a) > 0.5, "落地时不是暗的（全屏遮罩没压下来）")
 
 	await create_timer(1.2).timeout
 	_check(int(_p.get("_desc_phase")) == 3, "一秒后没有开始亮起")

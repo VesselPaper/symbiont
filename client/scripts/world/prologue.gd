@@ -92,6 +92,10 @@ var _desc_zoom_from := 1.0
 var _desc_zoom_to := 0.80
 ## 亮起阶段接管黑幕半径（-1 表示仍用呼吸值）
 var _dark_radius_override := -1.0
+## 全屏忽明忽暗用的遮罩（暗角只压边缘，这里压整屏）
+var _pulse_rect: ColorRect
+var _ui_layer: CanvasLayer
+var _descent_bg: Node2D
 var _leaving := false
 var _called_out := false
 var _drift := 0.0
@@ -420,6 +424,7 @@ func _build_heart() -> void:
 
 func _build_ui() -> void:
 	var layer := CanvasLayer.new()
+	_ui_layer = layer
 	layer.name = "UI"
 	layer.layer = 3
 	add_child(layer)
@@ -692,11 +697,11 @@ func _fuse() -> void:
 			.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
 		tw.tween_callback(func() -> void: _punch(i))
 		tw.tween_interval(0.20)
-	# 吞没：斗篷被扯成流线，整团黑影压进胸口
-	tw.tween_callback(_tear_cloak)
-	tw.tween_property(_heart, "scale", Vector2(0.22, 0.22), 0.85)
-	tw.parallel().tween_property(_heart, "position", target, 0.85)
-	tw.parallel().tween_property(_heart_cloak, "modulate:a", 0.0, 0.85)
+	# 化雾吞没：先炸成一大片黑雾，再收成漏斗钻进胸口
+	tw.tween_callback(_heart_scatter)
+	tw.tween_property(_heart, "scale", Vector2(0.22, 0.22), 1.4)
+	tw.parallel().tween_property(_heart, "position", target, 1.4)
+	tw.parallel().tween_property(_heart_cloak, "modulate:a", 0.0, 1.4)
 	tw.tween_callback(_after_fuse)
 
 ## 每一次扑击的反馈：冲击环 + 抖动 + 灵魂被“撞歪”一下
@@ -745,21 +750,37 @@ func _tear_cloak() -> void:
 		tw.parallel().tween_property(strip, "modulate:a", 0.0, 0.5 + float(i) * 0.06)
 		tw.tween_callback(strip.queue_free)
 
+## 化雾：本心炸成一大片黑雾，收成漏斗钻进胸口，人跟着抖
+func _heart_scatter() -> void:
+	var funnel = preload("res://components/mist_funnel.gd").new()
+	funnel.name = "MistFunnel"
+	funnel.z_index = 3
+	add_child(funnel)
+	funnel.play(_heart.global_position, _soul.global_position + Vector2(0, -12), 1.6)
+	_shake(1.4, 6.0)
+	# 身体抖动：不是整体平移，是高频小幅缩放 + 左右微摆，读起来像"有东西钻进来"
+	var jitter := create_tween()
+	jitter.set_loops(9)
+	jitter.tween_property(_soul, "scale", Vector2(1.04, 0.97), 0.06)
+	jitter.tween_property(_soul, "scale", Vector2(0.97, 1.03), 0.06)
+	jitter.tween_property(_soul, "scale", Vector2(1.0, 1.0), 0.08)
+	EventBus.log_event("parasite_enter", {})
+
 func _after_fuse() -> void:
 	if _heart != null and is_instance_valid(_heart):
 		_heart.queue_free()
+	# M4-40：不再先站定把话说完再掉。附身一结束立刻开始下坠，
+	# 后面的旁白在坠落途中作为字幕逐条出现（与下落并行，不额外占时间）。
+	_begin_descent()
 	var tw := create_tween()
 	tw.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 	tw.tween_property(_soul_glow, "texture_scale", 2.9, 2.0)
 	tw.parallel().tween_property(_soul_glow, "color", Color(0.92, 0.95, 0.90), 2.0)
-	tw.parallel().tween_property(_vignette, "modulate:a", 0.70, 2.0)
 	for item in AFTER_FUSE:
 		tw.tween_interval(float(item["delay"]))
 		tw.tween_callback(func() -> void: _whisper_soul(str(item["text"]), float(item["hold"])))
-	tw.tween_interval(5.2)
-	tw.tween_callback(func() -> void: _whisper(1, "想看见的话，就把身上多余的部分交出来。我不急，我等得起。", 5.4, true))
-	tw.tween_interval(5.6)
-	tw.tween_callback(_begin_descent)
+	tw.tween_interval(4.0)
+	tw.tween_callback(func() -> void: _whisper(1, "想看见的话，就把身上多余的部分交出来。我不急，我等得起。", 4.6, true))
 
 # ---------- 从虚空落到地面：边坠边变身 ----------
 #
@@ -780,6 +801,8 @@ func _begin_descent() -> void:
 	_desc_phase = 1
 	_desc_t = 0.0
 	_beat_accum = _beat_interval
+	_build_pulse_rect()
+	_build_descent_bg()
 
 	# 魂光褪掉、骑士显形（生长交给下面那条 tween，贯穿整个下落）
 	var tw := create_tween()
@@ -815,17 +838,23 @@ func _update_descent_pulse(delta: float) -> void:
 		GameManager.play_sfx("hit_flesh", -12.0, 0.55)
 
 	_camera.position = Vector2(640.0, _soul.global_position.y)
+	_camera.offset = Vector2.ZERO   # 下落时不要震屏残留，否则人会偏出画面中心
 	_camera.zoom = Vector2.ONE * lerpf(_desc_zoom_from, _desc_zoom_to, k)
-	if _vignette != null:
-		_vignette.modulate.a = clampf(0.62 + 0.34 * _beat_flash, 0.0, 1.0)
+	if _descent_bg != null:
+		_descent_bg.position.y = (_soul.global_position.y - SOUL_START.y) * 0.55
+	# 视觉在恢复：黑幕的洞随下落一起变大（从"只有脚下一圈"到"看得见周围"）
+	_dark_radius_override = 104.0 + 300.0 * k
+	# 全屏忽明忽暗：亮的时候整屏亮起来，暗的那一拍压黑
+	if _pulse_rect != null:
+		_pulse_rect.color.a = 0.62 * _beat_flash
 
 ## 停在"暗"的那一拍：不闪、不动，等一秒
 func _desc_hold_dark() -> void:
 	_desc_phase = 2
 	_beat_flash = 0.0
 	_beat_accum = 0.0
-	if _vignette != null:
-		_vignette.modulate.a = 0.96
+	if _pulse_rect != null:
+		_pulse_rect.color.a = 0.62
 	await get_tree().create_timer(HOLD_DARK).timeout
 	_desc_reveal()
 
@@ -834,8 +863,8 @@ func _desc_reveal() -> void:
 	_desc_phase = 3
 	var tw := create_tween()
 	tw.set_parallel(true)
-	if _vignette != null:
-		tw.tween_property(_vignette, "modulate:a", 0.28, REVEAL_TIME)
+	if _pulse_rect != null:
+		tw.tween_property(_pulse_rect, "color:a", 0.0, REVEAL_TIME)
 	if _dark_mat != null:
 		tw.tween_method(_set_dark_radius, 104.0, 1400.0, REVEAL_TIME)
 	tw.chain().tween_interval(0.4)
@@ -843,6 +872,59 @@ func _desc_reveal() -> void:
 
 func _set_dark_radius(r: float) -> void:
 	_dark_radius_override = r
+
+## 全屏明暗遮罩：铺在 UI 层最上面，盖住背景与角色一起闪
+func _build_pulse_rect() -> void:
+	if _pulse_rect != null and is_instance_valid(_pulse_rect):
+		return
+	_pulse_rect = ColorRect.new()
+	_pulse_rect.name = "PulseShade"
+	_pulse_rect.color = Color(0.0, 0.0, 0.0, 0.0)
+	_pulse_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_pulse_rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	if _ui_layer != null:
+		_ui_layer.add_child(_pulse_rect)
+
+## 下落时的背景：远处一片雾、两侧暗柱、飘落的尘埃。
+## 之前是纯黑虚空，掉下去像掉进空文件，得有参照物才看得出在"往下"。
+func _build_descent_bg() -> void:
+	if _descent_bg != null and is_instance_valid(_descent_bg):
+		return
+	_descent_bg = Node2D.new()
+	_descent_bg.name = "DescentBackdrop"
+	_descent_bg.z_index = -4
+	add_child(_descent_bg)
+
+	# 一整片暗雾，压住底部，给"深处"的感觉
+	var mist := ColorRect.new()
+	mist.color = Color(0.035, 0.040, 0.055, 0.85)
+	mist.position = Vector2(-400, -2200)
+	mist.size = Vector2(2080, 4600)
+	mist.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_descent_bg.add_child(mist)
+
+	# 两侧暗柱：宽度与高度各不同，随下落相对上移
+	for i in range(10):
+		var col := Polygon2D.new()
+		col.color = Color(0.055 + 0.012 * float(i % 3), 0.060, 0.078, 0.55)
+		var w := 90.0 + float(i % 4) * 55.0
+		var x := -260.0 + float(i) * 190.0
+		var y := -2000.0 + float(i % 5) * 620.0
+		var h := 900.0 + float(i % 3) * 420.0
+		col.polygon = PackedVector2Array([
+			Vector2(x, y), Vector2(x + w, y), Vector2(x + w * 0.82, y + h), Vector2(x + w * 0.10, y + h),
+		])
+		_descent_bg.add_child(col)
+
+	# 尘埃：细亮线，越往下越密
+	for i in range(26):
+		var mote := Line2D.new()
+		mote.width = 1.2
+		mote.default_color = Color(0.52, 0.60, 0.72, 0.30)
+		var mx := 80.0 + float(i) * 42.0 + float(i % 3) * 17.0
+		var my := -1600.0 + float(i) * 160.0
+		mote.points = PackedVector2Array([Vector2(mx, my), Vector2(mx + 1.5, my + 26.0)])
+		_descent_bg.add_child(mote)
 
 ## 附身开始后旁白从画面中央降到字幕位，把中央让给"黑雾钻进来"
 func _set_subtitle_mode(on: bool) -> void:
@@ -875,6 +957,8 @@ func _whisper(who: int, text: String, hold: float, is_soul: bool) -> void:
 	var old := _note_tween if is_soul else _heart_note_tween
 	if old != null and old.is_valid():
 		old.kill()
+	# 先把透明度压到 0 再换字：否则上一句还没淡完，新句子会"闪现"出来
+	label.modulate.a = 0.0
 	label.text = text
 	label.add_theme_color_override("font_color",
 		Color(0.80, 0.84, 0.88, 0.95) if who == 0 else Color(0.74, 0.66, 0.88, 0.96))

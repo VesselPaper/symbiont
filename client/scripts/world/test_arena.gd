@@ -143,7 +143,10 @@ func _ready() -> void:
 	_build_next_floor_door()
 	_build_tutorial_gates()
 	_build_fade_overlay()
-	_build_fade_in()
+	# M4-40：从虚空掉下来时，序章已经做完了"停在暗拍 → 从玩家亮起"，
+	# 这里再淡入一次就会变成"黑屏直接进关"。其余入口（读档/直接进关）照旧淡入。
+	if not GameManager.has_flag("enter_from_void"):
+		_build_fade_in()
 	_build_hud()
 	# 教程 8 个提示气泡锚点也在这张表里，推给 Tutorial；它自己的常量只作无场景时的兜底
 	if _tutorial != null and _tutorial.has_method("set_step_anchors"):
