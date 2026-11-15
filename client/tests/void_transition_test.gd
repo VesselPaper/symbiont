@@ -47,17 +47,19 @@ func _run() -> void:
 	var stage: Dictionary = arena.get_script().get_script_constant_map()["STAGE"]
 	var spawn: Vector2 = stage["spawn"]
 	var start_y := player.global_position.y
-	print("[void] 落地前 y=%.1f（出生点 %.1f，高出 %.1fpx）" % [start_y, spawn.y, spawn.y - start_y])
-	_check(spawn.y - start_y >= 150.0, "进关时人还站在地上（只高出 %.1fpx）" % (spawn.y - start_y))
-	_check(not bool(gm.call("has_flag", "enter_from_void")), "旗标没被消费，下次进关又会掉一次")
-	var landed := false
-	for _i in range(180):
+	print("[void] 进关位置 y=%.1f（出生点 %.1f），rotation=%.2f" % [start_y, spawn.y, player.rotation])
+	# M4-49：不再是"从半空掉下来"，而是先躺在地上，等灵魂掉进身体后起身
+	_check(absf(player.global_position.y - spawn.y) <= 8.0, "进关时人没有躺在出生点（y=%.1f）" % player.global_position.y)
+	_check(absf(player.rotation + PI * 0.5) < 0.15, "进关时人不是躺着的（rotation=%.2f）" % player.rotation)
+	_check(not bool(gm.call("has_flag", "enter_from_void")), "旗标没被消费，下次进关又会演一次")
+	var stood := false
+	for _i in range(240):
 		await physics_frame
-		if player.is_on_floor() and absf(player.global_position.y - spawn.y) <= 2.0:
-			landed = true
+		if absf(player.rotation) < 0.05 and player.is_on_floor():
+			stood = true
 			break
-	print("[void] 落地后 y=%.1f on_floor=%s" % [player.global_position.y, player.is_on_floor()])
-	_check(landed, "没有落到地面（y=%.1f）" % player.global_position.y)
+	print("[void] 起身后 rotation=%.2f on_floor=%s" % [player.rotation, player.is_on_floor()])
+	_check(stood, "灵魂入体后没有起身（rotation=%.2f）" % player.rotation)
 	arena.queue_free()
 	await process_frame
 

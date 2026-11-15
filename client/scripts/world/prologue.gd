@@ -94,6 +94,7 @@ var _fall_vy := 0.0
 var _beat_accum := 0.0
 var _beat_interval := BEAT_START
 var _beat_flash := 0.0
+var _beat_dark := false
 var _desc_zoom_from := 1.0
 var _desc_zoom_to := 0.80
 ## 亮起阶段接管黑幕半径（-1 表示仍用呼吸值）
@@ -783,11 +784,12 @@ func _tear_cloak() -> void:
 
 ## 化雾：本心炸成一大片黑雾，收成漏斗钻进胸口，人跟着抖
 func _heart_scatter() -> void:
-	var funnel = preload("res://components/mist_funnel.gd").new()
-	funnel.name = "MistFunnel"
-	funnel.z_index = 3
-	add_child(funnel)
-	funnel.play(_heart.global_position, _soul.global_position + Vector2(0, -12), MIST_TIME)
+	# 换成大量黑色粒子持续涌进身体
+	var swarm = preload("res://components/dark_swarm.gd").new()
+	swarm.name = "DarkSwarm"
+	swarm.z_index = 3
+	add_child(swarm)
+	swarm.play(_heart.global_position, _soul.global_position + Vector2(0, -12), MIST_TIME)
 	_shake(1.4, 6.0)
 	# 身体抖动：不是整体平移，是高频小幅缩放 + 左右微摆，读起来像"有东西钻进来"
 	var jitter := create_tween()
@@ -851,7 +853,7 @@ func _begin_descent() -> void:
 	tw.set_parallel(true)
 	tw.tween_property(_soul_core, "modulate:a", 0.0, 2.0)
 	tw.tween_property(_soul_haze, "modulate:a", 0.0, 2.0)
-	tw.tween_property(_knight, "modulate:a", 1.0, 1.5)
+	tw.tween_property(_knight, "modulate:a", 0.0, 1.5)
 
 
 
@@ -872,34 +874,19 @@ func _update_descent_pulse(delta: float) -> void:
 	_fall_vy = minf(_fall_vy + FALL_GRAVITY * delta, TERMINAL_FALL_SPEED)
 	_soul.position.y += _fall_vy * delta
 
-	# 几何变形：灵魂的斗篷/兜帽沿两个轴拉长张开，最后长出两条腿
-	# （不再挂 player.tscn —— 那样会连剑一起带出来，而且只是"套了个模型"不是变形）
-	var grow := clampf(_form_t / FORM_TIME, 0.0, 1.0)
-	_knight.scale = Vector2.ONE * lerpf(0.62, 1.0, grow)
-	_knight.modulate.a = clampf(grow / 0.25, 0.0, 1.0)
-	if _k_cloak != null:
-		_k_cloak.scale = Vector2(lerpf(0.46, 1.0, grow), lerpf(0.68, 1.0, grow))
-	if _k_hood != null:
-		_k_hood.scale = Vector2(lerpf(0.55, 1.0, grow), lerpf(0.62, 1.0, grow))
-		_k_hood.position.y = lerpf(4.0, 0.0, grow)
-	if _k_face != null:
-		_k_face.modulate.a = clampf((grow - 0.35) / 0.4, 0.0, 1.0)
-	if _k_eye != null:
-		_k_eye.modulate.a = clampf((grow - 0.55) / 0.3, 0.0, 1.0)
-	if _k_rim != null:
-		_k_rim.modulate.a = clampf((grow - 0.4) / 0.4, 0.0, 0.55)
-	var legs := clampf((grow - 0.72) / 0.28, 0.0, 1.0)
-	if _k_leg_l != null:
-		_k_leg_l.color.a = legs
-	if _k_leg_r != null:
-		_k_leg_r.color.a = legs
+	# M4-49：下落的只有"灵魂"本身（发光核 + 飘带），形体变化搬到教学关去做：
+	# 灵魂掉进躺着的主角身体 → 人起身。这里不再让斗篷长成角色。
+	_knight.modulate.a = 0.0
 
 	# 鼓点：间隔收紧 + 音量渐强
-	_beat_interval = lerpf(BEAT_START, BEAT_END, k * k)
+	# 线性收紧：每一拍都要比上一拍明显更快（用 k² 会前 15 秒几乎没变化）
+	_beat_interval = lerpf(BEAT_START, BEAT_END, k)
 	_beat_accum += delta
 	if _beat_accum >= _beat_interval:
 		_beat_accum = 0.0
-		_beat_flash = 1.0
+		# 响一次切换一次：明 ↔ 暗，而不是"闪一下再回来"
+		_beat_dark = not _beat_dark
+		_beat_flash = 1.0 if _beat_dark else 0.0
 		GameManager.play_sfx("drum", lerpf(-16.0, -2.0, k), 1.0)
 
 	# 镜头：先平滑靠过去（避免一帧瞬移=闪现），再用"速度前馈 + 残差修正"紧跟。
@@ -922,7 +909,7 @@ func _update_descent_pulse(delta: float) -> void:
 
 	_dark_radius_override = 104.0 + 300.0 * k
 	if _pulse_rect != null:
-		_pulse_rect.color.a = 0.62 * _beat_flash
+		_pulse_rect.color.a = 0.62 if _beat_dark else 0.0
 
 	# 成形后再保持全速下落 3 秒，然后压黑交接
 	if _form_t >= total:

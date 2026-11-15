@@ -127,8 +127,6 @@ var _ending_screen: CanvasLayer
 var _refusing := false
 ## M4-25：这一局是从序章虚空掉下来的（落地要扬尘、开场要慢慢亮）
 var _drop_in := false
-## 从虚空进来时先黑着落 2 秒再亮
-var _dark_hold_pending := 0.0
 
 func _ready() -> void:
 	GameManager.mark_floor_start("tutorial")
@@ -145,11 +143,9 @@ func _ready() -> void:
 	_build_next_floor_door()
 	_build_tutorial_gates()
 	_build_fade_overlay()
-	# M4-43：从虚空掉下来时，先黑着落 2 秒再亮；其余入口（读档/直接进关）立刻淡入
+	# 从虚空进来：开场演出（_void_arrival）自己负责把画面亮起来；其余入口立刻淡入
 	if not GameManager.has_flag("enter_from_void"):
 		_build_fade_in()
-	else:
-		_dark_hold_pending = 2.0
 	_build_hud()
 	# 教程 8 个提示气泡锚点也在这张表里，推给 Tutorial；它自己的常量只作无场景时的兜底
 	if _tutorial != null and _tutorial.has_method("set_step_anchors"):
@@ -201,10 +197,13 @@ func _apply_stage() -> void:
 	if GameManager.has_flag("enter_from_void"):
 		GameManager.flags.erase("enter_from_void")
 		_drop_in = true
-		# 从虚空掉下来：在黑暗里继续落 2 秒再亮（黑着看不出高度，所以直接给足下落速度）
-		spawn_pos += Vector2(0, -1800)
+		# M4-49：黑着开场。玩家先躺在地上（晕倒），灵魂从上方掉进他身体里，
+		# 然后人起身，最后才把四周点亮
 		($Player as Node2D).position = spawn_pos
-		($Player as CharacterBody2D).velocity = Vector2(0, 900)
+		($Player as CharacterBody2D).velocity = Vector2.ZERO
+		($Player as Node2D).rotation = -PI * 0.5
+		($Player as Node2D).set("_input_locked", true)
+		_void_arrival()
 	else:
 		($Player as Node2D).position = spawn_pos
 	($Corpse as Node2D).position = STAGE["corpse"]
@@ -212,6 +211,50 @@ func _apply_stage() -> void:
 	($DummyA as Node2D).position = STAGE["dummy_a"]
 	($DummyB as Node2D).position = STAGE["dummy_b"]
 	($Altar as Node2D).position = STAGE["altar"]
+
+## 虚空落地演出：黑场里灵魂掉进躺着的主角身体，然后起身、四周点亮（M4-49）
+func _void_arrival() -> void:
+	# 先确保是黑的（黑场里看不见地形，才谈得上"从黑暗里落地"）
+	if _fade_rect != null:
+		_fade_rect.color = Color(0, 0, 0, 1)
+	await get_tree().create_timer(0.8).timeout
+	var player := $Player as Node2D
+	var soul := _make_soul_orb()
+	add_child(soul)
+	soul.global_position = player.global_position + Vector2(0, -420)
+	var tw := create_tween()
+	tw.tween_property(soul, "global_position", player.global_position + Vector2(0, -10), 1.2).set_ease(Tween.EASE_IN)
+	tw.tween_property(soul, "modulate:a", 0.0, 0.3)
+	tw.tween_callback(soul.queue_free)
+	await tw.finished
+	# 灵魂入体后起身
+	var stand := create_tween()
+	stand.tween_property(player, "rotation", 0.0, 0.9).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	await stand.finished
+	player.set("_input_locked", false)
+	_build_fade_in()
+
+## 一颗会发光的魂：亮核 + 三根飘带，只用于开场那一次下落
+func _make_soul_orb() -> Node2D:
+	var orb := Node2D.new()
+	orb.name = "SoulDrop"
+	orb.z_index = 5
+	var core := Polygon2D.new()
+	core.color = Color(0.90, 0.96, 1.0, 0.95)
+	var pts := PackedVector2Array()
+	for i in range(14):
+		var a := TAU * float(i) / 14.0
+		pts.append(Vector2(cos(a) * 7.0, sin(a) * 9.0))
+	core.polygon = pts
+	orb.add_child(core)
+	for i in range(3):
+		var t := Line2D.new()
+		t.width = 1.6
+		t.default_color = Color(0.80, 0.90, 1.0, 0.45)
+		var x := -4.0 + 4.0 * float(i)
+		t.points = PackedVector2Array([Vector2(x, 8), Vector2(x * 1.6, 30), Vector2(x * 2.2, 52)])
+		orb.add_child(t)
+	return orb
 
 ## 平台原点是中心：碰撞换成 rect 大小、子节点归零、视觉按原始多边形缩放。
 ## 原来 JumpPlatform 的碰撞挂在 +343.5 这种手调偏移上，挪平台就得连子节点一起改，
@@ -268,11 +311,6 @@ func player_on_platform(rect_key: String, player: Node) -> bool:
 	return absf(feet - rect.position.y) <= 6.0
 
 func _process(_delta: float) -> void:
-	# 从虚空进来：先黑着落 2 秒，再淡入到教学关开头
-	if _dark_hold_pending > 0.0:
-		_dark_hold_pending = maxf(_dark_hold_pending - _delta, 0.0)
-		if _dark_hold_pending <= 0.0:
-			_build_fade_in()
 	if _refusing:
 		return
 	# 教程跑完（献祭完成）就把门点亮；之后玩家走进门即切到第一层

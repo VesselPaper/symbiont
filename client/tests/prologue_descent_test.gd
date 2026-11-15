@@ -46,13 +46,9 @@ func _run() -> void:
 	var beat1 := float(_p.get("_beat_interval"))
 	_check(beat1 < beat0, "鼓点间隔没有收紧（%.2f → %.2f）" % [beat0, beat1])
 	# 越接近落地越急促：把时间拨到 95%%，间隔应接近 1 秒`n	_p.set("_form_t", 19.0)`n	await create_timer(0.1).timeout`n	var beat_end := float(_p.get("_beat_interval"))`n	_check(beat_end < 1.4, "临落地时鼓点没有到 1 秒（%.2f）" % beat_end)`n	# 真实角色模型必须真的显现（之前只换皮、没换模型，测试没盯住）
-	# 几何变形：斗篷横向张开、两条腿长出来（不再挂 player.tscn）
-	var cloak: Polygon2D = _p.get("_k_cloak")
-	var leg: Polygon2D = _p.get("_k_leg_l")
-	_check(cloak != null and cloak.scale.x > 0.9, "斗篷没有张开到角色宽度（%.2f）" % (cloak.scale.x if cloak != null else 0.0))
-	_check(leg != null and leg.color.a > 0.5, "腿没有长出来（alpha=%.2f）" % (leg.color.a if leg != null else 0.0))
-	# 身体在生长
-	_check(knight.scale.x > 0.63, "骑士没有生长（scale=%.2f）" % knight.scale.x)
+	# M4-49：下落的是灵魂本体，人形剪影保持隐身
+	_check(knight.modulate.a <= 0.05, "人形剪影不该在下落时出现（%.2f）" % knight.modulate.a)
+	_check(soul.global_position.y > 700.0, "灵魂没有在往下掉（y=%.0f）" % soul.global_position.y)
 
 	# 收尾：整屏压黑停一拍，然后直接切场景（教学关在黑暗里接住）
 	_p.call("_desc_hold_dark")
