@@ -127,6 +127,8 @@ var _ending_screen: CanvasLayer
 var _refusing := false
 ## M4-25：这一局是从序章虚空掉下来的（落地要扬尘、开场要慢慢亮）
 var _drop_in := false
+## 从虚空进来时先黑着落 2 秒再亮
+var _dark_hold_pending := 0.0
 
 func _ready() -> void:
 	GameManager.mark_floor_start("tutorial")
@@ -143,10 +145,11 @@ func _ready() -> void:
 	_build_next_floor_door()
 	_build_tutorial_gates()
 	_build_fade_overlay()
-	# M4-40：从虚空掉下来时，序章已经做完了"停在暗拍 → 从玩家亮起"，
-	# 这里再淡入一次就会变成"黑屏直接进关"。其余入口（读档/直接进关）照旧淡入。
+	# M4-43：从虚空掉下来时，先黑着落 2 秒再亮；其余入口（读档/直接进关）立刻淡入
 	if not GameManager.has_flag("enter_from_void"):
 		_build_fade_in()
+	else:
+		_dark_hold_pending = 2.0
 	_build_hud()
 	# 教程 8 个提示气泡锚点也在这张表里，推给 Tutorial；它自己的常量只作无场景时的兜底
 	if _tutorial != null and _tutorial.has_method("set_step_anchors"):
@@ -198,9 +201,10 @@ func _apply_stage() -> void:
 	if GameManager.has_flag("enter_from_void"):
 		GameManager.flags.erase("enter_from_void")
 		_drop_in = true
-		spawn_pos += Vector2(0, -230)
+		# 从虚空掉下来：在黑暗里继续落 2 秒再亮（黑着看不出高度，所以直接给足下落速度）
+		spawn_pos += Vector2(0, -1800)
 		($Player as Node2D).position = spawn_pos
-		($Player as CharacterBody2D).velocity = Vector2(0, 320)
+		($Player as CharacterBody2D).velocity = Vector2(0, 900)
 	else:
 		($Player as Node2D).position = spawn_pos
 	($Corpse as Node2D).position = STAGE["corpse"]
@@ -264,6 +268,11 @@ func player_on_platform(rect_key: String, player: Node) -> bool:
 	return absf(feet - rect.position.y) <= 6.0
 
 func _process(_delta: float) -> void:
+	# 从虚空进来：先黑着落 2 秒，再淡入到教学关开头
+	if _dark_hold_pending > 0.0:
+		_dark_hold_pending = maxf(_dark_hold_pending - _delta, 0.0)
+		if _dark_hold_pending <= 0.0:
+			_build_fade_in()
 	if _refusing:
 		return
 	# 教程跑完（献祭完成）就把门点亮；之后玩家走进门即切到第一层

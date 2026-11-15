@@ -48,16 +48,14 @@ func _run() -> void:
 	# 越接近落地越急促：把时间拨到 95%%，间隔应接近 1 秒`n	_p.set("_desc_t", 33.2)`n	await create_timer(0.1).timeout`n	var beat_end := float(_p.get("_beat_interval"))`n	_check(beat_end < 1.4, "临落地时鼓点没有到 1 秒（%.2f）" % beat_end)`n	# 身体在生长
 	_check(knight.scale.x > 0.63, "骑士没有生长（scale=%.2f）" % knight.scale.x)
 
-	# 落地：停在暗拍 → 一秒后从玩家亮起
+	# 收尾：整屏压黑停一拍，然后直接切场景（教学关在黑暗里接住）
 	_p.call("_desc_hold_dark")
-	await create_timer(0.15).timeout
+	await create_timer(0.6).timeout
 	_check(int(_p.get("_desc_phase")) == 2, "没有停在暗拍")
-	_check(float(_p.get("_pulse_rect").get("color").a) > 0.5, "落地时不是暗的（全屏遮罩没压下来）")
+	_check(float(_p.get("_pulse_rect").get("color").a) > 0.8, "收尾没有压黑（全屏遮罩 %.2f）" % float(_p.get("_pulse_rect").get("color").a))
 
 	await create_timer(1.2).timeout
-	_check(int(_p.get("_desc_phase")) == 3, "一秒后没有开始亮起")
-	var radius := float(_p.get("_dark_mat").get_shader_parameter("radius"))
-	_check(radius > 120.0, "亮起时黑幕没扩大（radius=%.0f）" % radius)
+	_check(bool(_p.get("_leaving")), "压黑停一拍后没有切到教学关")
 
 	print("[descent] %s（鼓点 %.1fs→%.1fs）" % ["PASS" if not _failed else "FAIL", beat0, beat1])
 	quit(0 if not _failed else 1)

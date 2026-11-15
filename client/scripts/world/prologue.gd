@@ -80,11 +80,17 @@ var _descending := false
 ## 下落演出的节拍与脉冲：鼓点从 5s 一拍渐快到 1s 一拍，明暗与它同拍
 const BEAT_START := 5.0
 const BEAT_END := 1.0
-const FALL_TIME := 18.0
+const FORM_TIME := 3.2      # 轮廓长成角色的时间
+const FULL_FALL_HOLD := 3.0 # 成形后继续全速下落的时长
+const TERMINAL_FALL_SPEED := 900.0  # 与 player.gd 的 MAX_FALL_SPEED 一致
+const FALL_GRAVITY := 2550.0        # 与 player.gd 的 GRAVITY 一致
 const HOLD_DARK := 1.0
 const REVEAL_TIME := 2.0
 var _desc_phase := 0            # 0 静止 / 1 下落 / 2 停在暗拍 / 3 从玩家亮起
 var _desc_t := 0.0
+var _form_t := 0.0
+var _fall_vy := 0.0
+var _real_body: Node2D
 var _beat_accum := 0.0
 var _beat_interval := BEAT_START
 var _beat_flash := 0.0
@@ -791,26 +797,39 @@ func _begin_descent() -> void:
 	_set_subtitle_mode(true)
 	_desc_phase = 1
 	_desc_t = 0.0
+	_form_t = 0.0
+	_fall_vy = 0.0
 	_beat_accum = _beat_interval
 	_build_pulse_rect()
 	_build_descent_bg()
 
-	# 魂光褪掉、骑士显形（生长交给下面那条 tween，贯穿整个下落）
+	# 魂光褪掉，留下轮廓；真正长成角色由 _update_descent_pulse 里的交叉淡入完成
 	var tw := create_tween()
 	tw.set_parallel(true)
-	tw.tween_property(_soul_core, "modulate:a", 0.0, 2.5)
-	tw.tween_property(_soul_haze, "modulate:a", 0.0, 2.5)
-	tw.tween_property(_knight, "modulate:a", 1.0, 4.0)
-	tw.tween_property(_knight, "scale", Vector2(1.0, 1.0), FALL_TIME * 0.8) \
-		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tw.tween_property(_soul_core, "modulate:a", 0.0, 2.0)
+	tw.tween_property(_soul_haze, "modulate:a", 0.0, 2.0)
+	tw.tween_property(_knight, "modulate:a", 1.0, 1.5)
 
-	# 一直往下掉，镜头在 _update_descent_pulse 里始终锁住玩家
-	var fall := create_tween()
-	fall.tween_property(_soul, "position:y", SOUL_START.y + 4200.0, FALL_TIME) \
-		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-	fall.tween_callback(_desc_hold_dark)
+	# 真实角色模型：现在挂出来但完全透明，成形时交叉淡入
+	_spawn_real_body()
 
-## 下落期间的节拍器：鼓点间隔从 5s 收紧到 1s，明暗与它同拍
+## 把 player.tscn 的可见部分挂到灵魂身上：只当模型用，关掉物理与处理
+func _spawn_real_body() -> void:
+	if _real_body != null and is_instance_valid(_real_body):
+		return
+	var scene = load("res://scenes/player/player.tscn")
+	if scene == null:
+		return
+	_real_body = scene.instantiate() as Node2D
+	_real_body.name = "RealBody"
+	_real_body.modulate = Color(1, 1, 1, 0)
+	_real_body.set_physics_process(false)
+	_real_body.set_process(false)
+	_real_body.scale = Vector2.ONE * 0.62
+	_soul.add_child(_real_body)
+
+## 下落期间的节拍器：鼓点间隔从 5s 收紧到 1s，音量渐强，明暗与它同拍。
+## 速度按角色正常物理下落（重力加速到终端速度 900），不再用固定时长的 tween。
 func _update_descent_pulse(delta: float) -> void:
 	if _desc_phase == 0:
 		return
@@ -818,37 +837,58 @@ func _update_descent_pulse(delta: float) -> void:
 	if _desc_phase != 1:
 		return
 
-	_desc_t += delta
-	var k := clampf(_desc_t / FALL_TIME, 0.0, 1.0)
+	_form_t += delta
+	var total := FORM_TIME + FULL_FALL_HOLD
+	var k := clampf(_form_t / total, 0.0, 1.0)
+
+	# 物理下落：重力加速到终端速度
+	_fall_vy = minf(_fall_vy + FALL_GRAVITY * delta, TERMINAL_FALL_SPEED)
+	_soul.position.y += _fall_vy * delta
+
+	# 从"灵魂轮廓"长成"真实角色"：先放大轮廓，后段交叉淡入真实模型
+	var grow := clampf(_form_t / FORM_TIME, 0.0, 1.0)
+	_knight.scale = Vector2.ONE * lerpf(0.62, 1.0, grow)
+	if _real_body != null and is_instance_valid(_real_body):
+		var swap := clampf((grow - 0.72) / 0.28, 0.0, 1.0)
+		_real_body.modulate.a = swap
+		_real_body.scale = Vector2.ONE * lerpf(0.62, 1.0, grow)
+		_knight.modulate.a = 1.0 - swap
+
+	# 鼓点：间隔收紧 + 音量渐强
 	_beat_interval = lerpf(BEAT_START, BEAT_END, k * k)
 	_beat_accum += delta
 	if _beat_accum >= _beat_interval:
 		_beat_accum = 0.0
 		_beat_flash = 1.0
-		# 鼓点先用现有的低频受击音顶位，音量压到底只留"咚"的质感
 		GameManager.play_sfx("drum", lerpf(-16.0, -2.0, k), 1.0)
 
-	# X 也要跟：虚空里角色可能停在 x=250 之类的任意位置，只锁 Y 会把人放到画面左侧
+	# 镜头：始终把角色放正中（XY 都锁），并缓慢拉远
 	_camera.position = _soul.global_position
-	_camera.offset = Vector2.ZERO   # 下落时不要震屏残留，否则人会偏出画面中心
+	_camera.offset = Vector2.ZERO
 	_camera.zoom = Vector2.ONE * lerpf(_desc_zoom_from, _desc_zoom_to, k)
 	if _descent_bg != null:
 		_descent_bg.position.y = (_soul.global_position.y - SOUL_START.y) * 0.55
-	# 视觉在恢复：黑幕的洞随下落一起变大（从"只有脚下一圈"到"看得见周围"）
+
 	_dark_radius_override = 104.0 + 300.0 * k
-	# 全屏忽明忽暗：亮的时候整屏亮起来，暗的那一拍压黑
 	if _pulse_rect != null:
 		_pulse_rect.color.a = 0.62 * _beat_flash
 
-## 停在"暗"的那一拍：不闪、不动，等一秒
+	# 成形后再保持全速下落 3 秒，然后压黑交接
+	if _form_t >= total:
+		_desc_hold_dark()
+
+## 收尾：整屏压黑，停一拍，直接切教学关
+## （教学关自己在黑暗里接住玩家，落 2 秒再亮起来）
 func _desc_hold_dark() -> void:
+	if _desc_phase != 1:
+		return
 	_desc_phase = 2
 	_beat_flash = 0.0
 	_beat_accum = 0.0
-	if _pulse_rect != null:
-		_pulse_rect.color.a = 0.62
-	await get_tree().create_timer(HOLD_DARK).timeout
-	_desc_reveal()
+	var tw := create_tween()
+	tw.tween_property(_pulse_rect, "color:a", 1.0, 0.45)
+	tw.tween_interval(HOLD_DARK)
+	tw.tween_callback(_leave)
 
 ## 从玩家向外亮：黑幕挖洞半径撑开，暗角褪到只剩一点，然后进教学关
 func _desc_reveal() -> void:
