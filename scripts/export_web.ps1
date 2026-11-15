@@ -64,6 +64,26 @@ foreach ($pat in $optional) {
 
 if ($missing.Count -gt 0) { throw "导出产物不完整，缺少：$($missing -join ', ')" }
 
+# 把载入页内联进 index.html。
+# Godot 的默认 shell 只有一条细进度条和引擎 splash，首次要下 100 MB，看起来就是黑屏。
+# 不改默认 shell 模板（那里面全是版本相关的占位符），只往产物里插一段 CSS 与 JS。
+$htmlPath = Join-Path $OutDir 'index.html'
+$cssPath = Join-Path $Root 'deploy\web-shell\loading.css'
+$jsPath = Join-Path $Root 'deploy\web-shell\loading.js'
+foreach ($p in @($htmlPath, $cssPath, $jsPath)) {
+    if (-not (Test-Path $p)) { throw "缺少文件：$p" }
+}
+
+$html = [System.IO.File]::ReadAllText($htmlPath)
+$css = [System.IO.File]::ReadAllText($cssPath)
+$js = [System.IO.File]::ReadAllText($jsPath)
+
+if ($html -notmatch '</head>') { throw 'index.html 里找不到 </head>' }
+$html = $html.Replace('</head>', "<style>`n$css`n</style>`n</head>")
+$html = $html.Replace('</body>', "<script>`n$js`n</script>`n</body>")
+[System.IO.File]::WriteAllText($htmlPath, $html, (New-Object System.Text.UTF8Encoding($false)))
+Write-Host '已注入载入页'
+
 Get-ChildItem $OutDir | Select-Object Name, Length | Format-Table -AutoSize
 Write-Host "导出完成：$OutDir"
 Write-Host '下一步：docker compose -f deploy/docker-compose.yml up -d，浏览器打开 https://localhost'

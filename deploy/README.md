@@ -37,6 +37,7 @@ docker compose -f deploy/docker-compose.yml up -d
 | 指纹收敛 | 同上 | `server_tokens off`；后端还加了 `--no-server-header` |
 | 安全响应头 | 同上 | `nosniff`、`X-Frame-Options`、`Referrer-Policy` |
 | 缓存分级 | 同上 | 入口页不缓存，`wasm`/`pck` 长缓存 30 天 |
+| 入口跳转 | 同上 | `/` 跳到 `/game/`；没导出游戏包时回退落地页 |
 
 配置是**模板**：镜像里放 `.template`，启动时按 `SYMBIONT_` 前缀的环境变量渲染。
 同一个镜像换环境只改 `.env`，不需要重建镜像。

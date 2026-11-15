@@ -93,6 +93,7 @@ scripts/db_restore.ps1 -File backups\symbiont-20261115-185033.sql.gz
 | 现象 | 先看 | 处理 |
 |---|---|---|
 | 浏览器打不开 | `docker compose ps` | 网关没起来 → `up -d`；证书报错 → 重跑 `make_ca.ps1` |
+| 浏览器一片黑 | 浏览器 F12 的 Console / 网关访问日志 | 先看 `/game/index.js`、`index.pck` 是不是 404：根路径必须跳到 `/game/`，不能把 `index.html` 的内容直接吐在 `/`（相对路径会全崩） |
 | `/api` 全 429 | 网关日志 | 限流触发。临时放宽 `SYMBIONT_RATE_LIMIT` 后 `up -d` |
 | `/api` 502 | `logs server-1` | 后端崩了或健康检查失败；看 uvicorn 报错 |
 | `/api` 504 | 网关日志里的 `urt` | 后端慢；先看数据库慢查询 |

@@ -46,6 +46,11 @@ server {
     # 只抹版本号，"nginx" 这三个字母去不掉（要彻底去掉得装 headers-more 模块）
     server_tokens off;
 
+    # 跳转保持相对地址。
+    # 默认是 absolute_redirect on，会把 Location 补成 https://host:内部端口/...，
+    # 容器里监听的是 8443，补出来就成了 https://localhost:8443/，浏览器直接连不上。
+    absolute_redirect off;
+
     root /usr/share/nginx/html;
 
     # 下面这些头对所有响应生效。
@@ -66,9 +71,15 @@ server {
 
     access_log /var/log/nginx/access.log symbiont;
 
-    # 根路径：有游戏就进游戏，没导出就退回落地页
+    # 根路径跳到 /game/。
+    # 不能把 /game/index.html 的内容直接吐在 "/" 上：页面里的 index.js / index.pck
+    # 都是相对路径，按 "/" 解析会全部 404，浏览器只剩一块黑屏（踩过）。
+    # 没导出游戏包时退回落地页，免得新克隆的仓库打开是 404。
     location = / {
-        try_files /game/index.html /index.html;
+        if (-f /usr/share/nginx/html/game/index.html) {
+            return 302 /game/;
+        }
+        return 302 /index.html;
     }
 
     # 游戏包（由 compose 挂载进来）

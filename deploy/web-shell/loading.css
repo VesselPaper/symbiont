@@ -1,0 +1,81 @@
+/* 载入页样式：由 scripts/export_web.ps1 内联进导出产物的 index.html
+ *
+ * 为什么不改 Godot 的默认 shell：那个模板带一堆版本相关的占位符（$GODOT_URL、
+ * $GODOT_CONFIG 等），手改容易把导出打坏。这里只做两件事——藏掉原生的表情与进度条、
+ * 加上自己的标题和进度条——原有脚本一行不动。
+ */
+
+#status {
+	background: #080a0f !important;
+}
+
+/* Godot 默认那张 splash 与细进度条都藏掉，换成我们自己的 */
+#status-splash,
+#status-progress {
+	display: none !important;
+}
+
+#sym-load {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 16px;
+	user-select: none;
+}
+
+#sym-title {
+	font-size: 34px;
+	font-weight: 600;
+	letter-spacing: 0.34em;
+	color: #dfe7f5;
+	font-family: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+	margin-left: 0.34em; /* 补掉最后一个字的字距，视觉居中 */
+}
+
+#sym-sub {
+	font-size: 13px;
+	letter-spacing: 0.2em;
+	color: #6c7891;
+	font-family: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+}
+
+#sym-track {
+	width: min(42vw, 380px);
+	height: 3px;
+	background: #171e2a;
+	border-radius: 2px;
+	overflow: hidden;
+}
+
+#sym-fill {
+	height: 100%;
+	width: 0%;
+	background: linear-gradient(90deg, #2f57b0, #8fb8ff);
+	transition: width 0.18s linear;
+}
+
+#sym-pct {
+	font-size: 12px;
+	color: #78849a;
+	font-variant-numeric: tabular-nums;
+	font-family: "Consolas", "Courier New", monospace;
+	letter-spacing: 0.06em;
+}
+
+/* 三个点呼吸，让"卡住"和"在动"区分得开 */
+@keyframes sym-dots {
+	0%, 100% { opacity: 0.25; }
+	50% { opacity: 1; }
+}
+
+#sym-dots {
+	animation: sym-dots 1.5s ease-in-out infinite;
+	letter-spacing: 0.1em;
+}
+
+#sym-hint {
+	font-size: 11px;
+	color: #4d5768;
+	letter-spacing: 0.08em;
+	font-family: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+}
