@@ -1,4 +1,4 @@
-﻿extends SceneTree
+extends SceneTree
 ## 虚空 → 地图的过渡回归（M4-25）
 ##   Godot_v4.7.2-stable_win64_console.exe --headless --path client --script res://tests/void_transition_test.gd
 ##
@@ -26,8 +26,13 @@ func _run() -> void:
 	pro.call("_begin_descent")
 	await process_frame
 	_check(bool(pro.get("_descending")), "序章没有进入下坠状态")
-	_check(pro.get_node_or_null("FallStreaks") != null, "下坠演出里没有速度线")
-	_check(pro.get_node_or_null("VoidFloor") != null, "下坠演出里没有实体化的地板")
+	# M4-39 换成了一镜到底的演出：不再有速度线与实体地板，
+	# 改成"镜头锁玩家 + 鼓点收紧 + 明暗同拍"，这里钉住新的骨架
+	_check(int(pro.get("_desc_phase")) == 1, "下坠演出没有进入第 1 阶段")
+	var cam: Camera2D = pro.get("_camera")
+	var soul: Node2D = pro.get("_soul")
+	_check(cam != null and soul != null and absf(cam.global_position.y - soul.global_position.y) < 4.0,
+			"下坠时镜头没有锁住玩家")
 	pro.queue_free()
 	await process_frame
 

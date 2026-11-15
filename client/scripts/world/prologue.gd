@@ -1,4 +1,4 @@
-﻿extends Node2D
+extends Node2D
 ## 序章 · 虚无里的苏醒（M4-24 / M4-25）
 ##
 ## 剧情：没有视觉、没有听觉、没有身体的一小团灰白，浮在无边的黑里。
@@ -77,6 +77,21 @@ var _beat_index := 0
 var _can_move := false
 var _fused := false
 var _descending := false
+## 下落演出的节拍与脉冲：鼓点从 5s 一拍渐快到 1s 一拍，明暗与它同拍
+const BEAT_START := 5.0
+const BEAT_END := 1.0
+const FALL_TIME := 35.0
+const HOLD_DARK := 1.0
+const REVEAL_TIME := 2.0
+var _desc_phase := 0            # 0 静止 / 1 下落 / 2 停在暗拍 / 3 从玩家亮起
+var _desc_t := 0.0
+var _beat_accum := 0.0
+var _beat_interval := BEAT_START
+var _beat_flash := 0.0
+var _desc_zoom_from := 1.0
+var _desc_zoom_to := 0.80
+## 亮起阶段接管黑幕半径（-1 表示仍用呼吸值）
+var _dark_radius_override := -1.0
 var _leaving := false
 var _called_out := false
 var _drift := 0.0
@@ -441,6 +456,8 @@ func _build_ui() -> void:
 	_soul_label = _make_label("Narration", 22, Color(0.80, 0.84, 0.88, 0.95))
 	_soul_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_soul_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	# M4-39：虚无前半段是内心独白（居中），附身开始后改成字幕位（底部），
+	# 让画面中央留给"寄生体化雾钻进来"这件事。位置由 _set_subtitle_mode 切换。
 	layer.add_child(_soul_label)
 	# 身影说的话仍复用这一枚，只是换成偏冷的紫色，说的瞬间同位置换色，不另起一块
 	_heart_label = _soul_label
@@ -476,6 +493,7 @@ func _process(delta: float) -> void:
 	_time += delta
 	_update_shake(delta)
 	_update_darkness()
+	_update_descent_pulse(delta)
 	_update_void()
 	_update_soul(delta)
 	_update_heart(delta)
@@ -506,8 +524,11 @@ func _update_darkness() -> void:
 	var screen := (_soul.global_position - cam_pos) * cam_zoom + view * 0.5
 	_dark_mat.set_shader_parameter("hole", screen)
 	_dark_mat.set_shader_parameter("screen_size", view)
-	# 光晕轻微搏动，像“还活着的一小圈视野”
-	_dark_mat.set_shader_parameter("radius", 104.0 + sin(_time * 1.5) * 7.0)
+	# 落地亮起阶段由外部接管半径；平时才是"还活着的一小圈视野"的轻微搏动
+	if _dark_radius_override >= 0.0:
+		_dark_mat.set_shader_parameter("radius", _dark_radius_override)
+	else:
+		_dark_mat.set_shader_parameter("radius", 104.0 + sin(_time * 1.5) * 7.0)
 
 func _update_shake(delta: float) -> void:
 	if _camera == null or not is_instance_valid(_camera):
@@ -746,69 +767,89 @@ func _after_fuse() -> void:
 # 你一边往下坠，身上那层灰白的魂光一边褪掉、显出兜帽骑士的轮廓，
 # 最后带着速度砸进教学关（教学关那边 _drop_in 接住，落地扬尘）。
 
+## M4-39：附身之后是一镜到底的 60 秒下落演出。
+## 躯干从灵魂形长成主角模样，镜头始终把人放在画面中间并缓慢拉远，
+## 环境明暗跟着鼓点走（5s 一拍渐快到 1s 一拍），落地前停在"暗"的那一拍，
+## 静一秒后从玩家身上向外亮起，直接接教学关。
 func _begin_descent() -> void:
 	if _descending:
 		return
 	_descending = true
 	_can_move = false
+	_set_subtitle_mode(true)
+	_desc_phase = 1
+	_desc_t = 0.0
+	_beat_accum = _beat_interval
 
-	# 虚空地板：一道冷光从脚下摊开，然后被踩碎
-	var floor_line := Line2D.new()
-	floor_line.name = "VoidFloor"
-	floor_line.width = 2.0
-	floor_line.default_color = Color(0.62, 0.72, 0.82, 0.0)
-	floor_line.points = PackedVector2Array([
-		Vector2(SOUL_START.x - 260.0, SOUL_START.y + 96.0),
-		Vector2(SOUL_START.x + 260.0, SOUL_START.y + 96.0),
-	])
-	add_child(floor_line)
-
-	# 速度线
-	var streaks := Node2D.new()
-	streaks.name = "FallStreaks"
-	streaks.z_index = 3
-	add_child(streaks)
-	var streak_nodes: Array[Line2D] = []
-	for i in range(14):
-		var line := Line2D.new()
-		line.width = 1.0 + float(i % 3) * 0.6
-		line.default_color = Color(0.70, 0.80, 0.90, 0.0)
-		var x := 380.0 + float(i) * 60.0 + float(i % 4) * 9.0
-		line.points = PackedVector2Array([Vector2(x, -80), Vector2(x + 2.0, 150.0 + float(i % 5) * 40.0)])
-		streaks.add_child(line)
-		streak_nodes.append(line)
-
+	# 魂光褪掉、骑士显形（生长交给下面那条 tween，贯穿整个下落）
 	var tw := create_tween()
-	tw.set_trans(Tween.TRANS_SINE)
-	# ① 地板亮起、四周压黑、镜头退开一点（0.9s）
-	tw.tween_property(floor_line, "default_color:a", 0.5, 0.7)
-	tw.parallel().tween_property(_vignette, "modulate:a", 0.94, 0.9)
-	tw.parallel().tween_property(_camera, "zoom", Vector2(0.84, 0.84), 0.9)
-	# ② 地板碎掉，开始坠落：魂光往下被拉长（0.5s）
-	tw.tween_property(floor_line, "default_color:a", 0.0, 0.4).set_ease(Tween.EASE_IN)
-	tw.parallel().tween_property(_soul, "scale", Vector2(0.78, 1.55), 0.5)
-	# ③ 边坠边变身：魂光褪、骑士轮廓显 —— 1.5 秒里两边交叉过渡
-	tw.tween_callback(func() -> void:
-		for line in streak_nodes:
-			var st := create_tween()
-			st.set_loops(0)
-			st.tween_property(line, "default_color:a", 0.5, 0.2)
-			st.tween_property(line, "default_color:a", 0.0, 0.5)
-	)
-	tw.tween_property(_soul_core, "modulate:a", 0.0, 1.0)
-	tw.parallel().tween_property(_soul_haze, "modulate:a", 0.0, 1.0)
-	tw.parallel().tween_property(_knight, "modulate:a", 1.0, 1.0)
-	tw.parallel().tween_property(_knight, "scale", Vector2(1.0, 1.0), 1.2) \
-		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tw.parallel().tween_property(_soul, "position:y", SOUL_START.y + 300.0, 1.5) \
-		.set_ease(Tween.EASE_IN)
-	tw.parallel().tween_property(_soul, "scale", Vector2(1.0, 1.0), 1.2)
-	# ④ 加速下坠，黑场收尾
-	tw.tween_property(_soul, "position:y", SOUL_START.y + 780.0, 0.6).set_ease(Tween.EASE_IN)
-	tw.parallel().tween_property(_camera, "position:y", 360.0 + 180.0, 0.6)
-	tw.tween_property(_fade, "color:a", 1.0, 0.55)
-	tw.tween_interval(0.15)
-	tw.tween_callback(_leave)
+	tw.set_parallel(true)
+	tw.tween_property(_soul_core, "modulate:a", 0.0, 2.5)
+	tw.tween_property(_soul_haze, "modulate:a", 0.0, 2.5)
+	tw.tween_property(_knight, "modulate:a", 1.0, 4.0)
+	tw.tween_property(_knight, "scale", Vector2(1.0, 1.0), FALL_TIME * 0.8) \
+		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+
+	# 一直往下掉，镜头在 _update_descent_pulse 里始终锁住玩家
+	var fall := create_tween()
+	fall.tween_property(_soul, "position:y", SOUL_START.y + 4200.0, FALL_TIME) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	fall.tween_callback(_desc_hold_dark)
+
+## 下落期间的节拍器：鼓点间隔从 5s 收紧到 1s，明暗与它同拍
+func _update_descent_pulse(delta: float) -> void:
+	if _desc_phase == 0:
+		return
+	_beat_flash = maxf(_beat_flash - delta * 3.2, 0.0)
+	if _desc_phase != 1:
+		return
+
+	_desc_t += delta
+	var k := clampf(_desc_t / FALL_TIME, 0.0, 1.0)
+	_beat_interval = lerpf(BEAT_START, BEAT_END, k * k)
+	_beat_accum += delta
+	if _beat_accum >= _beat_interval:
+		_beat_accum = 0.0
+		_beat_flash = 1.0
+		# 鼓点先用现有的低频受击音顶位，音量压到底只留"咚"的质感
+		GameManager.play_sfx("hit_flesh", -12.0, 0.55)
+
+	_camera.position = Vector2(640.0, _soul.global_position.y)
+	_camera.zoom = Vector2.ONE * lerpf(_desc_zoom_from, _desc_zoom_to, k)
+	if _vignette != null:
+		_vignette.modulate.a = clampf(0.62 + 0.34 * _beat_flash, 0.0, 1.0)
+
+## 停在"暗"的那一拍：不闪、不动，等一秒
+func _desc_hold_dark() -> void:
+	_desc_phase = 2
+	_beat_flash = 0.0
+	_beat_accum = 0.0
+	if _vignette != null:
+		_vignette.modulate.a = 0.96
+	await get_tree().create_timer(HOLD_DARK).timeout
+	_desc_reveal()
+
+## 从玩家向外亮：黑幕挖洞半径撑开，暗角褪到只剩一点，然后进教学关
+func _desc_reveal() -> void:
+	_desc_phase = 3
+	var tw := create_tween()
+	tw.set_parallel(true)
+	if _vignette != null:
+		tw.tween_property(_vignette, "modulate:a", 0.28, REVEAL_TIME)
+	if _dark_mat != null:
+		tw.tween_method(_set_dark_radius, 104.0, 1400.0, REVEAL_TIME)
+	tw.chain().tween_interval(0.4)
+	tw.chain().tween_callback(_leave)
+
+func _set_dark_radius(r: float) -> void:
+	_dark_radius_override = r
+
+## 附身开始后旁白从画面中央降到字幕位，把中央让给"黑雾钻进来"
+func _set_subtitle_mode(on: bool) -> void:
+	if _soul_label == null:
+		return
+	_soul_label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM if on else VERTICAL_ALIGNMENT_CENTER
+	_soul_label.offset_bottom = -84.0 if on else 0.0
 
 func _leave() -> void:
 	if _leaving:
