@@ -80,7 +80,7 @@ var _descending := false
 ## 下落演出的节拍与脉冲：鼓点从 5s 一拍渐快到 1s 一拍，明暗与它同拍
 const BEAT_START := 5.0
 const BEAT_END := 1.0
-const FALL_TIME := 35.0
+const FALL_TIME := 18.0
 const HOLD_DARK := 1.0
 const REVEAL_TIME := 2.0
 var _desc_phase := 0            # 0 静止 / 1 下落 / 2 停在暗拍 / 3 从玩家亮起
@@ -687,17 +687,8 @@ func _fuse() -> void:
 	var tw := create_tween()
 	tw.tween_interval(1.1)
 	tw.tween_callback(func() -> void: _whisper_heart("别急着明白。先把这只手接过去。", 2.2))
-	# 三段逼近：每一段都“先缩一下再扑上来”
-	for i in range(3):
-		var step := float(i + 1) / 3.0
-		tw.tween_property(_heart, "scale", Vector2(0.86, 1.06), 0.10)
-		tw.parallel().tween_property(_heart, "position", start.lerp(target, step - 0.12 * step), 0.10)
-		tw.tween_property(_heart, "scale", Vector2(1.0, 1.0), 0.16)
-		tw.parallel().tween_property(_heart, "position", start.lerp(target, step), 0.16) \
-			.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
-		tw.tween_callback(func() -> void: _punch(i))
-		tw.tween_interval(0.20)
-	# 化雾吞没：先炸成一大片黑雾，再收成漏斗钻进胸口
+	# M4-41：不再"扑过来三次、每次放大缩小"。本心在原地直接化成一整片黑雾，
+	# 由雾自己去收束成漏斗钻进胸口（视觉交给 mist_funnel）。
 	tw.tween_callback(_heart_scatter)
 	tw.tween_property(_heart, "scale", Vector2(0.22, 0.22), 1.4)
 	tw.parallel().tween_property(_heart, "position", target, 1.4)
@@ -835,7 +826,7 @@ func _update_descent_pulse(delta: float) -> void:
 		_beat_accum = 0.0
 		_beat_flash = 1.0
 		# 鼓点先用现有的低频受击音顶位，音量压到底只留"咚"的质感
-		GameManager.play_sfx("hit_flesh", -12.0, 0.55)
+		GameManager.play_sfx("drum", lerpf(-16.0, -2.0, k), 1.0)
 
 	_camera.position = Vector2(640.0, _soul.global_position.y)
 	_camera.offset = Vector2.ZERO   # 下落时不要震屏残留，否则人会偏出画面中心

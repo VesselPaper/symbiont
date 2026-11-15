@@ -34,7 +34,7 @@ const AMB_TRACKS := {
 }
 ## 与 tools/generate_audio.py 的 SFX_TABLE 一一对应；加音效时两边一起改。
 const SFX_NAMES := [
-	"hit", "hit_flesh", "hit_wood", "hit_metal", "swing", "pogo", "enemy_hit", "enemy_die",
+	"hit", "hit_flesh", "drum", "hit_wood", "hit_metal", "swing", "pogo", "enemy_hit", "enemy_die",
 	"boss_hit", "boss_roar", "boss_charge", "boss_slam", "shockwave", "boss_down",
 	"jump", "double_jump", "land", "step", "hurt", "death", "heal", "checkpoint",
 	"pickup", "limb_pickup", "weapon_pickup", "boots_pickup", "relic_pickup", "chest_open",
