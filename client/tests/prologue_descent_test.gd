@@ -45,7 +45,7 @@ func _run() -> void:
 	# 鼓点在收紧
 	var beat1 := float(_p.get("_beat_interval"))
 	_check(beat1 < beat0, "鼓点间隔没有收紧（%.2f → %.2f）" % [beat0, beat1])
-	# 越接近落地越急促：把时间拨到 95%%，间隔应接近 1 秒`n	_p.set("_desc_t", 33.2)`n	await create_timer(0.1).timeout`n	var beat_end := float(_p.get("_beat_interval"))`n	_check(beat_end < 1.4, "临落地时鼓点没有到 1 秒（%.2f）" % beat_end)`n	# 身体在生长
+	# 越接近落地越急促：把时间拨到 95%%，间隔应接近 1 秒`n	_p.set("_form_t", 19.0)`n	await create_timer(0.1).timeout`n	var beat_end := float(_p.get("_beat_interval"))`n	_check(beat_end < 1.4, "临落地时鼓点没有到 1 秒（%.2f）" % beat_end)`n	# 身体在生长
 	_check(knight.scale.x > 0.63, "骑士没有生长（scale=%.2f）" % knight.scale.x)
 
 	# 收尾：整屏压黑停一拍，然后直接切场景（教学关在黑暗里接住）

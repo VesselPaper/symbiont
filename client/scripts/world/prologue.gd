@@ -81,7 +81,7 @@ var _descending := false
 const BEAT_START := 5.0
 const BEAT_END := 1.0
 const FORM_TIME := 3.2      # 轮廓长成角色的时间
-const FULL_FALL_HOLD := 3.0 # 成形后继续全速下落的时长
+const FULL_FALL_HOLD := 16.8 # 成形后继续全速下落的时长（成形 3.2 + 16.8 = 全程 20 秒）
 const TERMINAL_FALL_SPEED := 900.0  # 与 player.gd 的 MAX_FALL_SPEED 一致
 const FALL_GRAVITY := 2550.0        # 与 player.gd 的 GRAVITY 一致
 const HOLD_DARK := 1.0
