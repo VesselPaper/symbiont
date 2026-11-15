@@ -226,7 +226,8 @@ func _void_arrival() -> void:
 	var cam := $Camera2D as Camera2D
 	var player := $Player as Node2D
 	if _fade_rect != null:
-		_fade_rect.color = Color(0, 0, 0, 1)
+		# 这个遮罩是靠 modulate 透明度起作用的，只改 color 是看不见的（之前就是踩了这个）
+		_fade_rect.modulate = Color(1, 1, 1, 1)
 
 	var normal_zoom := CAMERA_ZOOM
 	var intro_zoom := CAMERA_ZOOM * 1.38
@@ -247,7 +248,7 @@ func _void_arrival() -> void:
 	soul.name = "SoulBody"
 	soul.z_index = 6
 	add_child(soul)
-	soul.set_process(false)           # 下坠期间由补间控制位置，避免和呼吸打架
+	soul.freeze_position = true       # 位置交给补间，但呼吸/飘带继续动
 	var start := stand_pos + Vector2(0, -430)
 	soul.global_position = start
 	cam.position = start
@@ -283,7 +284,7 @@ func _void_arrival() -> void:
 	soul.queue_free()
 
 	# ③ 10 秒起身：撑地 → 抬身 → 单膝 → 起立 → 站定（全程仍是黑的）
-	await _rise_sequence(player)
+	await _rise_sequence(player, cam)
 
 	player.set("_input_locked", false)
 	if cam.has_method("set_physics_process"):
@@ -321,81 +322,121 @@ func _suck_streaks(at: Vector2) -> void:
 	cleanup.tween_interval(0.7)
 	cleanup.tween_callback(node.queue_free)
 
-## 起身：四个阶段，带撑地手掌与膝盖道具，读完像真的从地上爬起来
-func _rise_sequence(player: Node2D) -> void:
+## 起身：10 秒，四段动作，配一套临时骨架（两臂两腿）。
+## 只转整体会像"一块板子翻过来"，所以要能看到手臂撑地、膝盖先起来。
+func _rise_sequence(player: Node2D, cam: Camera2D) -> void:
 	var p0 := player.global_position
-	var hand := _make_limb(Color(0.16, 0.17, 0.19, 1.0), Vector2(-10, -18), Vector2(-14, 6))
-	var knee := _make_limb(Color(0.13, 0.14, 0.16, 1.0), Vector2(6, -12), Vector2(12, 4))
-	add_child(hand)
-	add_child(knee)
-	hand.global_position = p0 + Vector2(-16, -2)
-	knee.global_position = p0 + Vector2(10, -4)
-	hand.modulate.a = 0.0
-	knee.modulate.a = 0.0
+	# 背景全黑时，深色角色几乎看不见：给他背后垫一圈冷光，只为了把轮廓读出来
+	var back := _make_back_light(player.global_position + Vector2(0, -12))
+	add_child(back)
+	# 用角色自己的手臂与斗篷做动作（不再外挂灰色道具肢体）
+	var arm: Node2D = player.get_node_or_null("Body/ArmPivot") as Node2D
+	var cape: Node2D = player.get_node_or_null("Body/Cape") as Node2D
+	var cloak: Node2D = player.get_node_or_null("Body/Cloak") as Node2D
 
 	var tw := create_tween()
-	# 撑地（2.5s）
-	tw.tween_property(player, "rotation", -1.15, 2.5).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
-	tw.parallel().tween_property(hand, "modulate:a", 1.0, 0.6)
-	tw.parallel().tween_property(hand, "global_position", p0 + Vector2(-18, 0), 2.5)
-	# 抬身（2.5s）
-	tw.tween_property(player, "rotation", -0.72, 2.5).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	tw.parallel().tween_property(hand, "global_position", p0 + Vector2(-14, 2), 2.5)
+	# 镜头在起身期间极缓慢推近，画面才不会像一张静止图
+	# 推近幅度大一点：纯静止画面看不出在动作
+	tw.parallel().tween_property(cam, "zoom", cam.zoom * 1.22, INTRO_RISE).set_trans(Tween.TRANS_SINE)
+	tw.parallel().tween_property(back, "modulate:a", 0.85, 1.2)
+	# 轻微呼吸：躯干随呼吸起伏，避免整段像一张静止图
+	tw.parallel().tween_property(player, "scale", Vector2(1.02, 0.98), INTRO_RISE * 0.5).set_trans(Tween.TRANS_SINE)
+	tw.parallel().tween_property(player, "scale", Vector2.ONE, INTRO_RISE * 0.5).set_trans(Tween.TRANS_SINE)
+	# ① 撑地（2.5s）：手臂从折叠转到撑住地面，整体从 90° 抬到 63°
+	tw.tween_property(player, "rotation", -1.10, 2.5).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	tw.parallel().tween_property(player, "rotation", -1.10, 2.5).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	if arm != null:
+		tw.parallel().tween_property(arm, "rotation", 2.25, 1.6).set_trans(Tween.TRANS_SINE)
+	if cloak != null:
+		tw.parallel().tween_property(cloak, "rotation", -0.12, 1.6)
+	if cape != null:
+		tw.parallel().tween_property(cape, "rotation", -0.18, 1.6)
+	# ② 抬身（2.5s）：躯干继续起，腿开始收
+	tw.tween_property(player, "rotation", -0.70, 2.5).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tw.parallel().tween_property(player, "rotation", -0.70, 2.5).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	tw.parallel().tween_property(player, "global_position:y", p0.y - 8.0, 2.5)
-	# 单膝（2.5s）
-	tw.tween_property(player, "rotation", -0.34, 2.5).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	tw.parallel().tween_property(knee, "modulate:a", 1.0, 0.6)
-	tw.parallel().tween_property(knee, "global_position", p0 + Vector2(12, 2), 2.5)
-	tw.parallel().tween_property(hand, "modulate:a", 0.0, 1.4)
-	# 起立（2.0s）→ 站定（0.5s）
-	tw.tween_property(player, "rotation", 0.08, 2.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
-	tw.parallel().tween_property(knee, "modulate:a", 0.0, 1.2)
+	if cloak != null:
+		tw.parallel().tween_property(cloak, "rotation", 0.06, 2.5)
+	if cape != null:
+		tw.parallel().tween_property(cape, "rotation", 0.10, 2.5)
+	# ③ 单膝（2.5s）：一条腿收到身下，手臂离地
+	tw.tween_property(player, "rotation", -0.32, 2.5).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tw.parallel().tween_property(player, "rotation", -0.32, 2.5).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	if arm != null:
+		tw.parallel().tween_property(arm, "rotation", 1.15, 2.0).set_trans(Tween.TRANS_SINE)
+	if cloak != null:
+		tw.parallel().tween_property(cloak, "rotation", -0.05, 2.5)
+	# ④ 起立（2.0s）+ 站定（0.5s）
+	tw.tween_property(player, "rotation", 0.07, 2.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	tw.parallel().tween_property(player, "rotation", 0.07, 2.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 	tw.parallel().tween_property(player, "global_position:y", p0.y, 2.0)
+	if arm != null:
+		tw.parallel().tween_property(arm, "rotation", 0.55, 2.0).set_trans(Tween.TRANS_SINE)
+	if cloak != null:
+		tw.parallel().tween_property(cloak, "rotation", 0.0, 2.0)
+	if cape != null:
+		tw.parallel().tween_property(cape, "rotation", 0.0, 2.0)
 	tw.tween_property(player, "rotation", 0.0, 0.5).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.parallel().tween_property(player, "rotation", 0.0, 0.5).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	tw.tween_callback(func() -> void:
 		GameManager.play_sfx("land", -10.0)
-		hand.queue_free()
-		knee.queue_free()
+		back.queue_free()
 	)
 	await tw.finished
+	player.rotation = 0.0
+	player.scale = Vector2.ONE
 
-## 简易肢体道具：一条带厚度的折线，用来当撑地的手 / 单膝的腿
-func _make_limb(color: Color, a: Vector2, b: Vector2) -> Line2D:
-	var line := Line2D.new()
-	line.width = 5.0
-	line.default_color = color
-	line.points = PackedVector2Array([a, b])
-	line.z_index = 3
-	return line
-
-## 站定后的亮起：光从角色处扩开，镜头拉远到常规
-func _reveal_at(player: Node2D, cam: Camera2D, normal_zoom: float) -> void:
-	var light := PointLight2D.new()
+## 角色背后的冷光：黑场里给轮廓垫一层，不然只能看见一片黑
+func _make_back_light(at: Vector2) -> Sprite2D:
 	var grad := Gradient.new()
-	grad.set_color(0, Color(1.0, 0.98, 0.92, 0.85))
-	grad.set_color(1, Color(1.0, 0.96, 0.88, 0.0))
+	grad.set_color(0, Color(0.62, 0.74, 0.95, 0.30))
+	grad.set_color(1, Color(0.40, 0.52, 0.80, 0.0))
 	var tex := GradientTexture2D.new()
 	tex.gradient = grad
 	tex.fill = GradientTexture2D.FILL_RADIAL
 	tex.fill_from = Vector2(0.5, 0.5)
 	tex.fill_to = Vector2(1.0, 0.5)
-	tex.width = 128
-	tex.height = 128
-	light.texture = tex
-	light.texture_scale = 1.2
-	light.energy = 0.2
-	light.position = player.global_position + Vector2(0, -10)
-	add_child(light)
+	tex.width = 256
+	tex.height = 256
+	var s := Sprite2D.new()
+	s.name = "RiseBackLight"
+	s.texture = tex
+	s.position = at
+	s.scale = Vector2(1.6, 1.9)
+	s.modulate = Color(1, 1, 1, 0.0)
+	s.z_index = -1
+	return s
+## 站定后的亮起：镜头拉远 + 黑幕淡出，另外给一圈**很淡**的暖光从角色扩散。
+## 用 Sprite2D 而不是 PointLight2D —— 后者是加法光，铺满屏会直接白掉。
+func _reveal_at(player: Node2D, cam: Camera2D, normal_zoom: float) -> void:
+	var grad := Gradient.new()
+	grad.set_color(0, Color(1.0, 0.97, 0.90, 0.55))
+	grad.set_color(1, Color(1.0, 0.95, 0.85, 0.0))
+	var tex := GradientTexture2D.new()
+	tex.gradient = grad
+	tex.fill = GradientTexture2D.FILL_RADIAL
+	tex.fill_from = Vector2(0.5, 0.5)
+	tex.fill_to = Vector2(1.0, 0.5)
+	tex.width = 256
+	tex.height = 256
+	var halo := Sprite2D.new()
+	halo.name = "RevealHalo"
+	halo.texture = tex
+	halo.position = player.global_position + Vector2(0, -10)
+	halo.scale = Vector2(0.4, 0.4)
+	halo.modulate = Color(1, 1, 1, 0.0)
+	halo.z_index = 20
+	add_child(halo)
 
 	var tw := create_tween()
 	tw.set_parallel(true)
-	tw.tween_property(light, "texture_scale", 14.0, INTRO_REVEAL).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.tween_property(halo, "modulate:a", 0.9, INTRO_REVEAL * 0.35)
+	tw.tween_property(halo, "scale", Vector2(7.0, 7.0), INTRO_REVEAL).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	tw.tween_property(cam, "zoom", Vector2(normal_zoom, normal_zoom), INTRO_REVEAL).set_trans(Tween.TRANS_SINE)
 	tw.tween_method(func(p: Vector2) -> void: cam.position = p, cam.position, player.global_position + Vector2(0, -56), INTRO_REVEAL)
-	tw.tween_property(_fade_rect, "color:a", 0.0, INTRO_REVEAL * 0.9)
-	await tw.finished
-	light.queue_free()
-
+	tw.tween_property(_fade_rect, "modulate:a", 0.0, INTRO_REVEAL * 0.9)
+	tw.chain().tween_property(halo, "modulate:a", 0.0, 0.6)
+	tw.chain().tween_callback(halo.queue_free)
 ## 平台原点是中心：碰撞换成 rect 大小、子节点归零、视觉按原始多边形缩放。
 ## 原来 JumpPlatform 的碰撞挂在 +343.5 这种手调偏移上，挪平台就得连子节点一起改，
 ## 这里统一成“原点=中心”，以后只给 rect 就行。

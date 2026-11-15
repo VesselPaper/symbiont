@@ -5,9 +5,12 @@ extends Node2D
 var _t := 0.0
 var _core: Polygon2D
 var _haze: Polygon2D
+var _reflection: Polygon2D
 var _glow: PointLight2D
 var _tendrils: Array = []
 var _base := Vector2.ZERO
+## 由外部补间控制位置时置 true：只停浮动，其余呼吸/飘带照旧动
+var freeze_position := false
 
 func _ready() -> void:
 	_base = position
@@ -35,6 +38,13 @@ func _build() -> void:
 	_haze.polygon = _ellipse(15.0, 21.0, 14)
 	add_child(_haze)
 
+	# 外层倒影：比雾体更淡、更扁，给一点"魂不是实心"的层次
+	_reflection = Polygon2D.new()
+	_reflection.color = Color(0.45, 0.58, 0.82, 0.10)
+	_reflection.polygon = _ellipse(22.0, 30.0, 16)
+	_reflection.scale = Vector2(1.0, 0.9)
+	add_child(_reflection)
+
 	_core = Polygon2D.new()
 	_core.color = Color(0.94, 0.98, 1.0, 0.98)
 	_core.polygon = _ellipse(6.6, 9.2, 14)
@@ -52,7 +62,11 @@ func _build() -> void:
 func _process(delta: float) -> void:
 	_t += delta
 	# 呼吸：上下轻浮 + 雾体缩放 + 光晕明暗，和虚空里同一个节奏
-	position.y = _base.y + sin(_t * 1.6) * 6.0
+	if not freeze_position:
+		position.y = _base.y + sin(_t * 1.6) * 6.0
+	if _reflection != null:
+		_reflection.scale = Vector2(1.0 + sin(_t * 1.3) * 0.08, 0.9 + sin(_t * 1.3) * 0.05)
+		_reflection.rotation = sin(_t * 0.9) * 0.05
 	if _haze != null:
 		_haze.scale = Vector2.ONE * (1.0 + sin(_t * 1.9) * 0.10)
 	if _core != null:
