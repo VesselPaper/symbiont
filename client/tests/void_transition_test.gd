@@ -59,8 +59,12 @@ func _run() -> void:
 	_check(absf(player.global_position.y - spawn.y) <= 8.0, "进关时人没有躺在出生点（y=%.1f）" % player.global_position.y)
 	_check(absf(player.rotation + PI * 0.5) < 0.15, "进关时人不是躺着的（rotation=%.2f）" % player.rotation)
 	_check(not bool(gm.call("has_flag", "enter_from_void")), "旗标没被消费，下次进关又会演一次")
+	# 起身是 10 秒的分段动作：3 秒时应该还处于"撑地/抬身"（约 -1.2 ~ -0.6）
+	# 时间轴：下坠 2.2 + 入体 1.0 ≈ 3.2s 后开始起身；再过 3.3s 应处在"抬身"阶段
+	await create_timer(6.5).timeout
+	_check(player.rotation < -0.75 and player.rotation > -1.35, "起身中段角度不对（%.2f）" % player.rotation)
 	var stood := false
-	for _i in range(420):
+	for _i in range(900):
 		await physics_frame
 		if absf(player.rotation) < 0.05 and player.is_on_floor():
 			stood = true

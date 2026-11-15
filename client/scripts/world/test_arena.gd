@@ -212,8 +212,16 @@ func _apply_stage() -> void:
 	($DummyB as Node2D).position = STAGE["dummy_b"]
 	($Altar as Node2D).position = STAGE["altar"]
 
-## 虚空落地演出（M4-51）：黑场里灵魂从上方坠下，镜头跟着它、并且比正式开局拉得更近，
-## 一开始看不见地面；灵魂落到躺着的角色身上 → 灵魂入体 → 角色分三段爬起来 → 四周亮起。
+## 虚空落地演出（M4-52）：
+##   黑场 → 灵魂（与虚空同一套造型，带呼吸）从上方坠下，镜头拉近且始终锁在画面正中
+##   → 灵魂缩进胸口、白丝被吸进去、身体一抽
+##   → 10 秒细节起身：撑地 → 抬身 → 单膝 → 起立 → 站定（全程黑暗）
+##   → 站定后镜头缓慢拉远到常规，光从角色身上向外扩开
+const INTRO_FALL := 2.2
+const INTRO_ENTER := 1.0
+const INTRO_RISE := 10.0
+const INTRO_REVEAL := 2.6
+
 func _void_arrival() -> void:
 	var cam := $Camera2D as Camera2D
 	var player := $Player as Node2D
@@ -225,75 +233,147 @@ func _void_arrival() -> void:
 	var stand_pos := player.global_position
 	var land_pos := stand_pos + Vector2(0, -16)
 
-	# 接管镜头：停掉常规跟随，避免两边抢位置
+	# 镜头：停掉常规跟随；并且临时解除地图边界，否则 x 会被 limit 夹住、人不在正中间
 	if cam.has_method("set_physics_process"):
 		cam.set_physics_process(false)
+	var saved_limits := [cam.limit_left, cam.limit_right, cam.limit_top, cam.limit_bottom]
+	cam.limit_left = -100000
+	cam.limit_right = 100000
+	cam.limit_top = -100000
+	cam.limit_bottom = 100000
 	cam.zoom = Vector2(intro_zoom, intro_zoom)
 
-	var soul := _make_soul_body()
+	var soul = load("res://components/soul_visual.gd").new()
+	soul.name = "SoulBody"
+	soul.z_index = 6
 	add_child(soul)
+	soul.set_process(false)           # 下坠期间由补间控制位置，避免和呼吸打架
 	var start := stand_pos + Vector2(0, -430)
 	soul.global_position = start
 	cam.position = start
 
-	# ① 下坠：灵魂全程在画面正中，镜头同步跟（用 method 同步两者，避免跟随滞后）
+	# ① 下坠：灵魂与镜头用同一条曲线同步，保证全程正中
 	var fall := create_tween()
 	fall.set_parallel(true)
-	fall.tween_property(soul, "global_position", land_pos, 2.2) \
+	fall.tween_property(soul, "global_position", land_pos, INTRO_FALL) \
 		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-	fall.tween_method(func(p: Vector2) -> void: cam.position = p, start, land_pos, 2.2) \
+	fall.tween_method(func(p: Vector2) -> void: cam.position = p, start, land_pos, INTRO_FALL) \
 		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	await fall.finished
 
-	# ② 入体：灵魂缩进胸口、淡掉，同时一记冲击环 + 身体一抽
-	# 冲击：镜头往下一沉再回弹（不用 camera_follow 的 shake，它的物理已被接管）
+	# ② 入体：灵魂压扁成一道，钻进胸口；一圈白丝从外向内收进去
+	var chest := stand_pos + Vector2(0, -10)
+	var enter := create_tween()
+	enter.set_parallel(true)
+	enter.tween_property(soul, "global_position", chest, INTRO_ENTER * 0.55)
+	enter.tween_property(soul, "scale", Vector2(0.25, 0.85), INTRO_ENTER * 0.55)
+	enter.tween_property(soul, "rotation", deg_to_rad(180.0), INTRO_ENTER * 0.55)
+	await enter.finished
+	_suck_streaks(chest)
+	var sink := create_tween()
+	sink.tween_property(soul, "scale", Vector2(0.05, 0.05), INTRO_ENTER * 0.45).set_ease(Tween.EASE_IN)
+	sink.parallel().tween_property(soul, "modulate:a", 0.0, INTRO_ENTER * 0.45)
+	sink.parallel().tween_property(player, "scale", Vector2(1.12, 0.88), 0.12)
+	sink.tween_property(player, "scale", Vector2(1.0, 1.0), 0.26).set_trans(Tween.TRANS_ELASTIC)
 	var punch := create_tween()
 	punch.tween_property(cam, "offset", Vector2(0, 6), 0.06)
-	punch.tween_property(cam, "offset", Vector2.ZERO, 0.2)
+	punch.tween_property(cam, "offset", Vector2.ZERO, 0.22)
 	GameManager.play_sfx("drum", -6.0, 1.0)
-	var enter := create_tween()
-	enter.tween_property(soul, "scale", Vector2(0.18, 0.18), 0.42).set_ease(Tween.EASE_IN)
-	enter.parallel().tween_property(soul, "modulate:a", 0.0, 0.42)
-	enter.parallel().tween_property(player, "scale", Vector2(1.10, 0.90), 0.12)
-	enter.tween_property(player, "scale", Vector2(1.0, 1.0), 0.24).set_trans(Tween.TRANS_ELASTIC)
-	await enter.finished
+	await sink.finished
 	soul.queue_free()
 
-	# ③ 爬起来：撑地 → 单膝 → 起身 → 站定，带轻微过冲
-	var y0 := player.global_position.y
-	var rise := create_tween()
-	rise.tween_property(player, "rotation", -0.55, 0.34).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
-	rise.parallel().tween_property(player, "scale", Vector2(1.04, 0.94), 0.34)
-	rise.parallel().tween_property(player, "global_position:y", y0 - 3.0, 0.34)
-	rise.tween_property(player, "rotation", -0.22, 0.38).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	rise.parallel().tween_property(player, "scale", Vector2(0.97, 1.03), 0.38)
-	rise.parallel().tween_property(player, "global_position:y", y0 - 7.0, 0.38)
-	rise.tween_callback(func() -> void: GameManager.play_sfx("land", -10.0))
-	rise.tween_property(player, "rotation", 0.10, 0.30).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
-	rise.parallel().tween_property(player, "scale", Vector2(1.0, 1.0), 0.30)
-	rise.parallel().tween_property(player, "global_position:y", y0, 0.30)
-	rise.tween_property(player, "rotation", 0.0, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	# ③ 10 秒起身：撑地 → 抬身 → 单膝 → 起立 → 站定（全程仍是黑的）
+	await _rise_sequence(player)
 
-	# 镜头在这段时间缓缓回到正式开局的 zoom，始终对着角色
-	var zoom_back := create_tween()
-	zoom_back.tween_property(cam, "zoom", Vector2(normal_zoom, normal_zoom), 1.24)
-
-	await rise.finished
 	player.set("_input_locked", false)
 	if cam.has_method("set_physics_process"):
 		cam.set_physics_process(true)
-	_build_fade_in()
+	cam.limit_left = int(saved_limits[0])
+	cam.limit_right = int(saved_limits[1])
+	cam.limit_top = int(saved_limits[2])
+	cam.limit_bottom = int(saved_limits[3])
 
-## 灵魂本体：亮核 + 雾光 + 三根飘带，和虚空里那个是同一套造型
-func _make_soul_body() -> Node2D:
-	var body := Node2D.new()
-	body.name = "SoulBody"
-	body.z_index = 6
+	# ④ 站定后才亮：镜头拉远 + 光从角色身上扩开
+	await _reveal_at(player, cam, normal_zoom)
 
-	var glow := PointLight2D.new()
+## 白丝收束：一圈细线从外向内收进胸口，读作"被吸进去"
+func _suck_streaks(at: Vector2) -> void:
+	var node := Node2D.new()
+	node.z_index = 7
+	add_child(node)
+	for i in range(20):
+		var line := Line2D.new()
+		line.width = 1.4
+		line.default_color = Color(0.90, 0.96, 1.0, 0.75)
+		var a := TAU * float(i) / 20.0
+		var from := at + Vector2(cos(a), sin(a) * 0.7) * randf_range(46.0, 90.0)
+		# 线段本身沿"朝胸口"方向摆放，整条线做位移+淡出（points 不能逐点补间）
+		var dir := (at - from).normalized()
+		line.position = from
+		line.points = PackedVector2Array([Vector2.ZERO, dir * 26.0])
+		node.add_child(line)
+		var tw := create_tween()
+		tw.tween_interval(randf_range(0.0, 0.18))
+		tw.tween_property(line, "position", at - dir * 10.0, 0.34).set_ease(Tween.EASE_IN)
+		tw.parallel().tween_property(line, "scale", Vector2(0.2, 0.2), 0.34).set_ease(Tween.EASE_IN)
+		tw.parallel().tween_property(line, "modulate:a", 0.0, 0.34)
+	var cleanup := create_tween()
+	cleanup.tween_interval(0.7)
+	cleanup.tween_callback(node.queue_free)
+
+## 起身：四个阶段，带撑地手掌与膝盖道具，读完像真的从地上爬起来
+func _rise_sequence(player: Node2D) -> void:
+	var p0 := player.global_position
+	var hand := _make_limb(Color(0.16, 0.17, 0.19, 1.0), Vector2(-10, -18), Vector2(-14, 6))
+	var knee := _make_limb(Color(0.13, 0.14, 0.16, 1.0), Vector2(6, -12), Vector2(12, 4))
+	add_child(hand)
+	add_child(knee)
+	hand.global_position = p0 + Vector2(-16, -2)
+	knee.global_position = p0 + Vector2(10, -4)
+	hand.modulate.a = 0.0
+	knee.modulate.a = 0.0
+
+	var tw := create_tween()
+	# 撑地（2.5s）
+	tw.tween_property(player, "rotation", -1.15, 2.5).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	tw.parallel().tween_property(hand, "modulate:a", 1.0, 0.6)
+	tw.parallel().tween_property(hand, "global_position", p0 + Vector2(-18, 0), 2.5)
+	# 抬身（2.5s）
+	tw.tween_property(player, "rotation", -0.72, 2.5).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tw.parallel().tween_property(hand, "global_position", p0 + Vector2(-14, 2), 2.5)
+	tw.parallel().tween_property(player, "global_position:y", p0.y - 8.0, 2.5)
+	# 单膝（2.5s）
+	tw.tween_property(player, "rotation", -0.34, 2.5).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tw.parallel().tween_property(knee, "modulate:a", 1.0, 0.6)
+	tw.parallel().tween_property(knee, "global_position", p0 + Vector2(12, 2), 2.5)
+	tw.parallel().tween_property(hand, "modulate:a", 0.0, 1.4)
+	# 起立（2.0s）→ 站定（0.5s）
+	tw.tween_property(player, "rotation", 0.08, 2.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	tw.parallel().tween_property(knee, "modulate:a", 0.0, 1.2)
+	tw.parallel().tween_property(player, "global_position:y", p0.y, 2.0)
+	tw.tween_property(player, "rotation", 0.0, 0.5).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_callback(func() -> void:
+		GameManager.play_sfx("land", -10.0)
+		hand.queue_free()
+		knee.queue_free()
+	)
+	await tw.finished
+
+## 简易肢体道具：一条带厚度的折线，用来当撑地的手 / 单膝的腿
+func _make_limb(color: Color, a: Vector2, b: Vector2) -> Line2D:
+	var line := Line2D.new()
+	line.width = 5.0
+	line.default_color = color
+	line.points = PackedVector2Array([a, b])
+	line.z_index = 3
+	return line
+
+## 站定后的亮起：光从角色处扩开，镜头拉远到常规
+func _reveal_at(player: Node2D, cam: Camera2D, normal_zoom: float) -> void:
+	var light := PointLight2D.new()
 	var grad := Gradient.new()
-	grad.set_color(0, Color(0.88, 0.94, 1.0, 0.95))
-	grad.set_color(1, Color(0.55, 0.70, 1.0, 0.0))
+	grad.set_color(0, Color(1.0, 0.98, 0.92, 0.85))
+	grad.set_color(1, Color(1.0, 0.96, 0.88, 0.0))
 	var tex := GradientTexture2D.new()
 	tex.gradient = grad
 	tex.fill = GradientTexture2D.FILL_RADIAL
@@ -301,38 +381,20 @@ func _make_soul_body() -> Node2D:
 	tex.fill_to = Vector2(1.0, 0.5)
 	tex.width = 128
 	tex.height = 128
-	glow.texture = tex
-	glow.texture_scale = 1.5
-	glow.energy = 1.1
-	body.add_child(glow)
+	light.texture = tex
+	light.texture_scale = 1.2
+	light.energy = 0.2
+	light.position = player.global_position + Vector2(0, -10)
+	add_child(light)
 
-	var haze := Polygon2D.new()
-	haze.color = Color(0.62, 0.74, 0.95, 0.16)
-	haze.polygon = _ellipse_pts(16.0, 22.0, 14)
-	body.add_child(haze)
-
-	var core := Polygon2D.new()
-	core.color = Color(0.94, 0.98, 1.0, 0.98)
-	core.polygon = _ellipse_pts(7.0, 9.5, 14)
-	body.add_child(core)
-
-	for i in range(3):
-		var tendril := Line2D.new()
-		tendril.width = 2.0 - 0.5 * float(i)
-		tendril.default_color = Color(0.80, 0.90, 1.0, 0.35)
-		var x := -5.0 + 5.0 * float(i)
-		tendril.points = PackedVector2Array([
-			Vector2(x, 10), Vector2(x * 1.5, 26), Vector2(x * 2.0, 44),
-		])
-		body.add_child(tendril)
-	return body
-
-func _ellipse_pts(rx: float, ry: float, steps: int) -> PackedVector2Array:
-	var pts := PackedVector2Array()
-	for i in range(steps):
-		var a := TAU * float(i) / float(steps)
-		pts.append(Vector2(cos(a) * rx, sin(a) * ry))
-	return pts
+	var tw := create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(light, "texture_scale", 14.0, INTRO_REVEAL).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.tween_property(cam, "zoom", Vector2(normal_zoom, normal_zoom), INTRO_REVEAL).set_trans(Tween.TRANS_SINE)
+	tw.tween_method(func(p: Vector2) -> void: cam.position = p, cam.position, player.global_position + Vector2(0, -56), INTRO_REVEAL)
+	tw.tween_property(_fade_rect, "color:a", 0.0, INTRO_REVEAL * 0.9)
+	await tw.finished
+	light.queue_free()
 
 ## 平台原点是中心：碰撞换成 rect 大小、子节点归零、视觉按原始多边形缩放。
 ## 原来 JumpPlatform 的碰撞挂在 +343.5 这种手调偏移上，挪平台就得连子节点一起改，
