@@ -146,6 +146,7 @@ var _corruption_count := 0
 var _faction := ""               # 第二层阵营：engineer / heretic
 var _faction_visual: Node2D      # 阵营外观：工程师蒸汽靴 / 祭司污化腿
 var _slash_glow: Line2D         # 横砍外层柔光
+var _sparks: Node2D
 var _slash_core: Line2D         # 横砍内层白芯
 var _slash_down_glow: Line2D    # 下劈外层柔光
 var _slash_down_core: Line2D    # 下劈内层白芯
@@ -184,7 +185,7 @@ func _ready() -> void:
 	# 挥砍残影的弧线点一次算好，后面只改透明度和显隐（每帧重算没必要）
 	# 弧线中心略向前，半径 48，视觉末端接近 64px 横砍判定框边缘；线宽加粗成白色刀光
 	_slash.position = Vector2(8, -6)
-	_slash.width = 5.5
+	_slash.width = 8.0
 	_slash.default_color = Color(0.94, 1.0, 1.0, 0.95)
 	_slash.points = _make_arc(Vector2.ZERO, SLASH_ARC_RADIUS, 12.0, -1.65, 1.0, 12)
 	_slash_down.position = Vector2(5, 8)
@@ -329,13 +330,13 @@ func _build_slash_layers() -> void:
 	gradient.set_color(0, Color(0.55, 0.82, 1.0, 0.0))
 	gradient.set_color(1, Color(0.55, 0.82, 1.0, 1.0))
 	_slash.gradient = gradient
-	_slash.width_curve = _make_width_curve(0.10, 1.0, 0.05)
+	_slash.width_curve = _make_width_curve(0.02, 1.0, 0.02)
 	_slash_down.gradient = gradient
 	_slash_down.width_curve = _make_width_curve(0.12, 0.9, 0.10)
 
 	_slash_glow = Line2D.new()
 	_slash_glow.name = "SlashGlow"
-	_slash_glow.width = 15.0
+	_slash_glow.width = 20.0
 	_slash_glow.default_color = Color(0.50, 0.80, 1.0, 0.34)
 	_slash_glow.antialiased = true
 	_slash_glow.points = _slash.points
@@ -347,7 +348,7 @@ func _build_slash_layers() -> void:
 
 	_slash_core = Line2D.new()
 	_slash_core.name = "SlashCore"
-	_slash_core.width = 1.8
+	_slash_core.width = 2.2
 	_slash_core.default_color = Color(1.0, 1.0, 1.0, 1.0)
 	_slash_core.antialiased = true
 	_slash_core.points = _slash.points
@@ -355,6 +356,11 @@ func _build_slash_layers() -> void:
 	_slash_core.z_index = 1
 	_slash_core.visible = false
 	_body.add_child(_slash_core)
+
+	_sparks = preload("res://components/slash_sparks.gd").new()
+	_sparks.name = "SlashSparks"
+	_sparks.z_index = 2
+	_body.add_child(_sparks)
 
 	_slash_down_glow = Line2D.new()
 	_slash_down_glow.name = "SlashDownGlow"
@@ -1025,6 +1031,8 @@ func _start_side_slash(stage: int = 0) -> void:
 	_pogo_active = false
 	_apply_side_slash_shape()
 	GameManager.play_sfx("swing", -2.0, COMBO_STAGE_PITCH[_combo_step])
+	if _sparks != null:
+		_sparks.call("burst", _slash.points, _attack_dir)
 
 ## 按当前段重建刀弧（三层 Line2D 用同一组点，一起转）
 func _apply_side_slash_shape() -> void:
