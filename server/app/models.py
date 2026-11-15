@@ -3,6 +3,10 @@ from datetime import datetime
 from typing import Any, Optional
 
 from sqlalchemy import BigInteger, DateTime, Float, ForeignKey, Integer, JSON, String, func
+
+# SQLite 只把 INTEGER PRIMARY KEY 当自增列，BIGINT 会报 NOT NULL 失败。
+# 生产用 BIGINT，跑 SQLite 的测试用 INTEGER，两边都走同一个模型。
+PkType = BigInteger().with_variant(Integer, 'sqlite')
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .db import Base
@@ -11,7 +15,7 @@ from .db import Base
 class User(Base):
     __tablename__ = "users"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(PkType, primary_key=True, autoincrement=True)
     username: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
@@ -20,7 +24,7 @@ class User(Base):
 class SaveData(Base):
     __tablename__ = "saves"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(PkType, primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(
         BigInteger, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
@@ -34,7 +38,7 @@ class SaveData(Base):
 class GameEvent(Base):
     __tablename__ = "events"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(PkType, primary_key=True, autoincrement=True)
     user_id: Mapped[Optional[int]] = mapped_column(
         BigInteger, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
@@ -46,7 +50,7 @@ class GameEvent(Base):
 class LeaderboardEntry(Base):
     __tablename__ = "leaderboard"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(PkType, primary_key=True, autoincrement=True)
     board: Mapped[str] = mapped_column(String(64), nullable=False)
     user_id: Mapped[int] = mapped_column(
         BigInteger, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
