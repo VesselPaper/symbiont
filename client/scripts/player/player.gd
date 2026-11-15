@@ -121,6 +121,7 @@ var _attack_anim_total := ATTACK_ANIM_TIME  # 本次动作的总时长，用来�
 var _attack_anim_kind := 0      # 0 = 横砍，1 = 下劈
 var _attack_running := false    # 本次横砍是不是跑着砍（决定动作和是否保留冲量）
 var _attack_root_timer := 0.0   # 站砍时把脚钉住的剩余时间
+var _pogo_kick_timer := 0.0     # 下劈命中后的"腿弹开"余韵
 var _combo_step := 0            # 当前是第几段（0 起）；窗口过期就回到 0
 var _combo_window := 0.0        # 连招窗口剩余时间
 var _side_hitbox_size := SIDE_HITBOX_SIZE_DEFAULT
@@ -282,6 +283,7 @@ func _process(delta: float) -> void:
 func _update_anim_timers(delta: float) -> void:
 	_attack_anim_timer = maxf(_attack_anim_timer - delta, 0.0)
 	_attack_root_timer = maxf(_attack_root_timer - delta, 0.0)
+	_pogo_kick_timer = maxf(_pogo_kick_timer - delta, 0.0)
 	_hurt_timer = maxf(_hurt_timer - delta, 0.0)
 	_weapon_flash_timer = maxf(_weapon_flash_timer - delta, 0.0)
 	_revive_timer = maxf(_revive_timer - delta, 0.0)
@@ -485,6 +487,9 @@ func _update_visual_anim(delta: float) -> void:
 			# 下劈：剑尖朝地，身体略前倾；弧线只在判定窗口内亮，之后收掉
 			arm_rot = 1.45
 			sword_rot = 1.55
+			# 起手 0.09s 先缩一下：刀先扎下去，人跟着沉，再等反弹
+			var wind := 1.0 - clampf((_attack_anim_total - _attack_anim_timer) / 0.09, 0.0, 1.0)
+			body_scale = Vector2(1.0 + 0.10 * wind, 1.0 - 0.14 * wind)
 			_set_down_slash(_attack_anim_timer > 0.0, 0.7 * minf(1.0, _attack_anim_timer / 0.2))
 		elif _attack_anim_timer > 0.0:
 			var p := 1.0 - _attack_anim_timer / maxf(0.01, _attack_anim_total)
@@ -601,6 +606,11 @@ func _update_visual_anim(delta: float) -> void:
 			tint = tint.lerp(Color(1.0, 0.62, 0.62, 1.0), 0.5 * k)
 
 	# 命中顿帧时压扁一点，让“停住”不是单纯的卡帧，而是有受力形变
+	if _pogo_kick_timer > 0.0:
+		# 下劈命中：腿弹开，横向撑一下再收回
+		var kk := _pogo_kick_timer / 0.18
+		body_scale = Vector2(body_scale.x * (1.0 + 0.12 * kk), body_scale.y * (1.0 - 0.10 * kk))
+		body_y -= 2.0 * kk
 	if _hitstop_timer > 0.0:
 		body_scale = Vector2(body_scale.x * 1.10, body_scale.y * 0.88)
 	_body.position = Vector2(0, body_y)
@@ -1095,8 +1105,16 @@ func _pogo_bounce_on(target: Node2D) -> void:
 	_apply_hit(target)
 	velocity.y = POGO_BOUNCE_VELOCITY
 	_end_pogo()
+	_pogo_kick_timer = 0.18
+	_camera_dip()
 	_attack_cooldown_timer = POGO_RETRIGGER_COOLDOWN
 	EventBus.log_event("pogo_bounce", {"target": target.name})
+
+## 相机下压：找不到相机就静默跳过（无头测试场景可能没有）
+func _camera_dip() -> void:
+	var cam := get_viewport().get_camera_2d()
+	if cam != null and cam.has_method("dip"):
+		cam.call("dip", 6.0, 0.16)
 
 func _end_pogo() -> void:
 	if not _pogo_active:

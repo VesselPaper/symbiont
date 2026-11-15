@@ -33,6 +33,10 @@ var _target: Node2D
 var _shake_time := 0.0
 var _shake_duration := 0.0
 var _shake_strength := 0.0
+var _dip_time := 0.0
+var _dip_duration := 0.16
+var _dip_amount := 0.0
+var _dip_offset := 0.0
 
 func _ready() -> void:
 	add_to_group("camera")
@@ -90,17 +94,31 @@ func shake(strength: float = 3.6, duration: float = 0.12) -> void:
 	_shake_time = maxf(_shake_time, duration)
 
 func _update_shake(delta: float) -> void:
+	if _dip_time > 0.0:
+		# 下劈命中时的轻微下压：先猛地沉一下再回弹，比纯抖动更像"砸下去"
+		_dip_time = maxf(_dip_time - delta, 0.0)
+		var k := _dip_time / maxf(_dip_duration, 0.001)
+		_dip_offset = _dip_amount * sin(k * PI) if k > 0.0 else 0.0
+	else:
+		_dip_offset = 0.0
+
 	if _shake_time <= 0.0:
-		offset = Vector2.ZERO
+		offset = Vector2(0, _dip_offset)
 		return
 	_shake_time = maxf(_shake_time - delta, 0.0)
 	var fade := _shake_time / maxf(_shake_duration, 0.001)
 	offset = Vector2(
 		randf_range(-1.0, 1.0),
 		randf_range(-0.7, 0.7)
-	) * _shake_strength * fade
+	) * _shake_strength * fade + Vector2(0, _dip_offset)
 	if _shake_time <= 0.0:
-		offset = Vector2.ZERO
+		offset = Vector2(0, _dip_offset)
+
+## 镜头下压（下劈命中用）：只动 offset，不影响跟随目标
+func dip(amount: float = 6.0, duration: float = 0.16) -> void:
+	_dip_amount = amount
+	_dip_duration = duration
+	_dip_time = duration
 
 func _snap_to_target() -> void:
 	global_position = _target.global_position + Vector2(0, -player_screen_offset)
