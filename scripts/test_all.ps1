@@ -23,6 +23,9 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Host "==> Godot headless 回归"
 if (Test-Path $GodotExe) {
+    # 回归测试不联网：否则在有网/有栈的机器上，存档与埋点会顺手写进真实数据库，
+    # 既污染数据，也让"测试通过"取决于当前环境
+    $env:SYMBIONT_NETWORK_OFF = "1"
     & $GodotExe --headless --path (Join-Path $Root "client") --quit-after 30
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     $fail = 0
@@ -44,8 +47,10 @@ if (Test-Path $GodotExe) {
     }
     if ($fail -ne 0) {
         Write-Host ("==> 失败 " + $fail + " 张：" + ($failed -join "、"))
+        Remove-Item Env:\SYMBIONT_NETWORK_OFF -ErrorAction SilentlyContinue
         exit 1
     }
+    Remove-Item Env:\SYMBIONT_NETWORK_OFF -ErrorAction SilentlyContinue
 } else {
     Write-Warning "未找到 Godot，跳过客户端回归（$GodotExe）"
 }

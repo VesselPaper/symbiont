@@ -6,7 +6,7 @@
 from fastapi import FastAPI, Request
 
 from .config import settings
-from .routers import events, health
+from .routers import events, health, saves
 
 app = FastAPI(
     title=settings.app_name,
@@ -19,6 +19,7 @@ app = FastAPI(
 
 app.include_router(health.router, prefix=settings.api_prefix)
 app.include_router(events.router, prefix=settings.api_prefix)
+app.include_router(saves.router, prefix=settings.api_prefix)
 
 
 @app.get("/healthz", include_in_schema=False)

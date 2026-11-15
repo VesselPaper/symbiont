@@ -16,8 +16,40 @@ signal load_completed(slot: int)
 ## 先把玩家数据存在这里，目标关卡 _ready 时调用 apply_pending_player() 落地。
 var pending_player: Dictionary = {}
 
+## 从云端拉回落档后要不要立刻读档（按槽位记）
+var _pull_then_load: Dictionary = {}
+
 func _ready() -> void:
 	DirAccess.make_dir_recursive_absolute(SAVE_DIR)
+
+## 从云端拉存档并写成本地文件；load_after=true 时顺带读档。
+## 用于换机器或本地存档丢失的情况：本地永远优先，这条只在本地没有时用。
+func pull_remote(slot: int, load_after: bool = false) -> void:
+	if not Network.save_pulled.is_connected(_on_save_pulled):
+		Network.save_pulled.connect(_on_save_pulled)
+		Network.save_pull_failed.connect(_on_save_pull_failed)
+	_pull_then_load[slot] = load_after
+	Network.pull_save(slot)
+
+
+func _on_save_pulled(slot: int, data: Dictionary) -> void:
+	var f := FileAccess.open(_save_path(slot), FileAccess.WRITE)
+	if f == null:
+		push_error("SaveSystem: 云端存档写入本地失败 %s" % _save_path(slot))
+		EventBus.save_failed.emit(slot, "write_failed")
+		return
+	f.store_string(JSON.stringify(data, "\t"))
+
+	var should_load: bool = _pull_then_load.get(slot, false)
+	_pull_then_load.erase(slot)
+	if should_load:
+		# 必须写 self.：裸 load() 会解析成 Godot 内置的资源加载函数
+		self.load(slot)
+
+
+func _on_save_pull_failed(slot: int, reason: String) -> void:
+	_pull_then_load.erase(slot)
+	EventBus.save_failed.emit(slot, "remote_" + reason)
 
 func _save_path(slot: int) -> String:
 	return "%s/slot_%d.json" % [SAVE_DIR, slot]

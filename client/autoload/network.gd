@@ -19,6 +19,8 @@ const FLUSH_INTERVAL := 30.0
 
 var base_url: String = DEFAULT_BASE_URL
 var auth_token: String = ""
+## 无头回归与离线演示用：置 1 时所有 HTTP 都不发出去
+var offline: bool = OS.get_environment("SYMBIONT_NETWORK_OFF") == "1"
 var _pending_events: Array = []
 var _save_cache: Dictionary = {}
 var _timer := 0.0
@@ -58,6 +60,8 @@ func report_event(event_name: String, data: Dictionary = {}) -> void:
 
 
 func flush_events() -> void:
+	if offline:
+		return
 	if _pending_events.is_empty():
 		return
 	var batch := _pending_events.duplicate()
@@ -66,9 +70,7 @@ func flush_events() -> void:
 	add_child(http)
 	http.request_completed.connect(_on_flush_completed.bind(http, batch))
 	# 4.x 的 request() 只有四个参数，TLS 选项要用 set_tls_options 单独设
-	var tls := _tls_options()
-	if tls != null:
-		http.set_tls_options(tls)
+	_apply_tls(http)
 	http.request("%s/events" % base_url, _headers(), HTTPClient.METHOD_POST, JSON.stringify({"events": batch}))
 
 
@@ -79,19 +81,97 @@ func _on_flush_completed(result: int, code: int, _headers: PackedStringArray, _b
 		_pending_events.append_array(batch)
 
 
-## 远程存档同步（M2 实现）。离线时本地优先。
+## 远程存档同步。本地永远优先，远端只是备份与换机恢复。
+##
+## 单机游戏没有登录，存档按设备归属：首次运行时生成一个设备 id 存在 user://，
+## 之后每次请求带 X-Device-Id，服务端据此隔离各台机器的存档。
+signal save_pulled(slot: int, data: Dictionary)
+signal save_pull_failed(slot: int, reason: String)
+signal save_pushed(slot: int)
+
+const DEVICE_FILE := "user://device.id"
+
+var device_id: String = ""
+
+
+func _ensure_device_id() -> String:
+	if device_id != "":
+		return device_id
+	if FileAccess.file_exists(DEVICE_FILE):
+		device_id = FileAccess.get_file_as_string(DEVICE_FILE).strip_edges()
+	if device_id.length() < 8:
+		var rng := Crypto.new()
+		device_id = rng.generate_random_bytes(16).hex_encode()
+		var f := FileAccess.open(DEVICE_FILE, FileAccess.WRITE)
+		if f != null:
+			f.store_string(device_id)
+	return device_id
+
+
 func push_save(slot: int, data: Dictionary) -> void:
 	_save_cache[slot] = data
-	# TODO(M2): POST /api/v1/saves/{slot}，带 token；失败留在队列
+	if offline:
+		return
+	var http := HTTPRequest.new()
+	add_child(http)
+	http.request_completed.connect(_on_push_completed.bind(http, slot))
+	_apply_tls(http)
+	http.request(
+		"%s/saves/%d" % [base_url, slot],
+		_headers(),
+		HTTPClient.METHOD_PUT,
+		JSON.stringify({"save_data": data, "version": data.get("version", 1)})
+	)
+
+
+func _on_push_completed(result: int, code: int, _headers: PackedStringArray, _body: PackedByteArray, http: HTTPRequest, slot: int) -> void:
+	http.queue_free()
+	if result != HTTPRequest.RESULT_SUCCESS or code != 200:
+		push_warning("[Network] 云端存档写入失败 slot=%d code=%d" % [slot, code])
+		return
+	save_pushed.emit(slot)
 
 
 func pull_save(slot: int) -> void:
-	# TODO(M2): GET /api/v1/saves/{slot} → 回填 SaveSystem
-	pass
+	if offline:
+		return
+	var http := HTTPRequest.new()
+	add_child(http)
+	http.request_completed.connect(_on_pull_completed.bind(http, slot))
+	_apply_tls(http)
+	http.request("%s/saves/%d" % [base_url, slot], _headers(), HTTPClient.METHOD_GET, "")
+
+
+func _on_pull_completed(result: int, code: int, _headers: PackedStringArray, body: PackedByteArray, http: HTTPRequest, slot: int) -> void:
+	http.queue_free()
+	if result != HTTPRequest.RESULT_SUCCESS:
+		save_pull_failed.emit(slot, "network")
+		return
+	if code == 404:
+		save_pull_failed.emit(slot, "not_found")
+		return
+	if code != 200:
+		save_pull_failed.emit(slot, "http_%d" % code)
+		return
+
+	var parsed = JSON.parse_string(body.get_string_from_utf8())
+	if typeof(parsed) != TYPE_DICTIONARY or not parsed.has("save_data"):
+		save_pull_failed.emit(slot, "bad_body")
+		return
+	save_pulled.emit(slot, parsed["save_data"])
+
+
+func _apply_tls(http: HTTPRequest) -> void:
+	var tls := _tls_options()
+	if tls != null:
+		http.set_tls_options(tls)
 
 
 func _headers() -> PackedStringArray:
-	var h := PackedStringArray(["Content-Type: application/json"])
+	var h := PackedStringArray([
+		"Content-Type: application/json",
+		"X-Device-Id: %s" % _ensure_device_id(),
+	])
 	if auth_token != "":
 		h.append("Authorization: Bearer %s" % auth_token)
 	return h

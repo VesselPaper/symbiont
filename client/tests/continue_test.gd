@@ -18,6 +18,9 @@ func _process(delta: float) -> bool:
 	if _gm == null:
 		_gm = root.get_node("/root/GameManager")
 		_save = root.get_node("/root/SaveSystem")
+		# 清掉遗留槽位：主菜单挑的是"最新存档"，别的测试或联调留下的槽位会抢占
+		for slot in range(int(_save.get("MAX_SLOTS"))):
+			_save.call("delete_slot", slot)
 		_gm.set("flags", {})
 		_gm.set("sacrifice_count", 0)
 		_gm.set("current_floor", "start")
