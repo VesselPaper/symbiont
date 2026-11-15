@@ -28,6 +28,7 @@ const ATTACK_DAMAGE := 1
 const ATTACK_COOLDOWN := 0.25
 const ATTACK_ACTIVE_TIME := 0.12   # 判定框单次启用时长（一次挥砍只命中一次）
 const SIDE_HITBOX_OFFSET := Vector2(32, -14)  # 横砍判定框：64宽×56高（4×角色宽16 × 2×角色高28），从头顶上方到身前（面朝右时 x:0→64, y:-42→+14）
+const SIDE_HITBOX_SIZE_DEFAULT := Vector2(64, 56)  # 第一段横劈的判定框尺寸；二三段会换
 const POGO_HITBOX_OFFSET := Vector2(32, 14)   # 下砍判定框：64宽×28高（前方4×宽16 × 下方1×高28），面朝右时 x:0→64, y:0→28
 const POGO_FALL_SPEED := 700.0       # 下砍时强制下落速度（加速下落）
 const POGO_BOUNCE_VELOCITY := -650.0 # 命中实体后的向上反弹初速（≈83px 高，可调）
@@ -64,6 +65,26 @@ const WEAPON_FLASH_TIME := 0.35 # 刚捡到剑时的亮一下
 const SLASH_ARC_RADIUS := 48.0
 const SLASH_DOWN_RADIUS := 34.0
 
+# ---- 三连击（组长反馈“攻击动作太二，只是直接旋转刀”）----
+# 三段各有自己的弧线、前冲、判定框与收招节奏；最短间隔仍按 ATTACK_COOLDOWN 卡，
+# 所以只改手感、不改每秒输出（数值由组长定，这里不动伤害）。
+const COMBO_MAX := 3
+const COMBO_WINDOW := 0.5          # 本段动作结束后这么久内再按 J，接下一段
+const COMBO_STAGE_TIME := [0.42, 0.40, 0.55]      # 本段动作总时长
+const COMBO_STAGE_LUNGE := [90.0, 56.0, 150.0]    # 本段起手补的前冲
+const COMBO_STAGE_ARC := [
+	{"radius": 48.0, "from": -1.65, "to": 1.00, "rot": 0.00},   # 横劈：左上 → 右下
+	{"radius": 44.0, "from": 1.45, "to": -0.70, "rot": 0.00},    # 反手上撩：下 → 上
+	{"radius": 58.0, "from": -0.55, "to": 0.40, "rot": -0.10},   # 前刺：窄而远的一道
+]
+const COMBO_STAGE_HITBOX := [
+	{"offset": Vector2(32, -14), "size": Vector2(64, 56)},       # 横劈：身前一片
+	{"offset": Vector2(30, -20), "size": Vector2(58, 64)},       # 上撩：偏上一点
+	{"offset": Vector2(42, -12), "size": Vector2(84, 40)},       # 前刺：更远更窄
+]
+const COMBO_STAGE_PITCH := [1.00, 1.14, 0.82]    # 挥砍音高，第三段更沉
+
+
 # ---- 跑砍 / 站砍分家（组长反馈“走路时点攻击就直接播攻击动画，很僵硬”）----
 # 处理办法：跑着砍保留冲量、换一套更贴地的动作；站着砍把脚钉住再抬手。
 # 中间的“慢慢走”按停砍处理，不然会一边滑半步一边挥刀。
@@ -96,9 +117,14 @@ var _input_locked := false      # 对话期间锁输入：不能移动/跳跃/�
 var _spawn_point := Vector2.ZERO
 var _anim_time := 0.0           # 视觉动画时钟（待机起伏 / 走步颤步），与物理无关
 var _attack_anim_timer := 0.0   # 挥砍动作剩余时间（表现，不影响 0.12s 判定）
+var _attack_anim_total := ATTACK_ANIM_TIME  # 本次动作的总时长，用来算动画进度（三段各不同）
 var _attack_anim_kind := 0      # 0 = 横砍，1 = 下劈
 var _attack_running := false    # 本次横砍是不是跑着砍（决定动作和是否保留冲量）
 var _attack_root_timer := 0.0   # 站砍时把脚钉住的剩余时间
+var _combo_step := 0            # 当前是第几段（0 起）；窗口过期就回到 0
+var _combo_window := 0.0        # 连招窗口剩余时间
+var _side_hitbox_size := SIDE_HITBOX_SIZE_DEFAULT
+var _side_hitbox_offset := SIDE_HITBOX_OFFSET
 var _rest_timer := 0.0          # 篝火休息：坐姿剩余时间（期间压扁身体、停止动画覆盖）
 var _rest_total := 0.0          # 本次休息的总时长，用来分段：放剑 / 坐 / 起身
 var _rest_prop: Node2D          # 休息时放在身侧的剑
@@ -145,6 +171,11 @@ func _ready() -> void:
 		has_steam_boots = true
 	_hitbox_side.body_entered.connect(_on_hitbox_side_body_entered)
 	_hitbox_down.body_entered.connect(_on_hitbox_down_body_entered)
+	# 三连击每段换判定框尺寸：把 shape 复制一份，免得改到场景里的共享资源
+	var side_shape := _hitbox_side.get_node_or_null("CollisionShape2D") as CollisionShape2D
+	if side_shape != null and side_shape.shape != null:
+		side_shape.shape = side_shape.shape.duplicate()
+		_side_hitbox_size = (side_shape.shape as RectangleShape2D).size
 	# M1-13：下劈命中查询用的 shape 引用（HitboxDown 的 CollisionShape2D）
 	var hb_shape_node := $HitboxDown/CollisionShape2D as CollisionShape2D
 	if hb_shape_node != null:
@@ -456,7 +487,7 @@ func _update_visual_anim(delta: float) -> void:
 			sword_rot = 1.55
 			_set_down_slash(_attack_anim_timer > 0.0, 0.7 * minf(1.0, _attack_anim_timer / 0.2))
 		elif _attack_anim_timer > 0.0:
-			var p := 1.0 - _attack_anim_timer / ATTACK_ANIM_TIME
+			var p := 1.0 - _attack_anim_timer / maxf(0.01, _attack_anim_total)
 			if _attack_anim_kind == 1:
 				# 下劈动作（判定已结束也把动作收完）
 				arm_rot = 1.45
@@ -484,8 +515,44 @@ func _update_visual_anim(delta: float) -> void:
 					arm_rot = lerpf(1.15, 0.55, q2)
 					sword_rot = lerpf(0.92, 0.35, q2)
 					_set_side_slash(true, (1.0 - q2) * 0.5)
+			elif _combo_step == 1:
+				# 第二段·反手上撩：先把刀沉到身下，再贴着地面往上挑
+				if p < 0.20:
+					var q2 := p / 0.20
+					arm_rot = lerpf(0.55, 1.28, q2)
+					sword_rot = lerpf(0.35, 1.40, q2)
+				elif p < 0.72:
+					var q3 := (p - 0.20) / 0.52
+					var swing_up := q3 * q3
+					arm_rot = lerpf(1.28, -0.30, swing_up)
+					sword_rot = lerpf(1.40, -0.95, swing_up)
+					_set_side_slash(true, sin(minf(q3, 0.9) * PI) * 0.92)
+				else:
+					var q4 := (p - 0.72) / 0.28
+					arm_rot = lerpf(-0.30, 0.55, q4)
+					sword_rot = lerpf(-0.95, 0.35, q4)
+					_set_side_slash(true, (1.0 - q4) * 0.5)
+			elif _combo_step == 2:
+				# 第三段·前刺：收刀到腰侧、整个人前压、刺完慢慢收
+				if p < 0.30:
+					var q5 := p / 0.30
+					arm_rot = lerpf(0.55, 1.05, q5)
+					sword_rot = lerpf(0.35, 1.15, q5)
+				elif p < 0.60:
+					var q6 := (p - 0.30) / 0.30
+					var push := 1.0 - pow(1.0 - q6, 3.0)
+					arm_rot = lerpf(1.05, 0.30, push)
+					sword_rot = lerpf(1.15, -0.05, push)
+					body_rot = -0.10 * push
+					_set_side_slash(true, sin(minf(q6, 0.9) * PI) * 0.95)
+				else:
+					var q7 := (p - 0.60) / 0.40
+					arm_rot = lerpf(0.30, 0.55, q7)
+					sword_rot = lerpf(-0.05, 0.35, q7)
+					body_rot = -0.10 * (1.0 - q7)
+					_set_side_slash(true, (1.0 - q7) * 0.6)
 			elif p < 0.26:
-				# 蓄力：手臂抬到脑后
+				# 第一段·横劈 蓄力：手臂抬到脑后
 				var q := p / 0.26
 				arm_rot = lerpf(0.55, -1.15, q)
 				sword_rot = lerpf(0.35, -0.70, q)
@@ -872,6 +939,7 @@ func _try_start_attack() -> void:
 	# M1-10：没武器不能攻击（静默返回，不弹任何提示；武器剧情见 seed.sql intro_parasite_1）
 	if not has_weapon:
 		return
+	# 最短间隔统一由冷却卡：狂按不会跳段，也不会把连招打成每帧一次
 	if _attack_cooldown_timer > 0.0:
 		return
 	# 下砍后摇期间不触发任何攻击（防落地瞬间秒横砍）
@@ -881,11 +949,11 @@ func _try_start_attack() -> void:
 	if not Input.is_action_just_pressed("attack"):
 		return
 	if is_on_floor():
-		# 地面上：按住下键(S) + 攻击 = 朝下劈；只按攻击 = 前方横砍
+		# 地面上：按住下键(S) + 攻击 = 朝下劈；只按攻击 = 前方横砍（或接下一段连招）
 		if Input.is_action_pressed("move_down"):
 			_start_down_slash()
 		else:
-			_start_side_slash()
+			_start_side_slash(_combo_advance())
 	else:
 		# 空中：按攻击一律是下劈（踩敌反弹）。
 		# M4-23 组长反馈：原来空中要求“按住 S + J”才下劈，玩家在稻草人头上按 J 只挥了
@@ -898,6 +966,7 @@ func _start_down_slash() -> void:
 	_attack_cooldown_timer = ATTACK_COOLDOWN
 	_attack_active_timer = ATTACK_ACTIVE_TIME
 	_attack_anim_timer = ATTACK_ANIM_TIME
+	_attack_anim_total = ATTACK_ANIM_TIME
 	_attack_anim_kind = 1
 	_attack_running = false
 	_hit_this_swing.clear()
@@ -906,35 +975,71 @@ func _start_down_slash() -> void:
 	_pogo_active = false
 	GameManager.play_sfx("swing", -2.0, 0.82)
 
-# 地面：普通横砍（0.12s 短暂判定，一次挥砍只命中一次）
-func _start_side_slash() -> void:
+# 地面横砍。stage 是三连击的第几段（0 横劈 / 1 反手上撩 / 2 前刺）。
+# 每段的弧线、前冲、判定框、动作时长都不同；伤害与最短间隔不变，只改手感。
+func _start_side_slash(stage: int = 0) -> void:
 	_attack_dir = _facing  # 锁定出手朝向
+	_combo_step = clampi(stage, 0, COMBO_MAX - 1)
 	_attack_cooldown_timer = ATTACK_COOLDOWN
 	_attack_active_timer = ATTACK_ACTIVE_TIME
-	_attack_anim_timer = ATTACK_ANIM_TIME
+	_attack_anim_timer = COMBO_STAGE_TIME[_combo_step]
+	_attack_anim_total = COMBO_STAGE_TIME[_combo_step]
+	_combo_window = COMBO_STAGE_TIME[_combo_step] + COMBO_WINDOW
 	_attack_anim_kind = 0
+
+	# 每段换判定框：上撩偏上、前刺更远更窄
+	var box: Dictionary = COMBO_STAGE_HITBOX[_combo_step]
+	_side_hitbox_offset = box["offset"]
+	_side_hitbox_size = box["size"]
+	var side_shape := _hitbox_side.get_node_or_null("CollisionShape2D") as CollisionShape2D
+	if side_shape != null and side_shape.shape is RectangleShape2D:
+		(side_shape.shape as RectangleShape2D).size = _side_hitbox_size
+
 	# 跑着砍 / 站着砍：动作、冲量、是否钉住脚都不一样
-	_attack_running = is_on_floor() and absf(velocity.x) > RUN_SLASH_SPEED
+	_attack_running = _combo_step == 0 and is_on_floor() and absf(velocity.x) > RUN_SLASH_SPEED
 	if _attack_running:
 		_attack_root_timer = 0.0
-		# 保留原有冲量并补一口前冲，让“人还在跑”和“刀在挥”接得上
 		# 补前冲但不超过跑速上限：否则连砍就能跑得比跑步还快
 		velocity.x = float(_attack_dir) * minf(maxf(absf(velocity.x), RUN_SPEED * 0.6) + RUN_SLASH_LUNGE, RUN_SPEED)
+	elif _combo_step == 2 and is_on_floor():
+		# 前刺要往前踏一步：不钉脚，给一口较长的前冲
+		_attack_root_timer = 0.0
+		velocity.x = float(_attack_dir) * minf(absf(velocity.x) + COMBO_STAGE_LUNGE[_combo_step], RUN_SPEED)
 	else:
-		# 站定才把脚钉住；空中挥砍保留原有水平速度，不要"后坐力"把人刹住
+		# 站定把脚钉住；空中挥砍保留原有水平速度，不要"后坐力"把人刹住
 		_attack_root_timer = RUN_SLASH_ROOT_TIME if is_on_floor() else 0.0
+
 	_hit_this_swing.clear()
 	_hitbox_side.monitoring = true
 	_hitbox_down.monitoring = false
 	_pogo_active = false
-	_slash.rotation = RUN_SLASH_ARC_ROT if _attack_running else 0.0
-	GameManager.play_sfx("swing", -2.0)
+	_apply_side_slash_shape()
+	GameManager.play_sfx("swing", -2.0, COMBO_STAGE_PITCH[_combo_step])
+
+## 按当前段重建刀弧（三层 Line2D 用同一组点，一起转）
+func _apply_side_slash_shape() -> void:
+	var spec: Dictionary = COMBO_STAGE_ARC[_combo_step]
+	var radius: float = spec["radius"]
+	var rot: float = spec["rot"]
+	if _attack_running:
+		rot += RUN_SLASH_ARC_ROT
+	var pts := _make_arc(Vector2.ZERO, radius, 12.0, spec["from"], spec["to"], 12)
+	_slash.points = pts
+	_slash.rotation = rot
+	if _slash_glow != null:
+		_slash_glow.points = pts
+		_slash_glow.rotation = rot
+	if _slash_core != null:
+		_slash_core.points = pts
+		_slash_core.rotation = rot
+
 
 # 空中：下砍（pogo）—— 只朝脚下判定，不再强制加速下坠
 func _start_pogo() -> void:
 	_attack_dir = _facing  # 锁定出手朝向
 	_pogo_active = true
 	_attack_anim_timer = ATTACK_ANIM_TIME + 0.1
+	_attack_anim_total = ATTACK_ANIM_TIME + 0.1
 	_attack_anim_kind = 1
 	_hit_this_swing.clear()
 	_hitbox_side.monitoring = false
@@ -1006,11 +1111,23 @@ func _end_pogo() -> void:
 func _update_attack_state(delta: float) -> void:
 	_attack_cooldown_timer = maxf(_attack_cooldown_timer - delta, 0.0)
 	_pogo_end_lag_timer = maxf(_pogo_end_lag_timer - delta, 0.0)
+	# 连招：动作结束后还留一段窗口可以接下一段
+	if _combo_window > 0.0:
+		_combo_window = maxf(_combo_window - delta, 0.0)
+		if _combo_window <= 0.0:
+			_combo_step = 0
 	if _attack_active_timer <= 0.0:
 		return
 	_attack_active_timer -= delta
 	if _attack_active_timer <= 0.0:
 		_end_attack()
+
+
+## 决定这次按 J 接第几段：窗口内、过了最短间隔、且没到第三段才往后接，否则重新起手
+func _combo_advance() -> int:
+	if _combo_window > 0.0 and _combo_step + 1 < COMBO_MAX:
+		return _combo_step + 1
+	return 0
 
 func _end_attack() -> void:
 	_attack_active_timer = 0.0
@@ -1020,7 +1137,7 @@ func _end_attack() -> void:
 
 func _update_hitbox_pose() -> void:
 	# 横砍/下砍判定框按"攻击锁定朝向"定位：攻击中按反方向键只改移动，不改变已出手的攻击方向
-	_hitbox_side.position = Vector2(SIDE_HITBOX_OFFSET.x * _attack_dir, SIDE_HITBOX_OFFSET.y)
+	_hitbox_side.position = Vector2(_side_hitbox_offset.x * _attack_dir, _side_hitbox_offset.y)
 	_hitbox_down.position = Vector2(POGO_HITBOX_OFFSET.x * _attack_dir, POGO_HITBOX_OFFSET.y)
 	# 判定框只在逻辑层生效；挥砍反馈由 SlashArc / SlashDown 两条弧线承担，不再画调试矩形
 
