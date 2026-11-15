@@ -95,6 +95,7 @@ const RUN_SLASH_ROOT_FRICTION := 2200.0
 const RUN_SLASH_ARC_ROT := -0.42     # 跑砍的刀弧压低向前扫，和站砍的横向弧分开
 
 var hp := MAX_HP
+var display_only := false
 var has_weapon := false                    # M1-10：是否已拾取铁剑；没武器时按 J 静默无效
 var has_steam_boots := false               # M4-06：蒸汽靴；有靴子才允许二段跳
 var _air_jumps_left := 0                   # 落地重置；每离地最多再跳一次
@@ -212,6 +213,10 @@ func _ready() -> void:
 	EventBus.item_picked.connect(_on_item_picked)
 
 func _physics_process(delta: float) -> void:
+	# 序章只是把玩家模型借过去当"最终形态"展示：跑动画，但不参与物理
+	if display_only:
+		_update_visual_anim(delta)
+		return
 	_recoil_timer = maxf(_recoil_timer - delta, 0.0)
 	if _hitstop_timer > 0.0:
 		# 顿帧期间完全冻结玩家物理；下劈的反弹速度先存着，顿完再走。

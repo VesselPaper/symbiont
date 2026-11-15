@@ -812,6 +812,12 @@ func _begin_descent() -> void:
 	_beat_accum = _beat_interval
 	_build_pulse_rect()
 	_build_descent_bg()
+	# 拉远后会把虚空里那些装饰（体积光/雾柱/远影）露出来，看着像"左边冒出地图"，一并收掉
+	for arr in [_depth_glows, _mist_columns, _far_shards]:
+		for item in arr:
+			var n = item.get("node", null)
+			if n != null and is_instance_valid(n):
+				n.visible = false
 
 	# 魂光褪掉，留下轮廓；真正长成角色由 _update_descent_pulse 里的交叉淡入完成
 	var tw := create_tween()
@@ -833,8 +839,9 @@ func _spawn_real_body() -> void:
 	_real_body = scene.instantiate() as Node2D
 	_real_body.name = "RealBody"
 	_real_body.modulate = Color(1, 1, 1, 0)
-	_real_body.set_physics_process(false)
-	_real_body.set_process(false)
+	# 只跑动画、不跑物理：否则它会在虚空里自由下落，越跑越远
+	_real_body.set("display_only", true)
+	_real_body.set("has_weapon", true)
 	_real_body.scale = Vector2.ONE * 0.62
 	_soul.add_child(_real_body)
 
@@ -952,8 +959,9 @@ func _build_descent_bg() -> void:
 	# 一整片暗雾，跟着镜头走，压住四周
 	var mist := ColorRect.new()
 	mist.color = Color(0.035, 0.040, 0.055, 0.90)
-	mist.position = Vector2(-420, -1500)
-	mist.size = Vector2(2160, 3000)
+	# 铺得足够大：zoom 拉到 0.8 时可见范围约 1600×900，留一倍余量
+	mist.position = Vector2(-1200, -2200)
+	mist.size = Vector2(3200, 4400)
 	mist.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_descent_bg.add_child(mist)
 
