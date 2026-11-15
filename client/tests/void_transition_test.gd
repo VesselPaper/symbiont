@@ -46,6 +46,13 @@ func _run() -> void:
 	var player := arena.get_node("Player") as CharacterBody2D
 	var stage: Dictionary = arena.get_script().get_script_constant_map()["STAGE"]
 	var spawn: Vector2 = stage["spawn"]
+	var arena_cam := arena.get_node("Camera2D") as Camera2D
+	await create_timer(0.35).timeout
+	_check(arena_cam.zoom.x > 1.8, "开场没有把镜头拉近（zoom=%.2f）" % arena_cam.zoom.x)
+	var arena_soul := arena.get_node_or_null("SoulBody")
+	_check(arena_soul != null, "开场没有灵魂本体")
+	if arena_soul != null:
+		_check(absf((arena_soul as Node2D).global_position.y - arena_cam.position.y) < 8.0, "镜头没有跟着灵魂")
 	var start_y := player.global_position.y
 	print("[void] 进关位置 y=%.1f（出生点 %.1f），rotation=%.2f" % [start_y, spawn.y, player.rotation])
 	# M4-49：不再是"从半空掉下来"，而是先躺在地上，等灵魂掉进身体后起身
@@ -53,7 +60,7 @@ func _run() -> void:
 	_check(absf(player.rotation + PI * 0.5) < 0.15, "进关时人不是躺着的（rotation=%.2f）" % player.rotation)
 	_check(not bool(gm.call("has_flag", "enter_from_void")), "旗标没被消费，下次进关又会演一次")
 	var stood := false
-	for _i in range(240):
+	for _i in range(420):
 		await physics_frame
 		if absf(player.rotation) < 0.05 and player.is_on_floor():
 			stood = true
