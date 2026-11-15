@@ -29,10 +29,11 @@ func _run() -> void:
 	# M4-39 换成了一镜到底的演出：不再有速度线与实体地板，
 	# 改成"镜头锁玩家 + 鼓点收紧 + 明暗同拍"，这里钉住新的骨架
 	_check(int(pro.get("_desc_phase")) == 1, "下坠演出没有进入第 1 阶段")
+	# M4-44：镜头改成平滑跟随，第一帧不该瞬移到位（那正是"闪现"的来源）
 	var cam: Camera2D = pro.get("_camera")
 	var soul: Node2D = pro.get("_soul")
-	_check(cam != null and soul != null and absf(cam.global_position.y - soul.global_position.y) < 4.0,
-			"下坠时镜头没有锁住玩家")
+	_check(cam != null and soul != null and cam.global_position.distance_to(soul.global_position) > 20.0,
+			"镜头一帧就瞬移到角色身上（应该是平滑跟随）")
 	pro.queue_free()
 	await process_frame
 

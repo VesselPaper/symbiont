@@ -102,6 +102,9 @@ var _dark_radius_override := -1.0
 var _pulse_rect: ColorRect
 var _ui_layer: CanvasLayer
 var _descent_bg: Node2D
+var _bg_scroll := 0.0
+var _bg_nodes: Array = []
+var _cam_following := false
 var _leaving := false
 var _called_out := false
 var _drift := 0.0
@@ -504,6 +507,9 @@ func _process(delta: float) -> void:
 	_time += delta
 	_update_shake(delta)
 	_update_darkness()
+	# M4-44：融合阶段就开始把镜头往角色身上靠，黑雾钻进来时人才在画面正中
+	if _desc_phase == 0 and _fused:
+		_camera.position = _camera.position.lerp(_soul.global_position, 1.0 - exp(-4.0 * delta))
 	_update_descent_pulse(delta)
 	_update_void()
 	_update_soul(delta)
@@ -799,6 +805,7 @@ func _begin_descent() -> void:
 	_desc_t = 0.0
 	_form_t = 0.0
 	_fall_vy = 0.0
+	_cam_following = false
 	_beat_accum = _beat_interval
 	_build_pulse_rect()
 	_build_descent_bg()
@@ -862,12 +869,23 @@ func _update_descent_pulse(delta: float) -> void:
 		_beat_flash = 1.0
 		GameManager.play_sfx("drum", lerpf(-16.0, -2.0, k), 1.0)
 
-	# 镜头：始终把角色放正中（XY 都锁），并缓慢拉远
-	_camera.position = _soul.global_position
+	# 镜头：先平滑靠过去（避免一帧瞬移=闪现），再用"速度前馈 + 残差修正"紧跟。
+	# 只用 lerp 会恒定落后 v/rate（900px/s 时差 180px），人就被甩到画面上方。
+	var ff := clampf(_form_t / 0.6, 0.0, 1.0)
+	_camera.position.y += _fall_vy * ff * delta
+	var err := _soul.global_position - _camera.position
+	_camera.position += err * (1.0 - exp(-12.0 * delta))
 	_camera.offset = Vector2.ZERO
 	_camera.zoom = Vector2.ONE * lerpf(_desc_zoom_from, _desc_zoom_to, k)
+
+	# 背景：以镜头为中心循环滚动，落下多久都不会露底
 	if _descent_bg != null:
-		_descent_bg.position.y = (_soul.global_position.y - SOUL_START.y) * 0.55
+		_descent_bg.position = _camera.position - Vector2(0, 360)
+		_bg_scroll += _fall_vy * 0.45 * delta
+		for it in _bg_nodes:
+			var span := 2800.0
+			var y := fposmod(float(it["y0"]) - _bg_scroll + 1400.0, span) - 1400.0
+			(it["node"] as Node2D).position.y = y
 
 	_dark_radius_override = 104.0 + 300.0 * k
 	if _pulse_rect != null:
@@ -926,39 +944,43 @@ func _build_descent_bg() -> void:
 	_descent_bg.name = "DescentBackdrop"
 	_descent_bg.z_index = -4
 	add_child(_descent_bg)
+	_bg_nodes.clear()
 
-	# 一整片暗雾，压住底部，给"深处"的感觉
+	# 一整片暗雾，跟着镜头走，压住四周
 	var mist := ColorRect.new()
-	mist.color = Color(0.035, 0.040, 0.055, 0.85)
-	mist.position = Vector2(-400, -2200)
-	mist.size = Vector2(2080, 4600)
+	mist.color = Color(0.035, 0.040, 0.055, 0.90)
+	mist.position = Vector2(-420, -1500)
+	mist.size = Vector2(2160, 3000)
 	mist.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_descent_bg.add_child(mist)
 
-	# 两侧暗柱：宽度与高度各不同，随下落相对上移
-	for i in range(10):
+	# 两侧暗柱：在 ±1400 的带子里均匀铺开，配合循环滚动，落多久都不会露底
+	for i in range(12):
 		var col := Polygon2D.new()
 		col.color = Color(0.055 + 0.012 * float(i % 3), 0.060, 0.078, 0.55)
 		var w := 90.0 + float(i % 4) * 55.0
-		var x := -260.0 + float(i) * 190.0
-		var y := -2000.0 + float(i % 5) * 620.0
-		var h := 900.0 + float(i % 3) * 420.0
+		var x := -300.0 + float(i % 8) * 210.0
+		var h := 700.0 + float(i % 3) * 420.0
 		col.polygon = PackedVector2Array([
-			Vector2(x, y), Vector2(x + w, y), Vector2(x + w * 0.82, y + h), Vector2(x + w * 0.10, y + h),
+			Vector2(x, 0), Vector2(x + w, 0), Vector2(x + w * 0.82, h), Vector2(x + w * 0.10, h),
 		])
 		_descent_bg.add_child(col)
+		var y0 := -1400.0 + float(i) * 235.0
+		col.position.y = y0
+		_bg_nodes.append({"node": col, "y0": y0})
 
-	# 尘埃：细亮线，越往下越密
-	for i in range(26):
+	# 尘埃：细亮线，和柱子同一条带子里循环
+	for i in range(30):
 		var mote := Line2D.new()
 		mote.width = 1.2
 		mote.default_color = Color(0.52, 0.60, 0.72, 0.30)
-		var mx := 80.0 + float(i) * 42.0 + float(i % 3) * 17.0
-		var my := -1600.0 + float(i) * 160.0
-		mote.points = PackedVector2Array([Vector2(mx, my), Vector2(mx + 1.5, my + 26.0)])
+		var mx := 60.0 + float(i % 10) * 120.0
+		mote.points = PackedVector2Array([Vector2(mx, 0), Vector2(mx + 1.5, 26.0)])
 		_descent_bg.add_child(mote)
+		var my0 := -1400.0 + float(i) * 95.0
+		mote.position.y = my0
+		_bg_nodes.append({"node": mote, "y0": my0})
 
-## 附身开始后旁白从画面中央降到字幕位，把中央让给"黑雾钻进来"
 func _set_subtitle_mode(on: bool) -> void:
 	if _soul_label == null:
 		return
