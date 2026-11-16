@@ -232,6 +232,12 @@ func _rest() -> void:
 	var player := get_tree().get_first_node_in_group("player")
 	if player == null or not player.has_method("heal"):
 		return
+	# M5-35（组长反馈"血是满的也能按 K 回血"）：满血就用不着这堆火，别把火烧掉
+	var max_hp := int(player.get_script().get_script_constant_map().get("MAX_HP", 5))
+	if int(player.get("hp")) >= max_hp:
+		_prompt.text = "血是满的"
+		_feedback_timer = FEEDBACK_TIME
+		return
 	var healed := int(player.call("heal", REST_HEAL))
 	_flare = 1.0
 	GameManager.play_sfx("heal", -2.0)

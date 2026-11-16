@@ -40,14 +40,14 @@ const DONE_HINT_DURATION := 1.0
 ## 兜底锚点（M5-25）：这一环落脚面往上 3 个角色身高（28×3=84）。
 ## 场景在 _ready 里会调 set_step_anchors 覆盖这份——改布局改 test_arena 的 STATION_SURFACES。
 const STEP_ANCHORS: Array[Vector2] = [
-	Vector2(700, 575),   # MOVE：平地 659 - 84
-	Vector2(1300, 487),  # JUMP：跳台顶 571 - 84
-	Vector2(2000, 487),  # WEAPON：同上（尸体+剑）
-	Vector2(2700, 487),  # ATTACK：同上（木桩甲）
-	Vector2(3160, 487),  # POGO：方台左边（写方块里会被埋），台面往上 84
-	Vector2(4100, 575),  # COMBAT：浅坑底 659 - 84
-	Vector2(5580, 575),  # PICKUP：肢体掉落处 659 - 84（祭坛上方只留献祭那一行）
-	Vector2(6950, 575),  # SACRIFICE：右岸地面 659 - 84（门旁边）
+	Vector2(1420, 575),   # MOVE：平地 659 - 84
+	Vector2(4000, 487),  # JUMP：跳台顶 571 - 84
+	Vector2(6500, 487),  # WEAPON：同上（尸体+剑）
+	Vector2(9200, 487),  # ATTACK：同上（木桩甲）
+	Vector2(11260, 487),  # POGO：方台左边（写方块里会被埋），台面往上 84
+	Vector2(14000, 575),  # COMBAT：浅坑底 659 - 84
+	Vector2(14800, 575),  # PICKUP：肢体掉落处 659 - 84（祭坛上方只留献祭那一行）
+	Vector2(21500, 575),  # SACRIFICE：右岸地面 659 - 84（门旁边）
 ]
 
 ## 教学假人节点名（test_arena 内的实例名，见 test_arena.tscn）

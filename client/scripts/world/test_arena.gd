@@ -35,53 +35,47 @@ const PLAYER_HALF_HEIGHT := 13.0   # 玩家碰撞盒 14×26，中心到脚底 13
 ## 拓扑不变、间距与跑动距离同步变长，约多出 1.2 km 的横向路程）。
 const SPREAD := 1.25
 const STAGE := {
-	"world_width": 7400.0,
-	"spawn": Vector2(100, 647),
-	# 移动环：走完这段才算学会走路（判定点）
-	"move_mark": Vector2(780, 585),
-	# 这里只管“话写在哪”，判定还是 move_mark：句子写在入口上方，人继续往前走才算过。
-	"move_hint": Vector2(700, 585),
-	"move_gate": Vector2(900, 559),
-	# 跳台（顶 571，比地面高 88）：拿剑、打桩、下劈都在这条长台上
-	"ledge": Rect2(1025, 571, 2695, 90),
-	"jump_mark": Vector2(1300, 500),
-	"jump_gate": Vector2(1480, 471),
-	"corpse": Vector2(1840, 567),
-	"sword": Vector2(2000, 568),
-	"weapon_mark": Vector2(2000, 500),
-	"dummy_a": Vector2(2700, 558),
-	"attack_mark": Vector2(2700, 480),
-	"attack_gate": Vector2(2920, 471),
-	# 下劈：小方台（顶 440）+ 悬在台前的木桩乙，下劈反弹才够得着
-	"pogo": Rect2(3300, 440, 200, 131),
-	"dummy_b": Vector2(3280, 496),   # 悬在方台前的踏板（落到地面就够不着台顶）
-	"pogo_mark": Vector2(3400, 372),
-	"pogo_gate": Vector2(3620, 449),
-	# 浅坑：两侧各两级台阶，坑底和地面同高，史莱姆就站在坑里
-	# M5-30（组长"去掉那两个台阶"）：坑两侧的台阶撤掉，这一段恢复成平地直走。
-	# 地面本来就是一条贯通的 659 平台，台阶只是装饰，留着还会在底边多一道接缝。
+	"world_width": 22300.0,
+	"spawn": Vector2(140, 647),
+	# 移动环：走到 1500 才算学会走路，字写在 1420
+	"move_mark": Vector2(1500, 585),
+	"move_hint": Vector2(1420, 585),
+	"move_gate": Vector2(1660, 559),
+	# 跳台：顶 571，从 3800 铺到 8400 —— 拿剑、打桩、下劈都在这一条长台上
+	"ledge": Rect2(3800, 571, 8000, 90),
+	"jump_mark": Vector2(4000, 500),
+	"jump_gate": Vector2(4200, 471),
+	"corpse": Vector2(6300, 567),
+	"sword": Vector2(6500, 568),
+	"weapon_mark": Vector2(6500, 500),
+	"dummy_a": Vector2(9200, 558),
+	"attack_mark": Vector2(9200, 480),
+	"attack_gate": Vector2(9440, 471),
+	# 下劈：小方台（顶 440），悬在台前的木桩乙是踏板
+	"pogo": Rect2(11400, 440, 200, 131),
+	"dummy_b": Vector2(11380, 496),   # 悬在方台前的踏板（落到地面就够不着台顶）
+	"pogo_mark": Vector2(11500, 372),
+	"pogo_gate": Vector2(11840, 449),
+	# 战斗场景：史莱姆一直在这儿等着，走到能看见它的时候触发剧情
+	"slimes": [Vector2(14000, 646)],
+	"combat_mark": Vector2(14000, 590),
+	"combat_gate": Vector2(14340, 309),
+	# 浅坑两侧的台阶已撤（M5-30），这个键留着是因为 _build_hollow_steps 还在读
 	"pit_steps": [],
-	# 组长反馈：教学关只留一只史莱姆，两只同时贴脸容易被围住，节奏也太赶
-	"slimes": [Vector2(4100, 646)],
-	"combat_mark": Vector2(4100, 590),
-	"combat_gate": Vector2(4400, 309),
-	# 祭坛台（顶 572）＋ 祭坛
-	"altar_hall": Rect2(4700, 572, 675, 90),
-	"altar": Vector2(6950, 659),
-	"pickup_mark": Vector2(5040, 498),
-	# 献祭那行字要抬到祭坛提示（HintLabel 在 519）上面去：两句原来只差 21px，叠在一起看不清
-	"sacrifice_mark": Vector2(6950, 659),
-	# 祭坛之后：长廊台阶是可选路线，层门在地图最右。
-	# 蒸汽靴宝箱已移到第二层工程师处（剧情上靴子由工程师交付），教学关不再放箱子。
+	# 火堆：打完史莱姆再走 10 秒
+	# 悬崖：左岸到 19000，右岸从 20400 起
 	"gallery": [
-		Rect2(5925, 607, 163, 26), Rect2(6150, 552, 150, 26),
-		Rect2(6388, 505, 138, 26), Rect2(6625, 565, 188, 26),
+		Rect2(19080, 607, 163, 26), Rect2(19380, 552, 150, 26),
+		Rect2(19700, 505, 138, 26), Rect2(20000, 565, 188, 26),
 	],
-	# M5-11：长廊下面那段地面挖空成悬崖（左岸止于 5000，右岸从 6040 起）。
-	# 四块石台就是过河的路，掉进中间会死；右岸刚好接住"第一层"门。
-	"chasm_left": 5850.0,
-	"chasm_right": 6890.0,
-	"door": Vector2(7300, 659),
+	"chasm_left": 19000.0,
+	"chasm_right": 20400.0,
+	# 右岸台地：过河之后的落脚台（顶 572），台后面就是祭坛和门
+	"altar_hall": Rect2(20400, 572, 675, 90),
+	"altar": Vector2(21500, 659),
+	"pickup_mark": Vector2(14800, 646),
+	"sacrifice_mark": Vector2(21500, 659),
+	"door": Vector2(22150, 659),
 }
 
 ## 物理门：每环一个，只有做完前面那一环才开。高度按玩家跳跃高度留死角：
@@ -147,7 +141,7 @@ var _player: Node2D
 func _ready() -> void:
 	GameManager.mark_floor_start("tutorial")
 	_build_campfire()
-	_build_beast_encounter()
+	_build_beast_encounter.call_deferred()
 	# 相机 zoom 由这里设置（垂直视野 = N 倍角色身高）；水平跟随/垂直死区由 camera_follow.gd 处理
 	var camera := $Camera2D as Camera2D
 	camera.zoom = Vector2(CAMERA_ZOOM, CAMERA_ZOOM)
@@ -537,16 +531,16 @@ func _box_polygon(size: Vector2) -> PackedVector2Array:
 const TEXT_HEIGHT_ABOVE_SURFACE := 84.0
 ## 每一环的落脚面（x, 这一环的地面/台面顶 y）；文字由它算出来
 const STATION_SURFACES := [
-	Vector2(700, 659),    # MOVE：平地
-	Vector2(1300, 571),   # JUMP：跳台顶
-	Vector2(2000, 571),   # WEAPON：跳台上（尸体和剑）
-	Vector2(2700, 571),   # ATTACK：跳台上（木桩甲）
+	Vector2(1420, 659),   # MOVE：平地
+	Vector2(4000, 571),   # JUMP：跳台顶
+	Vector2(6500, 571),   # WEAPON：跳台上（尸体和剑）
+	Vector2(9200, 571),   # ATTACK：跳台上（木桩甲）
 	# POGO：句子的左边是木桩乙、右边是下劈方台。方台从 440 一直堆到 571（和跳台面贴着），
 	# 所以"平台下方"其实是方块里面，字写那儿会被埋进石头 —— 写方块左边，人站在跳台上就能看见。
-	Vector2(3160, 571),
-	Vector2(4100, 659),   # COMBAT：浅坑底
-	Vector2(5580, 659),   # PICKUP：写在肢体掉落处的地面上（祭坛上方只留献祭那一行）
-	Vector2(6950, 659),   # SACRIFICE：祭坛旁边（右岸地面，门在右边）
+	Vector2(11260, 571),
+	Vector2(14000, 659),  # COMBAT：战场
+	Vector2(14800, 659),  # PICKUP：肢体掉落处（祭坛上方只留献祭那一行）
+	Vector2(21500, 659),  # SACRIFICE：祭坛旁边（右岸地面，门在右边）
 ]
 func station_anchors() -> Array[Vector2]:
 	var out: Array[Vector2] = []
@@ -1284,10 +1278,10 @@ func _build_campfire() -> void:
 ## 掉血必须是确定发生的一次，不能看玩家闪不闪得开。
 ## 怪物就用史莱姆（同一套跳扑 AI），只是血加厚，算"稍简单的小 boss"：
 ## 它不会一招秒人，也不会放弹幕，代价是它就在悬崖边上 —— 打急了会被自己撞下去。
-const BEAST_TRIGGER := Vector2(5400, 620)
-const BEAST_SPAWN := Vector2(5580, 646)
+const BEAST_TRIGGER := Vector2(13300, 620)
+const BEAST_SPAWN := Vector2(14000, 646)
 ## 篝火位置：必须在剧情和战斗之后（见 _build_campfire 的注释）
-const CAMPFIRE_X := 5700.0
+const CAMPFIRE_X := 16500.0
 ## 火堆的 y：地面 659 往下让 22px（石圈 + 石块自身的高度），不然会陷进地里
 const CAMPFIRE_Y := 637.0
 const BEAST_HP := 14
@@ -1316,10 +1310,16 @@ func _build_beast_encounter() -> void:
 		if body.is_in_group("player"):
 			_beast_encounter())
 	add_child(area)
+	# M5-35（组长）：史莱姆一开始就站在前面。这里必须延迟生成 ——
+	# 这个函数是在 _ready 装子节点的过程中被调用的，直接 add_child 会报
+	# "Parent node is busy setting up children"
+	_spawn_beast()
 
-## M5-29（组长定的演出）：**先放怪，让它自己走过来咬**，玩家掉的那一格血是史莱姆咬掉的，
-## 不是脚本扣的；掉了血之后才念这段旁白，念完把玩家引回火边。
-## 原来的一版是"先念旁白、再固定 0.45 秒后脚本扣 1 血"，看着就是剧情自己扣血，和怪没关系。
+## M5-35（组长重新定的走线）：
+##   ① 场景一开始，史莱姆就站在前面（不是走到触发区才刷出来）
+##   ② 走到能看见它的时候触发这段旁白
+##   ③ 旁白念完，它扑过来；真咬到玩家（掉血）之后，这段剧情才结束，然后提示玩家还手
+##   ④ 打完再走 10 秒到火堆
 func _beast_encounter() -> void:
 	if _beast_started:
 		return
@@ -1327,17 +1327,7 @@ func _beast_encounter() -> void:
 	var player := get_tree().get_first_node_in_group("player")
 	if player == null or not is_inside_tree():
 		return
-	# 先放怪：出生点在玩家前面 200px 以内，史莱姆 AI 会自己追上来
-	_spawn_beast()
-	# 等血真的掉一格（史莱姆的接触伤害），这是一切判定的起点
-	var hp_before := int(player.get("hp"))
-	while is_instance_valid(player) and is_inside_tree():
-		if int(player.get("hp")) < hp_before:
-			break
-		await get_tree().process_frame
-	if not is_inside_tree():
-		return
-	# 被咬之后才念旁白（念的时候 Dialogue 会锁输入、冻结场上的怪，正好让这一下结束）
+	# ② 先念旁白（对话会冻结场上的怪，所以这时候史莱姆只是站着）
 	var dialogue := get_node_or_null("Dialogue")
 	if dialogue != null and dialogue.has_method("play"):
 		while is_instance_valid(dialogue) and bool(dialogue.call("is_playing")):
@@ -1345,6 +1335,50 @@ func _beast_encounter() -> void:
 		if not is_inside_tree():
 			return
 		dialogue.call("play", BEAST_DIALOGUE)
+		while is_instance_valid(dialogue) and bool(dialogue.call("is_playing")):
+			await get_tree().process_frame
+	if not is_inside_tree():
+		return
+	# ③ 念完把它挪到玩家跟前，让 AI 自己扑过来（真掉血才算这一下）
+	if _beast != null and is_instance_valid(_beast) and is_instance_valid(player):
+		(_beast as Node2D).global_position = Vector2(
+			player.global_position.x - 150.0, player.global_position.y)
+	var hp_before := int(player.get("hp"))
+	while is_instance_valid(player) and is_inside_tree():
+		if int(player.get("hp")) < hp_before:
+			break
+		await get_tree().process_frame
+	if not is_inside_tree():
+		return
+	# 咬到之后才交还操作，并提示玩家还手
+	_show_beast_fight_hint()
+
+## 咬到之后挂在玩家头顶的一句提示（和火堆那句同一个样式，但只挂 4 秒）
+func _show_beast_fight_hint() -> void:
+	var player := get_tree().get_first_node_in_group("player") as Node2D
+	if player == null:
+		return
+	var label := Label.new()
+	label.name = "BeastFightHint"
+	label.text = "它在咬你 —— 砍它（J）"
+	label.size = Vector2(320, 24)
+	label.position = player.global_position + Vector2(-160.0, -90.0)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.add_theme_font_size_override("font_size", 14)
+	label.add_theme_color_override("font_color", Color(1.0, 0.86, 0.60, 0.95))
+	label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.85))
+	label.add_theme_constant_override("shadow_offset_x", 1)
+	label.add_theme_constant_override("shadow_offset_y", 1)
+	var font := load("res://assets/fonts/NotoSansCJKsc-Regular.otf") as Font
+	if font != null:
+		label.add_theme_font_override("font", font)
+	add_child(label)
+	var tw := create_tween()
+	tw.tween_interval(4.0)
+	tw.tween_property(label, "modulate:a", 0.0, 0.6)
+	tw.tween_callback(func() -> void:
+		if is_instance_valid(label):
+			label.queue_free())
 
 func _spawn_beast() -> void:
 	if _beast_killed or not is_inside_tree():

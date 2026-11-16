@@ -6,7 +6,7 @@ extends SceneTree
 ## 满血时休息返回 0（不重复刷提示）；灵魂火舌组件能正常挂载。
 
 const SCENES := [
-	{"path": "res://scenes/world/test_arena.tscn", "min_x": 3000.0, "max_x": 5900.0, "ground": 659.0},
+	{"path": "res://scenes/world/test_arena.tscn", "min_x": 15000.0, "max_x": 18000.0, "ground": 659.0},
 	# M5-09：第一层钟绳前那座篝火删了，这一层不再有篝火
 	{"path": "res://scenes/world/floor2.tscn", "min_x": 1500.0, "max_x": 3500.0, "ground": 600.0},
 	{"path": "res://scenes/world/floor3.tscn", "min_x": 2000.0, "max_x": 2600.0, "ground": 620.0},
