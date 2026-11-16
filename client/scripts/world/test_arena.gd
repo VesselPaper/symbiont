@@ -187,6 +187,8 @@ func _ready() -> void:
 	var loaded_player := get_node_or_null("Player") as Node2D
 	if loaded_player != null:
 		SaveSystem.apply_pending_player(loaded_player)
+	# 道具落地校准（M5-31）：地形加了岩体轮廓和折痕后，手填的 y 会差几像素，这里统一对齐一次
+	_snap_props_deferred()
 
 	# M1-03：延时播放开场寄生体低语，让场景先稳定（玩家出生 → 低语弹出）
 	# M4-62：从虚空掉进来那一局要等"落地 → 站起 → 亮起来"演完再开口，
@@ -898,6 +900,69 @@ func _build_hud() -> void:
 	add_child(hud)
 
 ## 篝火：放在祭坛之后、长廊台阶之前的地面中段，打完浅坑能补给一次再走
+## 等一个物理帧再校准：`_apply_stage()` 是刚改完碰撞盒尺寸的，物理服务器还没刷新，
+## 这时候打射线量到的是旧形状（祭坛那条射线会穿过平台直接打到 659 的地面，把祭坛按下去 85px）。
+func _snap_props_deferred() -> void:
+	await get_tree().physics_frame
+	if is_inside_tree():
+		_snap_props_to_ground()
+
+## 摆在"地面/台面"上的东西（M5-31）：祭坛、火堆、尸体、铁剑、木桩甲。
+## 木桩乙不在里面 —— 它是下劈反弹的踏板，本来就悬在方台前，落地就够不着台顶了。
+const GROUNDED_PROPS := ["Altar", "Campfire", "Corpse", "WeaponPickup", "DummyA"]
+
+## 把这些道具"视觉底边"精确贴到脚下地面上。
+##
+## 为什么不再手填 y：地形现在是岩体轮廓（顶边严格贴碰撞顶边，但每块图的视觉底边高低不一），
+## 道具每挪一次位置、每换一次美术，手填的数字就会差两三像素 —— 看着就是"陷进去"或"浮着"。
+## 这里统一量一次：往下打射线找到地面，再把道具自己的视觉最低点挪到那条线上。
+func _snap_props_to_ground() -> void:
+	var space := get_world_2d().direct_space_state
+	for prop_name in GROUNDED_PROPS:
+		var node := get_node_or_null(str(prop_name)) as Node2D
+		if node == null or not is_instance_valid(node):
+			continue
+		var pos := node.global_position
+		var from := Vector2(pos.x, pos.y - 160.0)
+		var ray := PhysicsRayQueryParameters2D.create(from, from + Vector2(0, 400.0), 1)
+		var hit := space.intersect_ray(ray)
+		if hit.is_empty():
+			continue
+		var surface := float(hit["position"].y)
+		var bottom := _visual_bottom(node)
+		if absf(bottom - surface) < 0.01:
+			continue
+		# 只改 y：横向由 STAGE 表管，别让校准把道具左右挪偏
+		node.position.y += surface - bottom
+
+## 一个节点（含所有子节点）在世界坐标下的最低点：Polygon2D 顶点、Line2D 顶点、Sprite2D 贴图底边
+func _visual_bottom(root: Node2D) -> float:
+	var worst := -1.0e9
+	var stack: Array = [[root, root.global_transform]]
+	while not stack.is_empty():
+		var item: Array = stack.pop_back()
+		var n: Node = item[0]
+		var xf: Transform2D = item[1]
+		for child in n.get_children():
+			var t := xf
+			if child is Node2D:
+				t = xf * (child as Node2D).transform
+			if child is Polygon2D:
+				for p in (child as Polygon2D).polygon:
+					worst = maxf(worst, (t * p).y)
+			elif child is Line2D:
+				for p in (child as Line2D).points:
+					worst = maxf(worst, (t * p).y)
+			elif child is Sprite2D:
+				var sp := child as Sprite2D
+				if sp.texture != null:
+					var sz := sp.texture.get_size() * sp.scale
+					var top_left := sp.position if not sp.centered else sp.position - sz * 0.5
+					worst = maxf(worst, (t * (top_left + Vector2(0.0, sz.y))).y)
+			if child.get_child_count() > 0:
+				stack.append([child, t])
+	return worst
+
 func _build_campfire() -> void:
 	var fire := CAMPFIRE_SCENE.instantiate()
 	fire.name = "Campfire"
