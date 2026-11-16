@@ -57,9 +57,13 @@ func _build_all() -> void:
 	_build_shaft()
 	_build_far()
 	_build_mid()
+	_build_left_wall()
+	_build_under_ground()
 	_build_fog()
 	_build_spores()
 	_dress_terrain()
+	# 地表细节要在 _dress_terrain 之后：地面顶边颜色已经定好，碎石/草才压得住
+	_build_surface_detail()
 	_dress_props()
 	_build_vignette()
 
@@ -121,6 +125,245 @@ func _process(delta: float) -> void:
 		_spores.position = _camera.global_position
 
 # ---------- 背景 ----------
+
+## 左侧岩壁（M5-27，组长反馈"开局左边只有一条细墙线，屏幕左侧一片空白"）。
+##
+## 原来左墙就是 WallLeft 那根 40px 宽的竖条，镜头又夹在 limit_left=0，
+## 出生点在 x≈140，一开局画面最左边就是空的。这里在墙**外侧**补一整面岩壁：
+## 从 x=-420 一直到贴着墙，轮廓做成锯齿状，分三层明暗，底部压暗、顶上有苔 ——
+## 墙线从此变成"岩壁的内沿"，不是一根细线。
+func _build_left_wall() -> void:
+	var wall := Node2D.new()
+	wall.name = "LeftWallArt"
+	add_child(wall)
+	# 三层：越靠左越暗（远离镜头），最外层几乎和背景一个色
+	var layers := [
+		{"from": -420.0, "to": 92.0, "color": Color(0.058, 0.068, 0.080), "jag": 34.0},
+		{"from": -300.0, "to": 74.0, "color": Color(0.086, 0.100, 0.112), "jag": 22.0},
+		{"from": -180.0, "to": 58.0, "color": Color(0.118, 0.134, 0.146), "jag": 12.0},
+	]
+	for i in range(layers.size()):
+		var spec: Dictionary = layers[i]
+		var x0: float = spec["from"]
+		var x1: float = spec["to"]
+		var color: Color = spec["color"]
+		var jag: float = spec["jag"]
+		var pts := PackedVector2Array()
+		# 内沿（靠向玩家那一侧）画成折线：上窄下宽，像被凿出来的岩壁断面
+		var y := world_top
+		while y <= 700.0:
+			var inset := jag * _rng.randf_range(0.35, 1.0) * (1.0 if int(y) % 2 == 0 else -0.4)
+			pts.append(Vector2(x1 - inset, y))
+			y += 46.0
+		pts.append(Vector2(x1 - jag * 0.2, 700.0))
+		pts.append(Vector2(x0, 760.0))
+		pts.append(Vector2(x0, world_top))
+		var poly := Polygon2D.new()
+		# 每层的点顺序反过来攒的，先攒内沿再回外沿，直接拼成闭合多边形
+		var closed := PackedVector2Array()
+		closed.append(Vector2(x0, world_top))
+		for p in pts:
+			closed.append(p)
+		poly.polygon = closed
+		poly.color = color
+		wall.add_child(poly)
+	# 岩壁的裂缝：几条从上往下的暗线，别让三层色块太干净
+	for k in range(5):
+		var crack := Line2D.new()
+		crack.width = 1.4
+		crack.default_color = Color(0.028, 0.034, 0.040, 0.75)
+		var cx := _rng.randf_range(-160.0, 40.0)
+		var pts2 := PackedVector2Array()
+		var cy := -140.0
+		while cy < 660.0:
+			pts2.append(Vector2(cx + _rng.randf_range(-9.0, 9.0), cy))
+			cy += _rng.randf_range(70.0, 130.0)
+		crack.points = pts2
+		wall.add_child(crack)
+	# 墙根一撮苔和碎石：岩壁落地的位置不能是一刀切
+	for k in range(6):
+		var moss := Polygon2D.new()
+		moss.color = Color(0.130, 0.205, 0.170, 0.5)
+		var mx := _rng.randf_range(-60.0, 54.0)
+		moss.polygon = PackedVector2Array([
+			Vector2(mx, 659.0), Vector2(mx + _rng.randf_range(10.0, 26.0), 659.0),
+			Vector2(mx + 8.0, 659.0 - _rng.randf_range(3.0, 9.0)),
+		])
+		wall.add_child(moss)
+	# 墙上一盏极暗的壁灯，给"这面墙是人凿的"一个线索（不亮，只是轮廓）
+	var bracket := Node2D.new()
+	bracket.position = Vector2(-40.0, 470.0)
+	wall.add_child(bracket)
+	var arm := Polygon2D.new()
+	arm.color = Color(0.086, 0.098, 0.108, 0.95)
+	arm.polygon = PackedVector2Array([
+		Vector2(-26, 0), Vector2(6, -2), Vector2(8, 4), Vector2(-24, 6),
+	])
+	bracket.add_child(arm)
+	var cup := Polygon2D.new()
+	cup.color = Color(0.140, 0.130, 0.118, 0.9)
+	cup.polygon = PackedVector2Array([
+		Vector2(-6, 2), Vector2(6, 2), Vector2(4, 10), Vector2(-4, 10),
+	])
+	bracket.add_child(cup)
+
+## 地面下方（M5-27，组长反馈"地面底下是空的"）。
+##
+## 地面本体只有 60px 厚（659..689），再往下就是天空渐变 —— 站在地面上往下看是一片空虚。
+## 这里补一整块"岩体"：669 往下一直到 980，分三层，加水平岩层线和几块大石。
+## 悬崖那一段（gap_from..gap_to）故意不填 —— 那儿本来就是深渊。
+func _build_under_ground() -> void:
+	var mass := Node2D.new()
+	mass.name = "UnderGround"
+	add_child(mass)
+	var bands := [
+		{"top": 686.0, "bottom": 760.0, "color": Color(0.155, 0.172, 0.185)},
+		{"top": 760.0, "bottom": 860.0, "color": Color(0.110, 0.126, 0.140)},
+		{"top": 860.0, "bottom": 1000.0, "color": Color(0.072, 0.084, 0.096)},
+	]
+	var spans := [[-200.0, gap_from if gap_from >= 0.0 else world_width + 200.0]]
+	if gap_from >= 0.0:
+		spans.append([gap_to, world_width + 200.0])
+	for span in spans:
+		var x0: float = span[0]
+		var x1: float = span[1]
+		for band in bands:
+			var poly := Polygon2D.new()
+			poly.name = "UndergroundBand"
+			poly.color = band["color"]
+			var top: float = band["top"]
+			var bottom: float = band["bottom"]
+			var pts := PackedVector2Array()
+			# 上沿不拉直线：每 180px 抖一下，像自然岩层的断面
+			var x := x0
+			while x <= x1:
+				pts.append(Vector2(x, top + _rng.randf_range(-5.0, 5.0)))
+				x += 180.0
+			x = x1
+			while x >= x0:
+				pts.append(Vector2(x, bottom + _rng.randf_range(-8.0, 8.0)))
+				x -= 180.0
+			poly.polygon = pts
+			mass.add_child(poly)
+		# 岩层横线：把三大块再切细，读得出"一层一层压下去"
+		for band in bands:
+			var y0: float = band["top"]
+			var step := 26.0
+			while y0 < float(band["bottom"]) - 10.0:
+				var seam := Line2D.new()
+				seam.width = 1.0
+				seam.default_color = Color(0.030, 0.036, 0.042, 0.55)
+				seam.points = PackedVector2Array([Vector2(x0 + 10.0, y0), Vector2(x1 - 10.0, y0)])
+				mass.add_child(seam)
+				y0 += step
+		# 几块大石：从地底往上顶出来的圆钝岩块
+		var bx := x0 + 120.0
+		while bx < x1 - 100.0:
+			var boulder := Polygon2D.new()
+			boulder.color = Color(0.180, 0.196, 0.208, 0.95)
+			boulder.polygon = _boulder_points(bx, 690.0 + _rng.randf_range(0.0, 40.0),
+				_rng.randf_range(26.0, 54.0))
+			mass.add_child(boulder)
+			# 石头顶上一线受光，不然和岩层糊成一团。多边形点已经是世界坐标，
+			# 取"最高的那一小段"（y 最小的几个点）连起来。
+			var lit := Line2D.new()
+			lit.width = 1.4
+			lit.default_color = Color(0.300, 0.320, 0.325, 0.45)
+			var pts_all := boulder.polygon
+			var top_y := 1.0e9
+			for p in pts_all:
+				top_y = minf(top_y, p.y)
+			var lit_pts := PackedVector2Array()
+			for p in pts_all:
+				if p.y <= top_y + 14.0:
+					lit_pts.append(p)
+			if lit_pts.size() >= 2:
+				lit.points = lit_pts
+				mass.add_child(lit)
+			bx += _rng.randf_range(220.0, 420.0)
+
+## 一块圆钝的石头（半埋在岩层里，只露上半截）
+func _boulder_points(cx: float, cy: float, r: float) -> PackedVector2Array:
+	var pts := PackedVector2Array()
+	var steps := 9
+	for i in range(steps + 1):
+		var a := PI + PI * float(i) / float(steps)      # 半圆，开口朝下
+		var wob := 1.0 + sin(float(i) * 2.1 + cx * 0.01) * 0.18
+		pts.append(Vector2(cx + cos(a) * r * wob, cy + sin(a) * r * wob * 0.62))
+	pts.append(Vector2(cx + r, cy + r * 0.4))
+	pts.append(Vector2(cx - r, cy + r * 0.4))
+	return pts
+
+## 地表细节（M5-27）：草、碎石、干裂，贴着地面顶边撒，让地面不是一块光板。
+## 全部画在 z=-1（地形之上、角色之下），且**不超出地面顶边 8px**，
+## 免得又变成"走过去踩不到的小灰块"（M5-25 那条教训）。
+func _build_surface_detail() -> void:
+	var holder := Node2D.new()
+	holder.name = "SurfaceDetail"
+	holder.z_index = 2          # 父节点 -3 → 世界 -1
+	add_child(holder)
+	var x := 60.0
+	while x < world_width - 60.0:
+		if not _over_gap(x):
+			var r := _rng.randf()
+			if r < 0.55:
+				_add_grass_tuft(holder, x)
+			else:
+				_add_pebbles(holder, x)
+		x += _rng.randf_range(34.0, 78.0)
+
+## 一撮草：3~5 根细叶，从地面往上冒 7~13px，根部压暗
+func _add_grass_tuft(parent: Node2D, x: float) -> void:
+	var tuft := Node2D.new()
+	tuft.position = Vector2(x, 659.0)
+	parent.add_child(tuft)
+	var blades := int(_rng.randf_range(3.0, 6.0))
+	for i in range(blades):
+		var blade := Line2D.new()
+		blade.width = 1.2
+		blade.default_color = Color(0.115, 0.185, 0.150, 0.65)
+		var lx := _rng.randf_range(-7.0, 7.0)
+		var h := _rng.randf_range(7.0, 13.0)
+		var lean := _rng.randf_range(-4.0, 5.0)
+		blade.points = PackedVector2Array([
+			Vector2(lx, 0.0),
+			Vector2(lx + lean * 0.5, -h * 0.6),
+			Vector2(lx + lean, -h),
+		])
+		tuft.add_child(blade)
+	# 根部的暗影：草不会凭空长在一块亮板上
+	var root := Polygon2D.new()
+	root.color = Color(0.045, 0.060, 0.052, 0.55)
+	root.polygon = PackedVector2Array([
+		Vector2(-9.0, 1.0), Vector2(9.0, 1.0), Vector2(6.0, -1.5), Vector2(-6.0, -1.5),
+	])
+	tuft.add_child(root)
+
+## 两三块碎石：半埋在地表，露出来的高度 ≤5px，读作"地面的碎石"而不是台阶
+func _add_pebbles(parent: Node2D, x: float) -> void:
+	var group := Node2D.new()
+	group.position = Vector2(x, 659.0)
+	parent.add_child(group)
+	var count := int(_rng.randf_range(2.0, 4.0))
+	for i in range(count):
+		var rock := Polygon2D.new()
+		rock.color = Color(0.150, 0.166, 0.176, 0.95)
+		var w := _rng.randf_range(5.0, 11.0)
+		var h := _rng.randf_range(2.5, 5.0)
+		var px := _rng.randf_range(-14.0, 14.0)
+		rock.polygon = PackedVector2Array([
+			Vector2(px - w, 0.5), Vector2(px - w * 0.4, 0.5 - h),
+			Vector2(px + w * 0.5, 0.5 - h * 0.8), Vector2(px + w, 0.5),
+		])
+		group.add_child(rock)
+		# 顶上一线亮边：石头的受光面
+		var rim := Line2D.new()
+		rim.width = 1.0
+		rim.default_color = Color(0.260, 0.285, 0.290, 0.55)
+		rim.points = PackedVector2Array([
+			Vector2(px - w * 0.4, 0.5 - h), Vector2(px + w * 0.5, 0.5 - h * 0.8),
+		])
+		group.add_child(rim)
 
 func _build_sky() -> void:
 	var sky := Polygon2D.new()
@@ -296,9 +539,91 @@ func _dress_terrain() -> void:
 			continue
 		_add_top_rim(body, col)
 		_add_seams_and_moss(body, col)
+		# M5-27：地面本体要能看出是"一堵石砌的断面"，不然 60px 高的一条只剩平灰
+		if body_name.begins_with("Ground"):
+			_add_ground_face(body, col)
 		# M5-25（组长反馈"坑两边灰色矩形、有个多出来的一点没有碰撞体积"）：
 		# `_add_edge_chunks` 会在碰撞盒边缘**多画出去几像素**的碎石和垂根 ——
 		# 那是纯装饰、没有碰撞，走过去看着像悬空的灰块。不画了，地形边缘就是碰撞边缘。
+
+## 地面断面（M5-27）：地面上只看得到约 60px 高的一条，原来只有顶边亮边 + 几条几乎看不见的横缝，
+## 读起来就是"一条平灰带"。这里补三样东西：
+##   ① 顶边底下一条更亮的泥土层（草根扎进去的那一层）
+##   ② 两排大小不一的石块，压在地面本体上，深浅错开
+##   ③ 从地面下沿垂下来的根须 + 断口，让"地面底下"不是一刀切的平底
+func _add_ground_face(body: StaticBody2D, col: CollisionShape2D) -> void:
+	var shape := col.shape as RectangleShape2D
+	if shape == null:
+		return
+	var half_w := shape.size.x * 0.5
+	var top_y := col.position.y - shape.size.y * 0.5
+	var bottom := col.position.y + shape.size.y * 0.5
+	var left := col.position.x - half_w
+	var right := col.position.x + half_w
+
+	# ①泥土层：贴在顶边下面 7px，偏暖一点，和石灰色区分开
+	var soil := Polygon2D.new()
+	soil.name = "SoilBand"
+	soil.color = Color(0.118, 0.108, 0.094, 0.80)
+	soil.polygon = PackedVector2Array([
+		Vector2(left, top_y + 1.0), Vector2(right, top_y + 1.0),
+		Vector2(right, top_y + 8.0), Vector2(left, top_y + 7.0),
+	])
+	body.add_child(soil)
+
+	# ②石块：两排，宽 30~64，深浅随机，往下错开
+	for row in range(2):
+		var y := top_y + 10.0 + float(row) * 15.0
+		var x := left + _rng.randf_range(10.0, 50.0)
+		while x < right - 40.0:
+			var w := _rng.randf_range(30.0, 64.0)
+			var h := _rng.randf_range(11.0, 15.0)
+			var off := _rng.randf_range(-1.5, 1.5)
+			var tone := _rng.randf_range(0.135, 0.205)
+			var block := Polygon2D.new()
+			block.name = "GroundStone"
+			block.color = Color(tone, tone * 1.06, tone * 1.12, 0.95)
+			block.polygon = PackedVector2Array([
+				Vector2(x, y + off), Vector2(x + w, y + off - 1.0),
+				Vector2(x + w - 2.0, y + off + h), Vector2(x + 2.0, y + off + h + 1.0),
+			])
+			body.add_child(block)
+			# 石块上沿一条细亮线：不然一排排方块像贴纸
+			var edge := Line2D.new()
+			edge.width = 1.0
+			edge.default_color = Color(0.290, 0.305, 0.310, 0.22)
+			edge.points = PackedVector2Array([
+				Vector2(x + 1.0, y + off + 1.0), Vector2(x + w - 1.0, y + off),
+			])
+			body.add_child(edge)
+			x += w + _rng.randf_range(4.0, 16.0)
+
+	# ③地面下沿：断口锯齿 + 垂下来的根须（只往下挂 12~40px，不挡人）
+	var bite := left + 60.0
+	while bite < right - 60.0:
+		var tooth := Polygon2D.new()
+		tooth.name = "GroundBite"
+		tooth.color = Color(0.095, 0.108, 0.118, 0.9)
+		var tw := _rng.randf_range(18.0, 46.0)
+		var depth := _rng.randf_range(4.0, 14.0)
+		tooth.polygon = PackedVector2Array([
+			Vector2(bite, bottom), Vector2(bite + tw, bottom),
+			Vector2(bite + tw * 0.5, bottom - depth),
+		])
+		body.add_child(tooth)
+		bite += _rng.randf_range(90.0, 190.0)
+	for i in range(int(shape.size.x / 260.0) + 2):
+		var rx := left + _rng.randf_range(20.0, maxf(shape.size.x - 20.0, 21.0))
+		var hang := Line2D.new()
+		hang.name = "GroundRoot"
+		hang.width = 1.4
+		hang.default_color = Color(0.050, 0.066, 0.056, 0.65)
+		var pts := PackedVector2Array([Vector2(rx, bottom - 2.0)])
+		var len := _rng.randf_range(12.0, 34.0)
+		pts.append(Vector2(rx + _rng.randf_range(-4.0, 4.0), bottom + len * 0.6))
+		pts.append(Vector2(rx + _rng.randf_range(-7.0, 7.0), bottom + len))
+		hang.points = pts
+		body.add_child(hang)
 
 func _add_top_rim(body: StaticBody2D, col: CollisionShape2D) -> void:
 	var shape := col.shape as RectangleShape2D

@@ -162,6 +162,7 @@ func _ready() -> void:
 	_build_corridor_gallery()
 	_build_next_floor_door()
 	_build_tutorial_gates()
+	_build_foreground()
 	_build_fade_overlay()
 	# 从虚空进来：开场演出（_void_arrival）自己负责把画面亮起来；其余入口立刻淡入。
 	# 注意判断用 _drop_in 而不是旗标：旗标在上面 _apply_stage 里已经被消费掉了，
@@ -740,6 +741,78 @@ func _build_slab_holder(holder_name: String, rects: Array, names: Array) -> void
 			course_y += 14.0
 			course_i += 1
 		holder.add_child(body)
+
+# ---------- 屏幕前景（M5-27） ----------
+
+## 组长要求"模仿空中提示加一层屏幕前景"：贴在最靠镜头的一层，让画面有纵深。
+##
+## 用 CanvasLayer(layer = 0) 而不是往世界里画 Node2D：前景要**固定在屏幕上**，
+## 世界里的东西会跟着镜头滚，那不叫前景。HUD 在 layer 1，所以这层仍然压在 HUD 下面。
+##
+## 只放四角：左上/右上垂下来的藤和锁链、左下/右下两块近景岩石剪影。
+## 中间一律留空 —— 前景一旦盖到角色身上，玩起来就是"看不清自己"。
+func _build_foreground() -> void:
+	var layer := CanvasLayer.new()
+	layer.name = "ForegroundLayer"
+	layer.layer = 0
+	add_child(layer)
+	var art := Node2D.new()
+	art.name = "ForegroundArt"
+	layer.add_child(art)
+	var view := Vector2(get_viewport_rect().size)
+	var near := Color(0.012, 0.016, 0.020, 0.90)
+	var near2 := Color(0.022, 0.028, 0.034, 0.80)
+	var vine := Color(0.014, 0.020, 0.024, 0.85)
+
+	# 左下：一块近景岩台的边角，往上收成尖，右侧压成弧
+	var bl := Polygon2D.new()
+	bl.color = near
+	bl.polygon = PackedVector2Array([
+		Vector2(0, view.y), Vector2(0, view.y - 220.0),
+		Vector2(46.0, view.y - 196.0), Vector2(92.0, view.y - 150.0),
+		Vector2(126.0, view.y - 92.0), Vector2(150.0, view.y - 26.0),
+		Vector2(158.0, view.y),
+	])
+	art.add_child(bl)
+	# 右下镜像
+	var br := Polygon2D.new()
+	br.color = near
+	br.polygon = PackedVector2Array([
+		Vector2(view.x, view.y), Vector2(view.x, view.y - 190.0),
+		Vector2(view.x - 54.0, view.y - 168.0), Vector2(view.x - 104.0, view.y - 118.0),
+		Vector2(view.x - 136.0, view.y - 54.0), Vector2(view.x - 150.0, view.y),
+	])
+	art.add_child(br)
+	# 两块剪影上的岩层缝：不加缝就是两块纯黑
+	for spec in [
+		{"poly": bl, "y": [-190.0, -150.0, -104.0, -56.0]},
+		{"poly": br, "y": [-164.0, -122.0, -76.0, -32.0]},
+	]:
+		for dy in spec["y"]:
+			var seam := Line2D.new()
+			seam.width = 1.0
+			seam.default_color = near2
+			var yy: float = view.y + float(dy)
+			seam.points = PackedVector2Array([Vector2(0.0, yy), Vector2(120.0, yy + 6.0)])
+			art.add_child(seam)
+	# 顶部垂下来的藤：左右各两根，长短不一
+	for spec in [
+		{"x": 74.0, "len": 128.0, "sway": 10.0},
+		{"x": 210.0, "len": 74.0, "sway": 6.0},
+		{"x": view.x - 92.0, "len": 150.0, "sway": 12.0},
+		{"x": view.x - 232.0, "len": 62.0, "sway": 5.0},
+	]:
+		var x := float(spec["x"])
+		var len := float(spec["len"])
+		var sway := float(spec["sway"])
+		var line := Line2D.new()
+		line.width = 2.0
+		line.default_color = vine
+		line.points = PackedVector2Array([
+			Vector2(x, -6.0), Vector2(x + sway * 0.6, len * 0.45),
+			Vector2(x - sway * 0.4, len * 0.8), Vector2(x + sway, len),
+		])
+		art.add_child(line)
 
 func _build_next_floor_door() -> void:
 	_door_root = Node2D.new()

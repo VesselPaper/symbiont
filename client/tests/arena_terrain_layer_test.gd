@@ -100,9 +100,10 @@ func _overshoot(body: StaticBody2D, only_visual: bool) -> float:
 				worst = maxf(worst, _outside(box, pos + p * s))
 	return worst
 
+## 只量"冒出地面顶边（或左右边）的像素" —— 地面底下垂的根须、地下的岩层不在这条规则里，
+## 它们本来就在地面本体下方，玩家永远踩不到。
 func _outside(box: Rect2, p: Vector2) -> float:
-	return maxf(maxf(box.position.x - p.x, p.x - box.end.x),
-		maxf(box.position.y - p.y, p.y - box.end.y))
+	return maxf(maxf(box.position.x - p.x, p.x - box.end.x), box.position.y - p.y)
 
 func _check(ok: bool, msg: String) -> void:
 	if not ok:
