@@ -24,7 +24,12 @@ func _run() -> void:
 	lone.call("_respawn")
 	await process_frame
 	_check(bool(lone.get("has_weapon")), "复活后玩家丢了铁剑")
-	_check(lone.get_node("Body").get_node("ArmPivot/SwordPivot").visible, "复活后剑的视觉没恢复")
+	# M4-58：角色身上不再挂剑（剑只有世界里那把可拾取的），所以这里验"复活后身体重新显出来"。
+	# 死亡动画会把 Body 藏掉，复活必须还原，否则复活后是个透明人。
+	_check(lone.get_node("Body").visible, "复活后身体的视觉没恢复")
+	# M4-71：眼睛是单独一层，死亡时灭、复活时要重新亮起来，否则复活后一直没眼睛
+	var eyes := lone.get_node_or_null("Body/Head/Eyes") as CanvasItem
+	_check(eyes != null and eyes.visible, "复活后眼睛没有亮起来")
 	lone.queue_free()
 
 	# 2) 横砍：怪被推开、玩家被反推、双方都有硬直

@@ -10,18 +10,26 @@ const TEST_ARENA := "res://scenes/world/test_arena.tscn"
 const FLOOR1 := "res://scenes/world/floor1.tscn"
 const FLOOR2 := "res://scenes/world/floor2.tscn"
 const FLOOR3 := "res://scenes/world/floor3.tscn"
-const SAVE_SLOT := 0
+const MAIN_MENU := "res://scenes/main/main.tscn"
+## 默认槽位：单存档模式下所有操作都落到这一格
+const DEFAULT_SLOT := 0
 
 var _panel: Panel
 var _status: Label
 var _save_button: Button
 var _load_button: Button
+var _main_button: Button
+var _slot_button: Button
+var _multi_toggle: CheckButton
+var _name_edit: LineEdit
 var _bgm_slider: HSlider
 var _sfx_slider: HSlider
 var _bgm_value: Label
 var _sfx_value: Label
 var _save_timer: Timer
 var _volume_touched := false
+## 当前操作的存档槽（M5-06：单存档模式恒为 1 号槽，多存档模式可切）
+var _slot := DEFAULT_SLOT
 
 func _ready() -> void:
 	name = "PauseMenu"
@@ -40,8 +48,8 @@ func _build() -> void:
 	var font := load(FONT_PATH) as Font
 	_panel = Panel.new()
 	_panel.name = "Panel"
-	_panel.position = Vector2(450, 150)
-	_panel.size = Vector2(380, 420)
+	_panel.position = Vector2(450, 100)
+	_panel.size = Vector2(380, 540)
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color(0.045, 0.058, 0.060, 0.98)
 	style.border_color = Color(0.42, 0.56, 0.48, 0.75)
@@ -65,17 +73,49 @@ func _build() -> void:
 	_save_button = _make_button("保存", "SaveButton", 62)
 	_save_button.pressed.connect(_on_save_pressed)
 	_panel.add_child(_save_button)
-	_load_button = _make_button("读档", "LoadButton", 122)
+	_load_button = _make_button("读档", "LoadButton", 118)
 	_load_button.pressed.connect(_on_load_pressed)
 	_panel.add_child(_load_button)
-	var back := _make_button("返回游戏", "ResumeButton", 182)
+	var back := _make_button("返回游戏", "ResumeButton", 174)
 	back.pressed.connect(close)
 	_panel.add_child(back)
+	# M5-06：暂停里能直接退回主菜单（以前只能关游戏重开）
+	_main_button = _make_button("返回主菜单", "MainMenuButton", 230)
+	_main_button.pressed.connect(_on_main_menu_pressed)
+	_panel.add_child(_main_button)
+
+	# 存档位：[存档位 1] 按钮在单存档模式下只显示摘要、点不动；
+	# 打开多存档之后点一下切下一格，"存档名"才可编辑。
+	_slot_button = _make_button("存档位 1", "SlotButton", 286)
+	_slot_button.size = Vector2(240, 30)
+	_slot_button.add_theme_font_size_override("font_size", 13)
+	_slot_button.pressed.connect(_on_slot_pressed)
+	_panel.add_child(_slot_button)
+	_multi_toggle = CheckButton.new()
+	_multi_toggle.name = "MultiSaveToggle"
+	_multi_toggle.text = "多存档（可以分别命名）"
+	_multi_toggle.position = Vector2(64, 320)
+	_multi_toggle.size = Vector2(240, 26)
+	_multi_toggle.add_theme_font_size_override("font_size", 13)
+	if font != null:
+		_multi_toggle.add_theme_font_override("font", font)
+	_multi_toggle.toggled.connect(_on_multi_toggled)
+	_panel.add_child(_multi_toggle)
+	_name_edit = LineEdit.new()
+	_name_edit.name = "SaveNameEdit"
+	_name_edit.placeholder_text = "存档名（可留空）"
+	_name_edit.position = Vector2(70, 350)
+	_name_edit.size = Vector2(240, 26)
+	_name_edit.max_length = 16
+	_name_edit.add_theme_font_size_override("font_size", 13)
+	if font != null:
+		_name_edit.add_theme_font_override("font", font)
+	_panel.add_child(_name_edit)
 
 	var audio_heading := Label.new()
 	audio_heading.name = "AudioHeading"
 	audio_heading.text = "声音"
-	audio_heading.position = Vector2(0, 232)
+	audio_heading.position = Vector2(0, 390)
 	audio_heading.size = Vector2(380, 22)
 	audio_heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	audio_heading.add_theme_font_size_override("font_size", 14)
@@ -84,9 +124,9 @@ func _build() -> void:
 		audio_heading.add_theme_font_override("font", font)
 	_panel.add_child(audio_heading)
 
-	_bgm_value = _make_volume_label("BgmValue", 256, "背景音乐")
+	_bgm_value = _make_volume_label("BgmValue", 410, "背景音乐")
 	_panel.add_child(_bgm_value)
-	_bgm_slider = _make_slider("BgmSlider", 280, Settings.bgm_volume)
+	_bgm_slider = _make_slider("BgmSlider", 430, Settings.bgm_volume)
 	_bgm_slider.value_changed.connect(func(v: float) -> void:
 		Settings.set_bgm_volume(v)
 		_update_volume_labels()
@@ -96,9 +136,9 @@ func _build() -> void:
 	_bgm_slider.focus_exited.connect(_flush_volume_save)
 	_panel.add_child(_bgm_slider)
 
-	_sfx_value = _make_volume_label("SfxValue", 304, "音效")
+	_sfx_value = _make_volume_label("SfxValue", 452, "音效")
 	_panel.add_child(_sfx_value)
-	_sfx_slider = _make_slider("SfxSlider", 328, Settings.sfx_volume)
+	_sfx_slider = _make_slider("SfxSlider", 472, Settings.sfx_volume)
 	_sfx_slider.value_changed.connect(func(v: float) -> void:
 		Settings.set_sfx_volume(v)
 		_update_volume_labels()
@@ -120,7 +160,7 @@ func _build() -> void:
 
 	_status = Label.new()
 	_status.name = "Status"
-	_status.position = Vector2(0, 360)
+	_status.position = Vector2(0, 508)
 	_status.size = Vector2(380, 24)
 	_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_status.add_theme_font_size_override("font_size", 13)
@@ -227,7 +267,10 @@ func open() -> void:
 	_bgm_slider.set_value_no_signal(Settings.bgm_volume)
 	_sfx_slider.set_value_no_signal(Settings.sfx_volume)
 	_update_volume_labels()
-	_load_button.disabled = not SaveSystem.has_save(SAVE_SLOT)
+	# 每次打开都按当前进度/设置重新对一遍存档位，别沿用上次的选择
+	_slot = clampi(int(GameManager.active_slot), 0, SaveSystem.slot_count() - 1)
+	_multi_toggle.set_pressed_no_signal(Settings.multi_save)
+	_refresh_slot_row()
 	_save_button.grab_focus()
 
 func close() -> void:
@@ -238,17 +281,49 @@ func close() -> void:
 	GameManager.state = GameManager.GameState.PLAYING
 	GameManager.play_sfx("ui", -3.0)
 
+## 存档位那一行：单存档模式只显示摘要、按钮不可点；多存档模式可点着切下一格
+func _refresh_slot_row() -> void:
+	if _slot_button == null or _multi_toggle == null:
+		return
+	var multi := Settings.multi_save
+	_slot_button.text = "存档位 %d ｜ %s" % [_slot + 1, SaveSystem.slot_summary(_slot)]
+	_slot_button.disabled = not multi
+	_name_edit.editable = multi
+	if _name_edit != null and not _name_edit.has_focus():
+		_name_edit.text = SaveSystem.slot_name(_slot) if SaveSystem.has_save(_slot) else ""
+	_load_button.disabled = not SaveSystem.has_save(_slot)
+	_multi_toggle.set_pressed_no_signal(multi)
+
+func _on_slot_pressed() -> void:
+	if not Settings.multi_save:
+		return
+	_slot = (_slot + 1) % SaveSystem.slot_count()
+	GameManager.active_slot = _slot
+	_status.text = "切到存档位 %d" % (_slot + 1)
+	_refresh_slot_row()
+
+## 多存档开关：关掉时把人收回到 1 号槽，免得界面显示一个不存在的槽位
+func _on_multi_toggled(on: bool) -> void:
+	Settings.set_multi_save(on)
+	if not on:
+		_slot = DEFAULT_SLOT
+		GameManager.active_slot = DEFAULT_SLOT
+	_slot = clampi(_slot, 0, SaveSystem.slot_count() - 1)
+	_refresh_slot_row()
+
 func _on_save_pressed() -> void:
-	SaveSystem.save(SAVE_SLOT)
+	var name := _name_edit.text.strip_edges() if _name_edit != null else ""
+	SaveSystem.save(_slot, name)
 	GameManager.play_sfx("checkpoint", -2.0)
-	_status.text = "已保存到槽位 1"
-	_load_button.disabled = not SaveSystem.has_save(SAVE_SLOT)
+	_status.text = "已保存到存档位 %d" % (_slot + 1)
+	_refresh_slot_row()
 
 func _on_load_pressed() -> void:
-	if not SaveSystem.has_save(SAVE_SLOT):
-		_status.text = "槽位 1 没有存档"
+	if not SaveSystem.has_save(_slot):
+		_status.text = "存档位 %d 没有存档" % (_slot + 1)
 		return
-	SaveSystem.load(SAVE_SLOT)
+	SaveSystem.load(_slot)
+	GameManager.active_slot = _slot
 	GameManager.state = GameManager.GameState.PLAYING
 	var target := _scene_for_floor()
 	var current := _current_scene_path()
@@ -262,6 +337,16 @@ func _on_load_pressed() -> void:
 			SaveSystem.apply_pending_player(player)
 		close()
 		_status.text = "已读档"
+
+## 返回主菜单：先解除暂停（暂停状态下换场景会连主菜单一起冻住），再切场景。
+## 主菜单自己会把 GameManager 置回 MAIN_MENU。
+func _on_main_menu_pressed() -> void:
+	_flush_volume_save()
+	GameManager.play_sfx("ui", -3.0)
+	get_tree().paused = false
+	GameManager.state = GameManager.GameState.MAIN_MENU
+	visible = false
+	get_tree().change_scene_to_file(MAIN_MENU)
 
 ## --script 无头测试里 current_scene 可能为空；退回玩家父节点，保证跨层判断仍成立。
 func _current_scene_path() -> String:

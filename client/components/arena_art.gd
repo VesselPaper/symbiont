@@ -16,6 +16,10 @@ const VIGNETTE_SHADER := preload("res://assets/shaders/vignette.gdshader")
 @export var world_top := -200.0
 @export var world_bottom := 760.0
 @export var seed_value := 20261110
+## 悬崖（M5-11）：这一段下面没有地面，装饰要跳过它，
+## 不然石头/断柱会浮在空气里 —— 组长说的"纯灰色陨星、悬在半空"就是这么来的。
+@export var gap_from := -1.0
+@export var gap_to := -1.0
 
 const STONE_GROUND := Color(0.170, 0.190, 0.200)
 const STONE_PLATFORM := Color(0.200, 0.220, 0.235)
@@ -39,6 +43,16 @@ func _ready() -> void:
 	var old_backdrop := get_parent().get_node_or_null("Backdrop")
 	if old_backdrop is CanvasItem:
 		old_backdrop.visible = false
+	# 推迟一帧再画（M5-03）：
+	# 教学关的 test_arena.gd 在 _ready 里才按 STAGE 表把地图从 4000 拉到 6250、把三块平台
+	# 重新摆一遍。子节点的 _ready 比父节点早，如果这里当场按 4000 的尺寸把天空/远景/砖缝画完，
+	# 之后地图一变宽，4000 以外那一段就没背景、没亮边、没砖缝 —— 看起来就是"一大块纯灰地形"。
+	# 这一帧的延迟被开场黑幕盖住，看不出来。
+	call_deferred("_build_all")
+
+func _build_all() -> void:
+	if not is_inside_tree():
+		return
 	_build_sky()
 	_build_shaft()
 	_build_far()
@@ -257,6 +271,8 @@ func _build_vignette() -> void:
 func _dress_terrain() -> void:
 	var names := {
 		"GroundLeft": STONE_GROUND,
+		# M5-11：悬崖右岸是运行时新建的地面，也得和左岸一样补亮边/砖缝，不然右岸是一块纯灰
+		"GroundRight": STONE_GROUND,
 		"PitFloor": STONE_PIT,
 		"JumpPlatform": STONE_PLATFORM,
 		"PogoPlatform": STONE_PLATFORM,
@@ -329,16 +345,39 @@ func _add_seams_and_moss(body: StaticBody2D, col: CollisionShape2D) -> void:
 		body.add_child(course)
 		course_y += 17.0
 	# 砖缝：每隔约 90px 一道短竖线，不铺满，免得像栅栏
+	# M5-20（组长反馈"借力跳高下方的平台两侧只有灰色矩形"）：
+	# 原来砖缝只从顶面往下画 9px，矮平台够用，但下劈方台有 131px 高 ——
+	# 一整面墙就只剩几条横线，侧面读起来是一块纯灰。现在按厚度决定缝的深度：
+	# 越厚的平台缝越深，厚的直接打到离底 8px，侧面才有"砌起来的石头"的感觉。
+	var seam_len := 9.0
+	if shape.size.y > 48.0:
+		seam_len = maxf(shape.size.y * 0.62, 18.0)
 	var seam_x := left + 46.0
 	while seam_x < right - 30.0:
 		var seam := Line2D.new()
 		seam.width = 1.0
 		seam.default_color = Color(0.06, 0.075, 0.085, 0.55)
+		# 缝不画成一条笔直的线：错开一点，才像石头砌缝而不是画格子
+		var jitter := _rng.randf_range(-2.0, 2.0)
 		seam.points = PackedVector2Array([
-			Vector2(seam_x, top_y + 4.0), Vector2(seam_x, top_y + 13.0)
+			Vector2(seam_x, top_y + 4.0),
+			Vector2(seam_x + jitter, top_y + 4.0 + seam_len * 0.55),
+			Vector2(seam_x - jitter, top_y + 4.0 + seam_len),
 		])
 		body.add_child(seam)
 		seam_x += _rng.randf_range(72.0, 108.0)
+	# 厚平台（下劈方台那种）再补几道从上到下的深裂，别让侧面是一整片均匀的灰
+	if shape.size.y > 90.0:
+		var crack_x := left + _rng.randf_range(28.0, 60.0)
+		var crack := Line2D.new()
+		crack.width = 1.6
+		crack.default_color = Color(0.045, 0.055, 0.065, 0.6)
+		crack.points = PackedVector2Array([
+			Vector2(crack_x, top_y + 6.0),
+			Vector2(crack_x + _rng.randf_range(-8.0, 8.0), top_y + shape.size.y * 0.45),
+			Vector2(crack_x + _rng.randf_range(-10.0, 10.0), bottom - 8.0),
+		])
+		body.add_child(crack)
 	# 青苔：只长在平台两端和靠左的边角
 	for k in range(2):
 		var mx := left + 14.0 + k * (shape.size.x - 40.0) * _rng.randf_range(0.45, 1.0)
@@ -409,9 +448,10 @@ func _dress_props() -> void:
 	# 父节点 BackdropArt 是 -3：子节点 +2 → 世界 -1，压在角色后面、地形前面
 	props.z_index = 2
 	add_child(props)
-	# 锁链：从画面上方垂下来，短链挂在半空，破一下空旷的背景。
-	# M4-19 地图到 5000：后段（宝箱/长廊/层门）也要有链子，否则那 1700px 是空墙
-	for x in [180.0, 620.0, 1180.0, 1720.0, 2280.0, 2840.0, 3380.0, 3960.0, 4520.0, 4860.0]:
+	# M5-12：装饰位置不再写死到 4860（地图 M4-19 之后拉到 6250，右边一千多像素一片空墙，
+	# 看起来就是"后半段没做完"）。现在按 world_width 铺：每 560px 一条链、每 700px 一盏灯，
+	# 一直铺到最后一屏；落在悬崖上的自动跳过（见 _over_gap）。
+	for x in _spread(180.0, 560.0):
 		var chain := Line2D.new()
 		chain.width = 3.0
 		chain.default_color = Color(0.150, 0.160, 0.170, 0.95)
@@ -423,25 +463,22 @@ func _dress_props() -> void:
 			y += 14.0
 		chain.points = pts
 		props.add_child(chain)
-	# 出生点左边一盏吊灯：给入口一点暖光，玩家一睁眼能看到路
-	_add_lantern(props, Vector2(232.0, 552.0), 210.0, 0.40, 0.34)
-	# 中段和祭坛区再挂两盏，给长走廊一点暖色路标（不挡路，只在背景层）
-	_add_lantern(props, Vector2(760.0, 505.0), 210.0, 0.34, 0.26)
-	_add_lantern(props, Vector2(1500.0, 512.0), 210.0, 0.30, 0.22)
-	_add_lantern(props, Vector2(2060.0, 500.0), 210.0, 0.32, 0.24)
-	# 后段（宝箱 → 长廊 → 层门）四盏，越往后越暗，但一段路至少有一处暖色
-	_add_lantern(props, Vector2(2760.0, 505.0), 210.0, 0.26, 0.18)
-	_add_lantern(props, Vector2(3480.0, 500.0), 210.0, 0.24, 0.16)
-	_add_lantern(props, Vector2(4140.0, 512.0), 210.0, 0.22, 0.15)
-	_add_lantern(props, Vector2(4720.0, 498.0), 210.0, 0.28, 0.19)
-	# 立在台面上的断柱：近景有高有低，画面才不是一条水平线
-	_add_broken_pillar(props, 140.0, 660.0, 340.0, 48.0)
-	_add_broken_pillar(props, 1960.0, 660.0, 300.0, 42.0)
-	_add_broken_pillar(props, 2900.0, 660.0, 250.0, -34.0)
-	_add_broken_pillar(props, 3860.0, 660.0, 320.0, 40.0)
-	_add_broken_pillar(props, 4680.0, 660.0, 270.0, -30.0)
-	# 碎石：平台边角和地面散几块，别让地面是一条直线
-	for i in range(14):
+	# 吊灯：入口那盏最亮，越往后越暗，但每一段路至少有一处暖色
+	var lantern_i := 0
+	for x in _spread(232.0, 700.0):
+		if _over_gap(x):
+			continue
+		var strength := clampf(0.42 - float(lantern_i) * 0.035, 0.16, 0.42)
+		_add_lantern(props, Vector2(x, 505.0 + float(lantern_i % 2) * 6.0), 210.0,
+			strength, strength * 0.68)
+		lantern_i += 1
+	# 立在台面上的断柱：M5-22（组长反馈「史莱克村再往前走那里有一个灰色矩形，删除掉」
+	# 「降下去的地方也有一个矩形，也删除」）——这些断柱在深色背景上就是一块纯灰的矩形，
+	# 读起来像没做完的占位方块，不像柱子。不调颜色了，直接**不放**：
+	# 近景只留吊灯、锁链、碎石，地形本身有亮边和砖缝，画面反而干净。
+	# （_add_broken_pillar 函数留着：楼层脚本自己要立柱子时还在用同一套画法。）
+	# 碎石：地面散几块，别让地面是一条直线（悬崖跳过）
+	for i in range(int(world_width / 420.0) + 4):
 		var rock := Polygon2D.new()
 		rock.color = Color(0.12, 0.14, 0.15, 0.95)
 		var size := _rng.randf_range(6.0, 14.0)
@@ -449,10 +486,26 @@ func _dress_props() -> void:
 			Vector2(-size, 0), Vector2(-size * 0.4, -size * 0.7),
 			Vector2(size * 0.5, -size * 0.5), Vector2(size, 0),
 		])
-		rock.position = Vector2(_rng.randf_range(320.0, world_width - 300.0), 659.0 - _rng.randf_range(0.0, 3.0))
+		var rx := _rng.randf_range(320.0, world_width - 300.0)
+		if _over_gap(rx):
+			continue
+		rock.position = Vector2(rx, 659.0 - _rng.randf_range(0.0, 3.0))
 		props.add_child(rock)
 	# 尸体不再由背景美术兼职：M4-21 起由 components/prop_corpse.gd 自己建模
 	# （原来这里只是把占位方块染成土黄 + 补四根肋骨，组长说“就一个黄色矩形”）
+
+## 从 start 开始、每隔 step 取一个点，直到地图右端留 200px 余量
+func _spread(start: float, step: float) -> Array:
+	var out: Array = []
+	var x := start
+	while x < world_width - 200.0:
+		out.append(x)
+		x += step
+	return out
+
+## 这个 x 是不是落在悬崖上方（没有地面，装饰别浮在那里）
+func _over_gap(x: float) -> bool:
+	return gap_from >= 0.0 and x >= gap_from - 40.0 and x <= gap_to + 40.0
 
 # ---------- 小工具 ----------
 

@@ -64,10 +64,18 @@ func _process(_delta: float) -> bool:
 		_finish_dialogue()
 		_bell.call("_process", 0.0)
 		var prompt := _bell.get_node_or_null("Prompt") as Label
-		_check(prompt != null and prompt.visible and prompt.text == PROMPT_TEXT,
-			"旁白结束后钟下没有出现「%s」" % PROMPT_TEXT)
-		_press_k()
+		# M5-09：还没跟守钟人聊过 —— 提示必须改成"先跟守钟人说话"，而且按 K 拉不响
 		var gm := root.get_node("/root/GameManager")
+		_check(prompt != null and prompt.visible and prompt.text != PROMPT_TEXT,
+			"没聊过守钟人时钟绳还显示「%s」" % PROMPT_TEXT)
+		_press_k()
+		_check(not bool(gm.call("has_flag", "floor1_bell_rung")), "没聊过守钟人也能拉响钟绳")
+		# 聊过之后（watchman.gd 会置这个旗标）才恢复正常
+		gm.call("set_flag", "floor1_watchman_talked")
+		_bell.call("_process", 0.0)
+		_check(prompt != null and prompt.visible and prompt.text == PROMPT_TEXT,
+			"聊过守钟人后钟下没有出现「%s」" % PROMPT_TEXT)
+		_press_k()
 		_check(bool(gm.call("has_flag", "floor1_bell_rung")), "钟下按 K 没有拉响")
 		_check(bool(_gate.call("is_open")), "拉响后骨门没有开")
 		_check(prompt != null and not prompt.visible, "拉响之后「K 拉钟绳」还挂在画面上")
@@ -104,10 +112,10 @@ func _build() -> void:
 	_watchman_x = float(consts.get("WATCHMAN_X", 1778.0))
 	# 回归：钟绳曾经把 AudioDirector/Bgm 当成对话组件（AudioStreamPlayer 也有
 	# play/is_playing），导致 BGM 一直播时永远显示“K 继续旁白”，K 拉不响。
+	# M5-08：祭坛前面那个调查点删了，这里只查钟绳和守钟人。
 	for pair in [
 		["钟绳", _bell],
 		["守钟人", _watchman],
-		["调查点", _level.get_node("InspectPoints/AltarInspect")],
 	]:
 		var who: String = pair[0]
 		var node: Node = pair[1]
@@ -127,7 +135,11 @@ func _check_dialogue_at_rope() -> void:
 	if prompt == null:
 		return
 	_check(not prompt.visible, "旁白播放中钟绳还显示着提示")
-	_check(prompt.text == PROMPT_TEXT, "钟绳提示被改成了「%s」，应固定是「%s」" % [prompt.text, PROMPT_TEXT])
+	# 这条的本意是"钟绳的提示不能变成翻旁白那句（K 继续旁白）"。
+	# M5-09 之后绳子的提示可能是"K 拉钟绳"（聊过守钟人）或"先跟守钟人说话"（还没聊），
+	# 两种都算对，只要别变成旁白提示。
+	_check(prompt.text.contains("钟绳") or prompt.text.contains("守钟人"),
+		"钟绳提示被改成了「%s」，既不是拉绳也不是等对话" % prompt.text)
 	_check(not bool(_bell.get("_rung")), "刚进范围就把钟拉了")
 	var line_before := int(_dialogue.get("_line_index"))
 	var done_before := bool(_dialogue.get("_line_done"))

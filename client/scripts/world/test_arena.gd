@@ -70,13 +70,18 @@ const STAGE := {
 	"altar_hall": Rect2(3575, 572, 675, 90),
 	"altar": Vector2(3913, 597),
 	"pickup_mark": Vector2(3913, 498),
-	"sacrifice_mark": Vector2(3913, 498),
+	# 献祭那行字要抬到祭坛提示（HintLabel 在 519）上面去：两句原来只差 21px，叠在一起看不清
+	"sacrifice_mark": Vector2(3913, 466),
 	# 祭坛之后：长廊台阶是可选路线，层门在地图最右。
 	# 蒸汽靴宝箱已移到第二层工程师处（剧情上靴子由工程师交付），教学关不再放箱子。
 	"gallery": [
 		Rect2(5075, 607, 163, 26), Rect2(5300, 552, 150, 26),
 		Rect2(5538, 505, 138, 26), Rect2(5775, 565, 188, 26),
 	],
+	# M5-11：长廊下面那段地面挖空成悬崖（左岸止于 5000，右岸从 6040 起）。
+	# 四块石台就是过河的路，掉进中间会死；右岸刚好接住"第一层"门。
+	"chasm_left": 5000.0,
+	"chasm_right": 6040.0,
 	"door": Vector2(6125, 659),
 }
 
@@ -101,7 +106,8 @@ const TRUE_HE_RELIC_POS := Vector2(430, 628)
 
 # ---- 摄像机（M1-09）----
 ## 垂直视野 = 角色身高的 N 倍（改这里即可调远近）；角色视觉身高 28px（见 player.gd CHARACTER_HEIGHT）
-const VIEW_HEIGHT_IN_CHARACTERS := 15.0
+## M4-62：N 从 15 收到 10（人物放大 1.5 倍）；M4-63 再放到 12（"正常的时候再拉远一点"）
+const VIEW_HEIGHT_IN_CHARACTERS := 12.0
 const PLAYER_CHARACTER_HEIGHT := 28.0
 ## zoom = 视口高(720) ÷ (N×28)。N=12 → 336px 垂直视野 → zoom ≈ 2.14
 const CAMERA_ZOOM := 720.0 / (VIEW_HEIGHT_IN_CHARACTERS * PLAYER_CHARACTER_HEIGHT)
@@ -115,6 +121,9 @@ var _door_seam: Line2D
 var _door_glow: Sprite2D
 var _door_open := false
 var _entering := false
+## 人是否站在门口（按 K 才进门，见 _unhandled_input）
+var _door_near := false
+var _door_prompt: Label
 var _gates: Dictionary = {}
 var _combat_started := false
 var _fade_layer: CanvasLayer
@@ -127,13 +136,24 @@ var _ending_screen: CanvasLayer
 var _refusing := false
 ## M4-25：这一局是从序章虚空掉下来的（落地要扬尘、开场要慢慢亮）
 var _drop_in := false
+## M4-63 开场黑幕：整屏压黑、只在角色周围留一个亮圈（和序章虚空里一个感觉）。
+## 站起来之后把亮圈撑开，周围才慢慢显形。
+var _intro_blackout: ColorRect
+var _intro_shader: ShaderMaterial
+## 开场打在人身上的那盏灯（Sprite2D，画在角色身后）
+var _intro_spot: Sprite2D
+var _camera: Camera2D
+var _player: Node2D
 
 func _ready() -> void:
 	GameManager.mark_floor_start("tutorial")
 	_build_campfire()
+	_build_beast_encounter()
 	# 相机 zoom 由这里设置（垂直视野 = N 倍角色身高）；水平跟随/垂直死区由 camera_follow.gd 处理
 	var camera := $Camera2D as Camera2D
 	camera.zoom = Vector2(CAMERA_ZOOM, CAMERA_ZOOM)
+	_camera = camera
+	_player = $Player as Node2D
 
 	# M4-19：先按 STAGE 表把地形和道具摆好，后面所有构建都读同一张表
 	_apply_stage()
@@ -143,9 +163,14 @@ func _ready() -> void:
 	_build_next_floor_door()
 	_build_tutorial_gates()
 	_build_fade_overlay()
-	# 从虚空进来：开场演出（_void_arrival）自己负责把画面亮起来；其余入口立刻淡入
-	if not GameManager.has_flag("enter_from_void"):
+	# 从虚空进来：开场演出（_void_arrival）自己负责把画面亮起来；其余入口立刻淡入。
+	# 注意判断用 _drop_in 而不是旗标：旗标在上面 _apply_stage 里已经被消费掉了，
+	# 用旗标判断会在这里又叠一层 1.65 秒的黑幕，开局就会先黑两秒（踩过）。
+	if not _drop_in:
 		_build_fade_in()
+	# 演出要等遮罩建好才能演（_void_arrival 会去动 _fade_rect），所以挪到这里再启动
+	if _drop_in:
+		_void_arrival(STAGE["spawn"])
 	_build_hud()
 	# 教程 8 个提示气泡锚点也在这张表里，推给 Tutorial；它自己的常量只作无场景时的兜底
 	if _tutorial != null and _tutorial.has_method("set_step_anchors"):
@@ -156,12 +181,18 @@ func _ready() -> void:
 	if _altar != null and _altar.has_signal("refuse_requested"):
 		_altar.connect("refuse_requested", Callable(self, "_on_refuse_requested"))
 		_altar.call("set_refuse_allowed", not _true_he_mode)
+		# M5-22：教学关里祭坛上方只留教程那一行，祭坛自己的"献上肢体（K）"关掉
+		_altar.call("set_hint_enabled", false)
 	var loaded_player := get_node_or_null("Player") as Node2D
 	if loaded_player != null:
 		SaveSystem.apply_pending_player(loaded_player)
 
 	# M1-03：延时播放开场寄生体低语，让场景先稳定（玩家出生 → 低语弹出）
-	var intro_timer := get_tree().create_timer(INTRO_DIALOGUE_DELAY)
+	# M4-62：从虚空掉进来那一局要等"落地 → 站起 → 亮起来"演完再开口，
+	# 否则低语会在人还在半空/还黑着的时候蹦出来。
+	# M5-01：等多久别看写死的 7.6，直接从开场的两段时长算，改节奏不用两边一起改
+	var intro_delay := INTRO_DIALOGUE_DELAY + (LAND_BUFFER + REVEAL_TIME + 1.0 if _drop_in else 0.0)
+	var intro_timer := get_tree().create_timer(intro_delay)
 	intro_timer.timeout.connect(_play_intro_dialogue)
 
 # ---------- 站位表落地（M4-19） ----------
@@ -172,17 +203,26 @@ func _ready() -> void:
 func _apply_stage() -> void:
 	var stage_w: float = STAGE["world_width"]
 
-	# 地面与左右墙：地面还是整条地图的地板（顶 659），右墙钉在地图尽头
+	# 地面：M5-11（组长要求"多平台下方地面多余，可设悬崖跳平台通过"）——
+	# 长廊台阶那一段下面的地面被挖掉了，整条地面拆成"左岸 + 右岸"两块，
+	# 中间是一道掉下去会死的深渊，只能踩着长廊的四块石台过去。
+	var chasm_left: float = STAGE["chasm_left"]
+	var chasm_right: float = STAGE["chasm_right"]
 	var ground := $GroundLeft as StaticBody2D
-	ground.position = Vector2(stage_w * 0.5, 689)
-	(ground.get_node("CollisionShape2D") as CollisionShape2D).shape.size = Vector2(stage_w, 60)
-	(ground.get_node("Visual") as Polygon2D).polygon = _box_polygon(Vector2(stage_w, 60))
+	ground.position = Vector2(chasm_left * 0.5, 689)
+	(ground.get_node("CollisionShape2D") as CollisionShape2D).shape.size = Vector2(chasm_left, 60)
+	(ground.get_node("Visual") as Polygon2D).polygon = _box_polygon(Vector2(chasm_left, 60))
+	_build_right_bank(chasm_right, stage_w)
+	_build_chasm_kill_zone(chasm_left, chasm_right)
 	($WallRight as Node2D).position = Vector2(stage_w, 75)
 
 	# 背景板、视差背景、镜头右限幅：三者必须和地面同宽，不然走到头会看见空白
 	($Backdrop as Node2D).position = Vector2(stage_w * 0.5, 360)
 	($Backdrop as Polygon2D).polygon = _box_polygon(Vector2(stage_w, 720))
 	($BackdropArt as Node).set("world_width", stage_w)
+	# 告诉美术层悬崖的范围：它靠这两项决定"哪些石头/断柱不能浮在空气里"
+	($BackdropArt as Node).set("gap_from", chasm_left)
+	($BackdropArt as Node).set("gap_to", chasm_right)
 	($Camera2D as Camera2D).limit_right = int(stage_w)
 
 	# 三块平台：跳台、下劈小方台、祭坛台
@@ -191,19 +231,19 @@ func _apply_stage() -> void:
 	_place_platform($AltarPlatform as StaticBody2D, STAGE["altar_hall"], Vector2(300, 90))
 
 	# 道具与玩家
-	# M4-25：从序章的虚空掉下来时，人不是“站在地上”—— 先出现在半空，落下来砸出扬尘，
-	# 由 player.gd 的落地扬尘/落地声接住。正常读档/直接进关时还是老老实实站好。
+	# M4-25：从序章的虚空掉下来时，人不是“站在地上”。
+	# M4-62（组长定的新开场）：不再是"先躺在地上、等灵魂入体再慢慢爬起来"，
+	# 改成主角自己从高处砸下来 → 落地（扬尘 + 压扁）→ 直接站起。
+	# 位置抬到高空，下坠交给物理和重力去跑，落地的速度/扬尘/音效才是真的。
 	var spawn_pos: Vector2 = STAGE["spawn"]
 	if GameManager.has_flag("enter_from_void"):
 		GameManager.flags.erase("enter_from_void")
 		_drop_in = true
-		# M4-49：黑着开场。玩家先躺在地上（晕倒），灵魂从上方掉进他身体里，
-		# 然后人起身，最后才把四周点亮
-		($Player as Node2D).position = spawn_pos
-		($Player as CharacterBody2D).velocity = Vector2.ZERO
-		($Player as Node2D).rotation = -PI * 0.5
+		($Player as Node2D).position = spawn_pos + Vector2(0, -DROP_HEIGHT)
+		($Player as CharacterBody2D).velocity = Vector2(0, 120.0)
+		($Player as Node2D).rotation = 0.0
+		($Player as Node2D).scale = Vector2.ONE
 		($Player as Node2D).set("_input_locked", true)
-		_void_arrival()
 	else:
 		($Player as Node2D).position = spawn_pos
 	($Corpse as Node2D).position = STAGE["corpse"]
@@ -212,231 +252,198 @@ func _apply_stage() -> void:
 	($DummyB as Node2D).position = STAGE["dummy_b"]
 	($Altar as Node2D).position = STAGE["altar"]
 
-## 虚空落地演出（M4-52）：
-##   黑场 → 灵魂（与虚空同一套造型，带呼吸）从上方坠下，镜头拉近且始终锁在画面正中
-##   → 灵魂缩进胸口、白丝被吸进去、身体一抽
-##   → 10 秒细节起身：撑地 → 抬身 → 单膝 → 起立 → 站定（全程黑暗）
-##   → 站定后镜头缓慢拉远到常规，光从角色身上向外扩开
-const INTRO_FALL := 2.2
-const INTRO_ENTER := 1.0
-const INTRO_RISE := 10.0
-const INTRO_REVEAL := 2.6
+## 虚空落地（M4-62 重做，组长定的开场）：
+##   黑场里从上方砸下来（影子越来越清楚）→ 砸地：扬尘 + 震屏 + 压扁
+##   → 直接站起（蹲一下、弹起过头、站定，约 0.6 秒）→ 光从角色身上扩开、画面亮起。
+## 为什么不用补间做下落：交给物理和重力，落地的速度和扬尘才是真的，
+## 以前那种"先躺在地上等人扶起来"的 10 秒起身也一并删了。
+const DROP_HEIGHT := 200.0       # 从出生点上方多高处掉下来（约 7 个身位）
+const DROP_TIMEOUT := 4.0        # 兜底：万一没落下来也别把玩家锁死
+const INTRO_ZOOM_SCALE := 1.25   # 开场镜头放大一点：人从中间掉下来，看得清
+## 组长反馈（M5-01）：开场太赶，"10 多秒再进剧情"。落地缓冲 2→3.5 秒、照亮 5→6.5 秒，
+## 加起来正好 10 秒整（再加 0.5 秒场景稳定，开场低语才开口）。
+const LAND_BUFFER := 3.5         # 落地后先停 3.5 秒（还是黑着，只有人周围一圈）
+const REVEAL_TIME := 6.5         # M5-01：之后用 6.5 秒慢慢把周围的黑暗照亮
+## 亮圈半径（屏幕像素）。108 时人只有半个身子在圈里，稍大一点才看得清全身。
+const INTRO_HOLE_PX := 132.0
+const INTRO_HOLE_SOFT := 110.0
+## 圈里给角色打的一盏灯（加色精灵，画在人身后）：
+## 黑影本来就是纯黑，背景也是黑的，不加这层灯就"看不见角色"（组长反馈）。
+### 灯的直径按亮圈半径的倍数算，亮度跟着照亮过程一起淡出。
+const INTRO_SPOT_SCALE := 2.6
+const INTRO_SPOT_ALPHA := 0.55
 
-func _void_arrival() -> void:
+func _void_arrival(land_pos: Vector2) -> void:
 	var cam := $Camera2D as Camera2D
 	var player := $Player as Node2D
 	if _fade_rect != null:
-		# 这个遮罩是靠 modulate 透明度起作用的，只改 color 是看不见的（之前就是踩了这个）
-		_fade_rect.modulate = Color(1, 1, 1, 1)
-
-	var normal_zoom := CAMERA_ZOOM
-	var intro_zoom := CAMERA_ZOOM * 1.38
-	var stand_pos := player.global_position
-	var land_pos := stand_pos + Vector2(0, -16)
-
-	# 镜头：停掉常规跟随；并且临时解除地图边界，否则 x 会被 limit 夹住、人不在正中间
-	if cam.has_method("set_physics_process"):
-		cam.set_physics_process(false)
+		# 开场改用"只有角色周围看得见"的黑幕（见 _build_intro_blackout），
+		# 原来那层全屏黑幕一开始就藏起来，别两套叠着压
+		_fade_rect.modulate = Color(1, 1, 1, 0)
+	_build_intro_blackout()
+	# 镜头跟着他一起往下掉（用和重力同一条加速曲线），人一直在画面里。
+	# M4-67（组长定的构图）：**X 轴必须居中**。虚空的最后是一晃人在画面正中掉下去，
+	# 教学关接住时也得在正中，否则两幕接起来会"人忽然跳到左边"。
+	# 出生点在离左墙很近的位置，常规跟随会被地图 limit 夹到 x≈299 —— 那时人就在左边了，
+	# 所以开场先把 limit 拆掉、把镜头怼在人的 x 上；亮起来那 5 秒里再慢慢挪回常规构图。
+	cam.set_physics_process(false)
 	var saved_limits := [cam.limit_left, cam.limit_right, cam.limit_top, cam.limit_bottom]
 	cam.limit_left = -100000
 	cam.limit_right = 100000
 	cam.limit_top = -100000
 	cam.limit_bottom = 100000
-	cam.zoom = Vector2(intro_zoom, intro_zoom)
-
-	var soul = load("res://components/soul_visual.gd").new()
-	soul.name = "SoulBody"
-	soul.z_index = 6
-	add_child(soul)
-	soul.freeze_position = true       # 位置交给补间，但呼吸/飘带继续动
-	var start := stand_pos + Vector2(0, -430)
-	soul.global_position = start
-	cam.position = start
-
-	# ① 下坠：灵魂与镜头用同一条曲线同步，保证全程正中
-	var fall := create_tween()
-	fall.set_parallel(true)
-	fall.tween_property(soul, "global_position", land_pos, INTRO_FALL) \
+	cam.zoom = Vector2(CAMERA_ZOOM * INTRO_ZOOM_SCALE, CAMERA_ZOOM * INTRO_ZOOM_SCALE)
+	var fall_time := 0.36
+	cam.global_position = Vector2(land_pos.x, land_pos.y - DROP_HEIGHT - 30.0)
+	var cam_tw := create_tween()
+	cam_tw.tween_property(cam, "global_position", Vector2(land_pos.x, land_pos.y - 28.0), fall_time) \
 		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-	fall.tween_method(func(p: Vector2) -> void: cam.position = p, start, land_pos, INTRO_FALL) \
-		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-	await fall.finished
 
-	# ② 入体：灵魂压扁成一道，钻进胸口；一圈白丝从外向内收进去
-	var chest := stand_pos + Vector2(0, -10)
-	var enter := create_tween()
-	enter.set_parallel(true)
-	enter.tween_property(soul, "global_position", chest, INTRO_ENTER * 0.55)
-	enter.tween_property(soul, "scale", Vector2(0.25, 0.85), INTRO_ENTER * 0.55)
-	enter.tween_property(soul, "rotation", deg_to_rad(180.0), INTRO_ENTER * 0.55)
-	await enter.finished
-	_suck_streaks(chest)
-	var sink := create_tween()
-	sink.tween_property(soul, "scale", Vector2(0.05, 0.05), INTRO_ENTER * 0.45).set_ease(Tween.EASE_IN)
-	sink.parallel().tween_property(soul, "modulate:a", 0.0, INTRO_ENTER * 0.45)
-	sink.parallel().tween_property(player, "scale", Vector2(1.12, 0.88), 0.12)
-	sink.tween_property(player, "scale", Vector2(1.0, 1.0), 0.26).set_trans(Tween.TRANS_ELASTIC)
-	var punch := create_tween()
-	punch.tween_property(cam, "offset", Vector2(0, 6), 0.06)
-	punch.tween_property(cam, "offset", Vector2.ZERO, 0.22)
-	GameManager.play_sfx("drum", -6.0, 1.0)
-	await sink.finished
-	soul.queue_free()
+	# ① 下坠：黑幕只留角色周围一个亮圈（和序章虚空里一样），等他自己落地
+	var waited := 0.0
+	while not player.is_on_floor() and waited < DROP_TIMEOUT:
+		await get_tree().physics_frame
+		waited += get_physics_process_delta_time()
+	# 落地这一帧把镜头对到最终构图：补间可能早一点晚一点，落地必须准
+	cam.global_position = Vector2(land_pos.x, land_pos.y - 28.0)
 
-	# ③ 10 秒起身：撑地 → 抬身 → 单膝 → 起立 → 站定（全程仍是黑的）
-	await _rise_sequence(player, cam)
+	# ② 砸地：扬尘和落地声是 player.gd 自己接的（速度够大就会触发），
+	#    这里补镜头下压和"压扁 → 弹起 → 站定"那一下
+	cam.set("offset", Vector2(0, 0))
+	if cam.has_method("dip"):
+		cam.call("dip", 10.0, 0.20)
+	player.call("play_intro_land")
+	# 落地后先缓冲 2 秒：屏幕上还是只有人周围一圈，让"砸下来"这件事落地
+	await get_tree().create_timer(LAND_BUFFER).timeout
 
-	player.set("_input_locked", false)
-	if cam.has_method("set_physics_process"):
-		cam.set_physics_process(true)
+	# ③ 5 秒慢慢把周围照亮，同时镜头缓缓退回常规构图（放大 → 常规、居中 → 带 map limit）
+	await _reveal_at(player, cam, CAMERA_ZOOM)
+
+	# 镜头交还给常规跟随：先按正常 zoom 把位置摆到"带 limit 的合法位置"，再开跟随，
+	# 否则一开就跟、一夹，画面会突然横跳一下
 	cam.limit_left = int(saved_limits[0])
 	cam.limit_right = int(saved_limits[1])
 	cam.limit_top = int(saved_limits[2])
 	cam.limit_bottom = int(saved_limits[3])
+	if cam.has_method("_clamp_to_limits"):
+		cam.call("_clamp_to_limits")
+	player.set("_input_locked", false)
+	cam.set_physics_process(true)
 
-	# ④ 站定后才亮：镜头拉远 + 光从角色身上扩开
-	await _reveal_at(player, cam, normal_zoom)
+## 开场黑幕：整屏压黑，只在角色周围留一圈看得见（和序章虚空里一样）。
+##
+## M5-21（组长反馈"蒙版还是在左下角、还不动"）：原来洞心是拿 FRAGCOORD 算距离的。
+## FRAGCOORD 是**渲染目标**的像素坐标，窗口一放大（比如 1920×1080）它就变成 1.5 倍，
+## 而传进去的 center_px 还是 1280×720 这套逻辑坐标 —— 两套坐标系打架，
+## 圈就跑到画面另一头，而且怎么跟着人走都不在脸上。
+## 现在只用 UV（不管渲染目标多大，它永远是盖住整块屏幕的 0~1），
+## 距离按"UV 差 × 视口逻辑尺寸"还原成像素，坐标系只有一个，窗口多大都对得上。
+const INTRO_SHADER := """
+shader_type canvas_item;
+uniform vec2 view_px = vec2(1280.0, 720.0);
+uniform vec2 center_px = vec2(640.0, 360.0);
+uniform float hole_px = 132.0;
+uniform float soft_px = 110.0;
+uniform vec4 dark : source_color = vec4(0.012, 0.016, 0.020, 1.0);
+void fragment() {
+	vec2 d_px = (UV - center_px / view_px) * view_px;
+	float d = length(d_px);
+	float a = clamp((d - hole_px) / soft_px, 0.0, 1.0);
+	COLOR = vec4(dark.rgb, dark.a * a);
+}
+"""
 
-## 白丝收束：一圈细线从外向内收进胸口，读作"被吸进去"
-func _suck_streaks(at: Vector2) -> void:
-	var node := Node2D.new()
-	node.z_index = 7
-	add_child(node)
-	for i in range(20):
-		var line := Line2D.new()
-		line.width = 1.4
-		line.default_color = Color(0.90, 0.96, 1.0, 0.75)
-		var a := TAU * float(i) / 20.0
-		var from := at + Vector2(cos(a), sin(a) * 0.7) * randf_range(46.0, 90.0)
-		# 线段本身沿"朝胸口"方向摆放，整条线做位移+淡出（points 不能逐点补间）
-		var dir := (at - from).normalized()
-		line.position = from
-		line.points = PackedVector2Array([Vector2.ZERO, dir * 26.0])
-		node.add_child(line)
-		var tw := create_tween()
-		tw.tween_interval(randf_range(0.0, 0.18))
-		tw.tween_property(line, "position", at - dir * 10.0, 0.34).set_ease(Tween.EASE_IN)
-		tw.parallel().tween_property(line, "scale", Vector2(0.2, 0.2), 0.34).set_ease(Tween.EASE_IN)
-		tw.parallel().tween_property(line, "modulate:a", 0.0, 0.34)
-	var cleanup := create_tween()
-	cleanup.tween_interval(0.7)
-	cleanup.tween_callback(node.queue_free)
+func _build_intro_blackout() -> void:
+	var layer := CanvasLayer.new()
+	layer.name = "IntroBlackout"
+	layer.layer = 20         # 压在所有 UI 之上：开场那一秒连血条都不该露出来（HUD 在 0 层）
+	add_child(layer)
+	var rect := ColorRect.new()
+	rect.name = "Dome"
+	rect.color = Color(1, 1, 1, 1)
+	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var mat := ShaderMaterial.new()
+	var sh := Shader.new()
+	sh.code = INTRO_SHADER
+	mat.shader = sh
+	# 半径和视口尺寸显式写一遍：shader 里那组默认值只是兜底，改常量得真的生效
+	mat.set_shader_parameter("hole_px", INTRO_HOLE_PX)
+	mat.set_shader_parameter("soft_px", INTRO_HOLE_SOFT)
+	mat.set_shader_parameter("view_px", Vector2(get_viewport_rect().size))
+	mat.set_shader_parameter("center_px", _intro_screen_center())
+	rect.material = mat
+	layer.add_child(rect)
+	_intro_blackout = rect
+	_intro_shader = mat
+	# 灯：加色精灵画在角色身后（z_index -1，玩家是 0），位置和直径每帧跟着人走。
+	# 用加色而不是普通精灵，是因为它只是"照亮"，不该盖住地面和背景。
+	var spot := Sprite2D.new()
+	spot.name = "IntroSpot"
+	spot.texture = _radial_texture()
+	spot.z_index = -1
+	spot.modulate = Color(0.62, 0.78, 0.86, INTRO_SPOT_ALPHA)
+	add_child(spot)
+	_intro_spot = spot
 
-## 起身：10 秒，四段动作，配一套临时骨架（两臂两腿）。
-## 只转整体会像"一块板子翻过来"，所以要能看到手臂撑地、膝盖先起来。
-func _rise_sequence(player: Node2D, cam: Camera2D) -> void:
-	var p0 := player.global_position
-	# 背景全黑时，深色角色几乎看不见：给他背后垫一圈冷光，只为了把轮廓读出来
-	var back := _make_back_light(player.global_position + Vector2(0, -12))
-	add_child(back)
-	# 用角色自己的手臂与斗篷做动作（不再外挂灰色道具肢体）
-	var arm: Node2D = player.get_node_or_null("Body/ArmPivot") as Node2D
-	var cape: Node2D = player.get_node_or_null("Body/Cape") as Node2D
-	var cloak: Node2D = player.get_node_or_null("Body/Cloak") as Node2D
+## 亮圈中心 = 角色身体的中心，不是脚下。角色节点原点在碰撞盒中心，
+## 视觉身体还要往上 6px，所以减掉 6；再减掉镜头 offset（落地那一下的 dip 也在这上面），
+## 不然震屏/下压的时候人会被亮圈甩出去半截。
+func _intro_screen_center() -> Vector2:
+	var view := Vector2(get_viewport_rect().size)
+	var world := _player.global_position + Vector2(0, -6.0)
+	var cam := _camera
+	return (world - cam.global_position - cam.offset) * cam.zoom + view * 0.5
 
-	var tw := create_tween()
-	# 镜头在起身期间极缓慢推近，画面才不会像一张静止图
-	# 推近幅度大一点：纯静止画面看不出在动作
-	tw.parallel().tween_property(cam, "zoom", cam.zoom * 1.22, INTRO_RISE).set_trans(Tween.TRANS_SINE)
-	tw.parallel().tween_property(back, "modulate:a", 0.85, 1.2)
-	# 轻微呼吸：躯干随呼吸起伏，避免整段像一张静止图
-	tw.parallel().tween_property(player, "scale", Vector2(1.02, 0.98), INTRO_RISE * 0.5).set_trans(Tween.TRANS_SINE)
-	tw.parallel().tween_property(player, "scale", Vector2.ONE, INTRO_RISE * 0.5).set_trans(Tween.TRANS_SINE)
-	# ① 撑地（2.5s）：手臂从折叠转到撑住地面，整体从 90° 抬到 63°
-	tw.tween_property(player, "rotation", -1.10, 2.5).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
-	tw.parallel().tween_property(player, "rotation", -1.10, 2.5).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
-	if arm != null:
-		tw.parallel().tween_property(arm, "rotation", 2.25, 1.6).set_trans(Tween.TRANS_SINE)
-	if cloak != null:
-		tw.parallel().tween_property(cloak, "rotation", -0.12, 1.6)
-	if cape != null:
-		tw.parallel().tween_property(cape, "rotation", -0.18, 1.6)
-	# ② 抬身（2.5s）：躯干继续起，腿开始收
-	tw.tween_property(player, "rotation", -0.70, 2.5).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	tw.parallel().tween_property(player, "rotation", -0.70, 2.5).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	tw.parallel().tween_property(player, "global_position:y", p0.y - 8.0, 2.5)
-	if cloak != null:
-		tw.parallel().tween_property(cloak, "rotation", 0.06, 2.5)
-	if cape != null:
-		tw.parallel().tween_property(cape, "rotation", 0.10, 2.5)
-	# ③ 单膝（2.5s）：一条腿收到身下，手臂离地
-	tw.tween_property(player, "rotation", -0.32, 2.5).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	tw.parallel().tween_property(player, "rotation", -0.32, 2.5).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	if arm != null:
-		tw.parallel().tween_property(arm, "rotation", 1.15, 2.0).set_trans(Tween.TRANS_SINE)
-	if cloak != null:
-		tw.parallel().tween_property(cloak, "rotation", -0.05, 2.5)
-	# ④ 起立（2.0s）+ 站定（0.5s）
-	tw.tween_property(player, "rotation", 0.07, 2.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
-	tw.parallel().tween_property(player, "rotation", 0.07, 2.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
-	tw.parallel().tween_property(player, "global_position:y", p0.y, 2.0)
-	if arm != null:
-		tw.parallel().tween_property(arm, "rotation", 0.55, 2.0).set_trans(Tween.TRANS_SINE)
-	if cloak != null:
-		tw.parallel().tween_property(cloak, "rotation", 0.0, 2.0)
-	if cape != null:
-		tw.parallel().tween_property(cape, "rotation", 0.0, 2.0)
-	tw.tween_property(player, "rotation", 0.0, 0.5).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tw.parallel().tween_property(player, "rotation", 0.0, 0.5).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tw.tween_callback(func() -> void:
-		GameManager.play_sfx("land", -10.0)
-		back.queue_free()
-	)
-	await tw.finished
-	player.rotation = 0.0
-	player.scale = Vector2.ONE
+## 灯的直径跟亮圈一样大（乘以一点余量），所以"圈里亮、圈外黑"两边始终对得上
+func _update_intro_spot() -> void:
+	if _intro_spot == null or not is_instance_valid(_intro_spot):
+		return
+	_intro_spot.global_position = _player.global_position + Vector2(0, -6.0)
+	var tex_size := float(_intro_spot.texture.get_width())
+	var world_px := (INTRO_HOLE_PX * INTRO_SPOT_SCALE) / _camera.zoom.x
+	var k := world_px / maxf(tex_size, 1.0)
+	_intro_spot.scale = Vector2(k, k)
 
-## 角色背后的冷光：黑场里给轮廓垫一层，不然只能看见一片黑
-func _make_back_light(at: Vector2) -> Sprite2D:
-	var grad := Gradient.new()
-	grad.set_color(0, Color(0.62, 0.74, 0.95, 0.30))
-	grad.set_color(1, Color(0.40, 0.52, 0.80, 0.0))
-	var tex := GradientTexture2D.new()
-	tex.gradient = grad
-	tex.fill = GradientTexture2D.FILL_RADIAL
-	tex.fill_from = Vector2(0.5, 0.5)
-	tex.fill_to = Vector2(1.0, 0.5)
-	tex.width = 256
-	tex.height = 256
-	var s := Sprite2D.new()
-	s.name = "RiseBackLight"
-	s.texture = tex
-	s.position = at
-	s.scale = Vector2(1.6, 1.9)
-	s.modulate = Color(1, 1, 1, 0.0)
-	s.z_index = -1
-	return s
-## 站定后的亮起：镜头拉远 + 黑幕淡出，另外给一圈**很淡**的暖光从角色扩散。
-## 用 Sprite2D 而不是 PointLight2D —— 后者是加法光，铺满屏会直接白掉。
+## 亮起（M4-67）：5 秒里同时做三件事——
+##   ① 亮圈（洞）从人周围一路撑到全屏，这就是"慢慢把周围的黑暗看清"
+##   ② 镜头 zoom 从开场的放大缓缓退回常规
+##   ③ 镜头位置从"X 轴居中"缓缓挪到常规构图（带地图 limit 的那个合法位置）
+## 三件事用同一条时间轴，所以亮完的时候构图也正好归位，不会在最后一下横跳。
 func _reveal_at(player: Node2D, cam: Camera2D, normal_zoom: float) -> void:
-	var grad := Gradient.new()
-	grad.set_color(0, Color(1.0, 0.97, 0.90, 0.55))
-	grad.set_color(1, Color(1.0, 0.95, 0.85, 0.0))
-	var tex := GradientTexture2D.new()
-	tex.gradient = grad
-	tex.fill = GradientTexture2D.FILL_RADIAL
-	tex.fill_from = Vector2(0.5, 0.5)
-	tex.fill_to = Vector2(1.0, 0.5)
-	tex.width = 256
-	tex.height = 256
-	var halo := Sprite2D.new()
-	halo.name = "RevealHalo"
-	halo.texture = tex
-	halo.position = player.global_position + Vector2(0, -10)
-	halo.scale = Vector2(0.4, 0.4)
-	halo.modulate = Color(1, 1, 1, 0.0)
-	halo.z_index = 20
-	add_child(halo)
-
+	var half_w := (get_viewport_rect().size.x / 2.0) / normal_zoom
+	var half_h := (get_viewport_rect().size.y / 2.0) / normal_zoom
+	var goal := Vector2(
+		clampf(player.global_position.x, float(cam.limit_left) + half_w, float(cam.limit_right) - half_w),
+		clampf(player.global_position.y - 28.0, float(cam.limit_top) + half_h, float(cam.limit_bottom) - half_h))
+	var from_pos := cam.global_position
 	var tw := create_tween()
 	tw.set_parallel(true)
-	tw.tween_property(halo, "modulate:a", 0.9, INTRO_REVEAL * 0.35)
-	tw.tween_property(halo, "scale", Vector2(7.0, 7.0), INTRO_REVEAL).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	tw.tween_property(cam, "zoom", Vector2(normal_zoom, normal_zoom), INTRO_REVEAL).set_trans(Tween.TRANS_SINE)
-	tw.tween_method(func(p: Vector2) -> void: cam.position = p, cam.position, player.global_position + Vector2(0, -56), INTRO_REVEAL)
-	tw.tween_property(_fade_rect, "modulate:a", 0.0, INTRO_REVEAL * 0.9)
-	tw.chain().tween_property(halo, "modulate:a", 0.0, 0.6)
-	tw.chain().tween_callback(halo.queue_free)
+	if _intro_shader != null:
+		tw.tween_method(
+			func(v: float) -> void: _intro_shader.set_shader_parameter("hole_px", v),
+			INTRO_HOLE_PX, 1400.0, REVEAL_TIME).set_trans(Tween.TRANS_SINE)
+		tw.tween_method(
+			func(v: float) -> void: _intro_shader.set_shader_parameter("soft_px", v),
+			INTRO_HOLE_SOFT, 320.0, REVEAL_TIME).set_trans(Tween.TRANS_SINE)
+	# 灯跟亮圈同一条时间轴淡出：圈子撑大时灯也慢慢退，剩最后一片均匀的微光
+	if _intro_spot != null and is_instance_valid(_intro_spot):
+		tw.tween_property(_intro_spot, "modulate:a", 0.0, REVEAL_TIME * 0.8) \
+			.set_trans(Tween.TRANS_SINE)
+	tw.tween_property(cam, "zoom", Vector2(normal_zoom, normal_zoom), REVEAL_TIME).set_trans(Tween.TRANS_SINE)
+	tw.tween_method(func(p: Vector2) -> void: cam.global_position = p, from_pos, goal, REVEAL_TIME) \
+		.set_trans(Tween.TRANS_SINE)
+	tw.chain().tween_callback(func() -> void:
+		if _intro_blackout != null and is_instance_valid(_intro_blackout):
+			_intro_blackout.get_parent().queue_free()
+		_intro_blackout = null
+		_intro_shader = null
+		if _intro_spot != null and is_instance_valid(_intro_spot):
+			_intro_spot.queue_free()
+		_intro_spot = null)
+	# 必须等这条时间轴走完（5 秒）才交还操作：不然"人已经能走了、画面还是黑的"
+	await tw.finished
+
 ## 平台原点是中心：碰撞换成 rect 大小、子节点归零、视觉按原始多边形缩放。
 ## 原来 JumpPlatform 的碰撞挂在 +343.5 这种手调偏移上，挪平台就得连子节点一起改，
 ## 这里统一成“原点=中心”，以后只给 rect 就行。
@@ -449,6 +456,50 @@ func _place_platform(body: StaticBody2D, rect: Rect2, unit: Vector2) -> void:
 	var vis := body.get_node("Visual") as Polygon2D
 	vis.position = Vector2.ZERO
 	vis.scale = Vector2(rect.size.x / unit.x, rect.size.y / unit.y)
+
+## 悬崖右岸（M5-11）：和左岸同高同画法的一块地面，长廊石台跳过来就落在它上面。
+## 名字取 GroundRight，arena_art 的装饰表里也加了它，所以亮边/砖缝/苔痕一样有。
+func _build_right_bank(from_x: float, to_x: float) -> void:
+	var width := to_x - from_x
+	if width <= 0.0:
+		return
+	var body := StaticBody2D.new()
+	body.name = "GroundRight"
+	body.collision_mask = 0
+	# 同样是 _ready 里新建的：z 必须压到玩家后面，否则右岸会在人经过时盖住他
+	body.z_index = -1
+	body.position = Vector2(from_x + width * 0.5, 689)
+	var col := CollisionShape2D.new()
+	col.name = "CollisionShape2D"
+	var shape := RectangleShape2D.new()
+	shape.size = Vector2(width, 60)
+	col.shape = shape
+	body.add_child(col)
+	var vis := Polygon2D.new()
+	vis.name = "Visual"
+	vis.color = Color(0.156, 0.156, 0.156, 1)
+	vis.polygon = _box_polygon(Vector2(width, 60))
+	body.add_child(vis)
+	add_child(body)
+
+## 悬崖底：掉下去直接判死（和第一层的 KillZone 一个做法，摔落没有"爬上来"的可能）
+func _build_chasm_kill_zone(from_x: float, to_x: float) -> void:
+	var area := Area2D.new()
+	area.name = "ChasmKillZone"
+	area.collision_layer = 0
+	area.collision_mask = 2
+	area.position = Vector2((from_x + to_x) * 0.5, 900)
+	var col := CollisionShape2D.new()
+	var shape := RectangleShape2D.new()
+	shape.size = Vector2(to_x - from_x + 40.0, 160)
+	col.shape = shape
+	area.add_child(col)
+	area.body_entered.connect(func(body: Node2D) -> void:
+		# 玩家掉下去必死；怪物掉下去也当场死（组长要求"怪物掉悬崖底自动死亡"），
+		# 否则它会卡在崖底继续追人，掉落物也就全悬在空中
+		if body.has_method("take_damage"):
+			body.call("take_damage", 99))
+	add_child(area)
 
 func _box_polygon(size: Vector2) -> PackedVector2Array:
 	var half := size * 0.5
@@ -491,7 +542,21 @@ func player_on_platform(rect_key: String, player: Node) -> bool:
 	var feet := body.global_position.y + PLAYER_HALF_HEIGHT
 	return absf(feet - rect.position.y) <= 6.0
 
+## 物理帧也刷一次：坠落时人每帧走十几像素，只在 _process 刷会差半帧，
+## 亮圈看起来比人慢一点点（像在拖）。两个回合同写同一个值，最后一次生效就行。
+func _physics_process(_delta: float) -> void:
+	if _intro_blackout != null and is_instance_valid(_intro_blackout) and _intro_shader != null:
+		# 窗口/视口尺寸也可能变（玩家拉窗口、全屏），每帧对齐一次，别让圈子按旧尺寸算
+		_intro_shader.set_shader_parameter("view_px", Vector2(get_viewport_rect().size))
+		_intro_shader.set_shader_parameter("center_px", _intro_screen_center())
+		_update_intro_spot()
+
 func _process(_delta: float) -> void:
+	# 开场那层"只有角色周围看得见"的黑幕：洞心每帧跟着人走。
+	# 不跟的话人一掉，他就从亮圈里出去，画面变成全黑（看起来像卡住）。
+	if _intro_blackout != null and is_instance_valid(_intro_blackout) and _intro_shader != null:
+		_intro_shader.set_shader_parameter("center_px", _intro_screen_center())
+		_update_intro_spot()
 	if _refusing:
 		return
 	# 教程跑完（献祭完成）就把门点亮；之后玩家走进门即切到第一层
@@ -509,6 +574,8 @@ func _process(_delta: float) -> void:
 func _build_tutorial_gates() -> void:
 	var holder := Node2D.new()
 	holder.name = "TutorialGates"
+	# 骨栅是探索到中途才落下的，晚于玩家建出来；z 压后一层，免得它的横杆画在人身上
+	holder.z_index = -1
 	add_child(holder)
 	for gate_id in ["move", "jump", "attack", "pogo", "combat"]:
 		var gate := TUTORIAL_GATE_SCENE.instantiate()
@@ -535,7 +602,7 @@ func _is_gate_open(gate_id: String) -> bool:
 	return bool(gate.call("is_open"))
 
 func _unhandled_input(event: InputEvent) -> void:
-	# 反向测试（规范第 6 条）：只认 F2 的按下沿，其它键、抬起、长按 echo 都不触发
+	# 反向测试（规范第 6 条）：只认按下沿，其它键、抬起、长按 echo 都不触发
 	var key := event as InputEventKey
 	if key == null or not key.pressed or key.is_echo():
 		return
@@ -543,6 +610,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	if _true_he_mode:
 		return
 	if key.keycode == DEBUG_SKIP_KEY:
+		_enter_floor1()
+		return
+	# M5-04：站在门口按 K 才进下一层（不再碰触自动传送）
+	if _door_near and _door_open and not _entering and key.is_action_pressed("interact"):
 		_enter_floor1()
 
 # ---------- 下一层的门 ----------
@@ -563,6 +634,11 @@ func _build_corridor_gallery() -> void:
 func _build_slab_holder(holder_name: String, rects: Array, names: Array) -> void:
 	var holder := Node2D.new()
 	holder.name = holder_name
+	# M5-19（组长反馈"阶梯处有一团灰色矩形，与碰撞体积不重合，导致玩家被覆盖"）：
+	# 这些台阶是 _ready 里才 new 出来的，节点顺序在玩家之后 —— 而玩家和地形都是 z=0，
+	# 后加的就画在前面，于是玩家走到台阶后面会被一整块灰色盖住（看起来像穿模）。
+	# 地形必须永远压在人后面：整组挪到 z=-1（背景在 -3，所以不会掉到背景下面）。
+	holder.z_index = -1
 	add_child(holder)
 	for i in range(rects.size()):
 		var rect: Rect2 = rects[i]
@@ -673,19 +749,24 @@ func _build_next_floor_door() -> void:
 	_door_root.add_child(_door_seam)
 
 	# 门牌：中文字体必须显式加载，否则方块
+	# M5-22（组长反馈"大门这边还没有抬头，一直在后排"）：门框本身是 z=-1（人要挡门），
+	# 但它下面的门牌跟着一起退到了地形后面，被地面亮边和道具压住、一直"抬不起头"。
+	# 门牌和提示单独抬到 z=40（世界层里最高），门框该在后面还在后面。
 	var label := Label.new()
 	label.text = "第一层"
 	label.position = Vector2(-40, -226)
 	label.size = Vector2(80, 24)
+	label.z_index = 40
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label.add_theme_font_size_override("font_size", 16)
-	label.add_theme_color_override("font_color", Color(0.50, 0.72, 0.74, 0.75))
+	label.add_theme_font_size_override("font_size", 12)
+	label.add_theme_color_override("font_color", Color(0.56, 0.80, 0.82, 0.85))
 	var font := load("res://assets/fonts/NotoSansCJKsc-Regular.otf") as Font
 	if font != null:
 		label.add_theme_font_override("font", font)
 	_door_root.add_child(label)
 
-	# 进入判定：只认玩家（collision_mask 2），门没开时不切场景
+	# 进入判定：只认玩家（collision_mask 2）。M5-04（组长要求）：不再"碰到就自动进"，
+	# 改成走到门前按 K —— 先看到门上的提示，再自己决定进不进（自动传送容易误触）。
 	var area := Area2D.new()
 	area.name = "DoorArea"
 	area.collision_layer = 0
@@ -700,10 +781,32 @@ func _build_next_floor_door() -> void:
 	area.body_entered.connect(func(body: Node2D) -> void:
 		if not body.is_in_group("player"):
 			return
-		if _door_open:
-			_enter_floor1()
-	)
+		_door_near = true
+		_update_door_prompt())
+	area.body_exited.connect(func(body: Node2D) -> void:
+		if not body.is_in_group("player"):
+			return
+		_door_near = false
+		_update_door_prompt())
 	_door_root.add_child(area)
+
+	# 门上的提示："进入第一层（K）"，只有门开了且人站在门口才亮。
+	# M5-22（组长要求"可以打开就提示按 K 开门，和正常交互提示一样"）：
+	# 改用统一的 InteractionPrompt（和火堆/钟绳/守钟人同一套字体描边阴影），
+	# 层级也抬到 40：门框在后面，提示永远在人能看到的最上层。
+	_door_prompt = InteractionPrompt.create(
+		_door_root, "进入第一层（K）", Vector2(-80, -246), Vector2(160, 24),
+		12, Color(0.78, 0.96, 0.92, 0.98), 2, 40
+	)
+	_door_prompt.name = "DoorPrompt"
+	_door_prompt.visible = false
+
+## 提示只在"门开了 + 人站在门口"时显示；其余时候藏起来，别在教程前半段就吊着人
+func _update_door_prompt() -> void:
+	if _door_prompt == null or not is_instance_valid(_door_prompt):
+		return
+	_door_prompt.visible = _door_open and _door_near and not _entering
+	_door_prompt.text = "进入第一层（K）" if _door_open else "门还锁着"
 
 func _open_door() -> void:
 	_door_open = true
@@ -711,11 +814,14 @@ func _open_door() -> void:
 	_door_glow.modulate = Color(0.45, 0.95, 0.90, 0.30)
 	GameManager.play_sfx("gate")
 	EventBus.log_event("floor_gate_open", {"floor": "floor1"})
+	# 门一开就把提示挂上去（人要是已经在门口，不用退出去再进来）
+	_update_door_prompt()
 
 func _enter_floor1() -> void:
 	if _entering:
 		return
 	_entering = true
+	_update_door_prompt()
 	GameManager.set_flag("floor1_unlocked")
 	EventBus.player_moved_between_floors.emit("floor1")
 	# M2-09：先黑屏 + 层名，再换场景；换场景必须延后，别在物理/输入回调里立刻切
@@ -743,8 +849,117 @@ func _build_hud() -> void:
 func _build_campfire() -> void:
 	var fire := CAMPFIRE_SCENE.instantiate()
 	fire.name = "Campfire"
-	fire.position = Vector2(4650, 659)
+	# M5-22（组长反馈"火堆往前移，剧情受伤、剧情过了之后才遇到火堆"）：
+	# 原来火在 4650、剧情触发点在它后面，等于先看见火、后挨打，教学顺序是反的。
+	# 现在火挪到 4820（剧情和战斗之后），玩家是带着伤口走到火边的，才有"该回血了"的动机。
+	fire.position = Vector2(CAMPFIRE_X, 659)
 	add_child(fire)
+
+# ---------- 火堆前那一战（M5-18） ----------
+##
+## 组长定的教学节奏：走到火堆前方 → 过一段剧情 → 剧情末尾有东西扑上来咬你一口（固定掉 1 颗心）
+## → 这时候才交还操作、开始打它 → 打完回火边歇一下学会回血。
+##
+## 为什么掉血放在"剧情末尾"而不是让怪物自己随机打：这一段的目的就是教"血会掉、火能补"，
+## 掉血必须是确定发生的一次，不能看玩家闪不闪得开。
+## 怪物就用史莱姆（同一套跳扑 AI），只是血加厚，算"稍简单的小 boss"：
+## 它不会一招秒人，也不会放弹幕，代价是它就在悬崖边上 —— 打急了会被自己撞下去。
+const BEAST_TRIGGER := Vector2(4520, 620)
+const BEAST_SPAWN := Vector2(4700, 646)
+## 篝火位置：必须在剧情和战斗之后（见 _build_campfire 的注释）
+const CAMPFIRE_X := 4820.0
+const BEAST_HP := 14
+const BEAST_BITE_DELAY := 0.45
+const BEAST_DIALOGUE := "tutorial_beast"
+const CAMPFIRE_HINT := "血掉了。回火边歇一下（K）"
+## 层门提示也用统一组件：和火堆/钟绳/守钟人长一个样（白字、黑描边、居中）
+const InteractionPrompt := preload("res://components/interaction_prompt.gd")
+
+var _beast: Node2D
+var _beast_started := false
+var _beast_killed := false
+var _beast_hint: Label
+
+func _build_beast_encounter() -> void:
+	var area := Area2D.new()
+	area.name = "BeastTrigger"
+	area.collision_layer = 0
+	area.collision_mask = 2
+	area.position = BEAST_TRIGGER
+	var col := CollisionShape2D.new()
+	var shape := RectangleShape2D.new()
+	shape.size = Vector2(90, 220)
+	col.shape = shape
+	area.add_child(col)
+	area.body_entered.connect(func(body: Node2D) -> void:
+		if body.is_in_group("player"):
+			_beast_encounter())
+	add_child(area)
+
+## 剧情 → 咬一口 → 放怪。旁白在播的时候 Dialogue 会把玩家输入锁住，
+## 念完才解锁，所以"掉 1 血之后才能动"这个顺序是天然的，不用自己再锁一遍。
+func _beast_encounter() -> void:
+	if _beast_started:
+		return
+	_beast_started = true
+	var dialogue := get_node_or_null("Dialogue")
+	if dialogue != null and dialogue.has_method("play"):
+		# 别的旁白正在播（比如刚好还在念开场低语）就先等它念完：
+		# 同一时间只能有一条对话在播，硬插进去会被吞掉，这段演出就没了
+		while is_instance_valid(dialogue) and bool(dialogue.call("is_playing")):
+			await get_tree().process_frame
+		if not is_inside_tree():
+			return
+		dialogue.call("play", BEAST_DIALOGUE)
+		while is_instance_valid(dialogue) and bool(dialogue.call("is_playing")):
+			await get_tree().process_frame
+	await _spawn_beast()
+
+func _spawn_beast() -> void:
+	if _beast_killed or not is_inside_tree():
+		return
+	var beast := SLIME_SCENE.instantiate()
+	beast.name = "CaveBeast"
+	beast.position = BEAST_SPAWN
+	add_child(beast)
+	beast.set("hp", BEAST_HP)
+	_beast = beast
+	# 用 tree_exited 而不是每帧比对空指针：节点被 queue_free 之后，
+	# 手里的引用会变成一个"已释放对象"，拿它和 null 比不一定为真 —— 提示就可能永远不出现。
+	# tree_exited 在节点真正离开场景树时发一次，这时候还能判断、也只发一次。
+	beast.tree_exited.connect(_on_beast_gone)
+	# 扑上来咬一口：先把无敌时间清掉，保证这一下真的掉 1 颗心（不是"可能掉"）
+	await get_tree().create_timer(BEAST_BITE_DELAY).timeout
+	var player := get_tree().get_first_node_in_group("player")
+	if player != null and is_instance_valid(player) and player.has_method("take_damage"):
+		player.set("_invincible_timer", 0.0)
+		player.call("take_damage", 1, beast)
+
+## 怪死了（被打死或者自己掉进悬崖）：在火堆上方挂一句提示，把玩家领回火边。
+func _on_beast_gone() -> void:
+	# tree_exited 会随节点释放只发一次，但角色死亡/切场景也会走到这里，多一道保险
+	if _beast_killed:
+		return
+	_beast_killed = true
+	_beast = null
+	if _beast_hint != null and is_instance_valid(_beast_hint):
+		return
+	var label := Label.new()
+	label.name = "CampfireHint"
+	label.text = CAMPFIRE_HINT
+	label.position = Vector2(CAMPFIRE_X - 160.0, 520.0)
+	label.size = Vector2(320, 24)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.add_theme_font_size_override("font_size", 14)
+	label.add_theme_color_override("font_color", Color(1.0, 0.86, 0.60, 0.95))
+	label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.85))
+	label.add_theme_constant_override("shadow_offset_x", 1)
+	label.add_theme_constant_override("shadow_offset_y", 1)
+	var hint_font := load("res://assets/fonts/NotoSansCJKsc-Regular.otf") as Font
+	if hint_font != null:
+		label.add_theme_font_override("font", hint_font)
+	add_child(label)
+	_beast_hint = label
 
 ## 从序章的黑场接进来：整屏先黑，再慢慢亮起（序章结尾已渐黑，这里保证两幕之间没有硬切）
 func _build_fade_in() -> void:

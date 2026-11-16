@@ -18,8 +18,10 @@ extends Camera2D
 @export var target_path: NodePath          # 玩家节点
 @export var follow_speed := 10.0           # 水平跟随速度（越大越跟手）
 ## 角色在屏幕中的基准位置（世界 px，正值=中线下方）：越大角色越靠下。
-## 56 时角色屏幕 y≈456（720 高的 63%），是试玩要求的“中间偏下”。
-@export var player_screen_offset := 56.0
+## 28 时角色屏幕 y≈420（720 高的 58%），是试玩要求的“中间偏下”。
+## M4-62 人物放大（zoom 从 1.714 涨到 2.143）后，世界 px 的偏移在屏幕上也被放大，
+## 于是把 56 收到 28 —— 屏幕上的构图仍然在中线下方，跟以前一致。
+@export var player_screen_offset := 28.0
 @export var look_ahead := 60.0             # 水平前瞻最大距离（按速度比例取）
 @export var vertical_speed := 9.0          # 着地回正 / 空中下跟速度
 ## 空中向上安全带：必须大于一次正常跳跃（≈104px），否则平地跳仍会推镜头。

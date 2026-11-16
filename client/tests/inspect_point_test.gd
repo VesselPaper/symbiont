@@ -1,11 +1,13 @@
 extends SceneTree
-## 可重复调查点回归（M2-05）
+## 可重复调查点回归（M2-05 / M5-08）
 ##   Godot_v4.7.2-stable_win64_console.exe --headless --path client --script res://tests/inspect_point_test.gd
 ##
-## 验收：第一层只保留祭坛 1 个调查点；靠近后按 K 能播；播完再按 K 还能再播（不是一次性）。
+## 验收：第一层不再有调查点（祭坛那处已按组长要求删掉）；
+## 调查点机制本身仍然可重复触发（临时挂一个来测：靠近按 K 能播、播完再按还能再播）。
 ## 反向：抬起/长按 echo/其它键不触发。
 
 const DIALOGUE_KEYS := ["AltarInspect"]
+const INSPECT_SCENE := preload("res://scenes/world/inspect_point.tscn")
 
 var _frames := 0
 var _level: Node = null
@@ -43,15 +45,25 @@ func _run_checks() -> void:
 	_check(holder != null, "缺少 InspectPoints")
 	if holder == null:
 		return
-	_check(holder.get_child_count() == 1, "调查点应为 1 个（只留祭坛），实际 %d" % holder.get_child_count())
+	# M5-08（组长要求"祭坛前调查删除"）：第一层不再有任何调查点 ——
+	# 祭坛自己就有"献上肢体（K）"，再叠一个调查点，玩家站同一点不知道按 K 会干什么。
+	_check(holder.get_child_count() == 0, "调查点应全部删掉，实际还有 %d 个" % holder.get_child_count())
 	for key in DIALOGUE_KEYS:
-		_check(holder.get_node_or_null(key) != null, "缺少调查点 %s" % key)
+		_check(holder.get_node_or_null(key) == null, "调查点 %s 没删干净" % key)
 
-	var point := holder.get_node_or_null("AltarInspect")
+	# 调查点这个机制本身还得能重复触发（以后别的关卡还要用），
+	# 所以临时在空容器里挂一个来测：不依赖第一层具体放了什么。
+	var point := INSPECT_SCENE.instantiate()
+	point.name = "TestInspect"
+	point.set("dialogue_id", "floor1_altar")
+	point.set("prompt_text", "祭坛")
+	# 调查点挂在 InspectPoints 下，Dialogue 在根节点下；相对路径从点本身算
+	point.set("dialogue_path", NodePath("../../Dialogue"))
+	holder.add_child(point)
 	var dialogue := _level.get_node_or_null("Dialogue")
 	var player := _level.get_node_or_null("Player")
-	_check(point != null and dialogue != null and player != null, "调查点/对话/玩家节点不全")
-	if point == null or dialogue == null or player == null:
+	_check(dialogue != null and player != null, "调查点/对话/玩家节点不全")
+	if dialogue == null or player == null:
 		return
 
 	# 场景开场低语可能还在播；先收掉，测调查点自己的重复触发

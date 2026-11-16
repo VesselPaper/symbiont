@@ -51,11 +51,18 @@ func _check_arena() -> void:
 		_check(int(hud.z_index) >= 4, "目标提示还在道具后面 z=%d" % hud.z_index)
 		var consts: Dictionary = hud.get_script().get_script_constant_map()
 		var offset: Vector2 = consts.get("TEXT_OFFSET", Vector2.ZERO)
-		_check(offset.y <= -80.0, "目标提示离引导光太近，容易叠在一起")
+		# M5-22 组长把提示文字往下收、字号减半：偏移从 -88 收到 -56，
+		# 所以这里钉的是"确实在锚点上方、但别高到跟物件叠在一起"这个区间
+		_check(offset.y <= -40.0 and offset.y >= -70.0,
+			"目标提示的垂直偏移不对（%s），要么压住物件要么离锚点太远" % offset)
 	# M4-21 组长要求删掉引导光：场景里不该再有 guide_mark，也别让“光点”再被谁引用回来
 	_check(_level.get_node_or_null("guide_mark") == null, "教学关还留着引导光 guide_mark")
-	# “K 献祭 / K 调查”这类靠近提示也属于 UI，不能缩在祭坛模型后面
+	# M5-22（组长要求"祭坛上方的文字只留一行"）：教学关里祭坛自己的常驻提示要关掉，
+	# 只留教程刻的那一句；别的楼层没有教程，祭坛那行照常显示。
 	var altar := _level.get_node_or_null("Altar")
+	if altar != null:
+		_check(not bool(altar.get("_hint_enabled")),
+			"教学关祭坛还开着常驻提示，会和教程那行叠在一起")
 	var altar_hint: Label = altar.get_node_or_null("HintLabel") if altar != null else null
 	_check(altar_hint != null, "祭坛缺少按 K 提示")
 	if altar_hint != null:
@@ -64,12 +71,10 @@ func _check_arena() -> void:
 func _check_floor1() -> void:
 	_check(_level.get_node_or_null("WeaponPickup") == null,
 		"第一层复活点不该再放一把地上的剑，和手持剑重复")
-	# 第一层祭坛调查点的“K 调查”也必须压在道具上
-	var inspect := _level.get_node_or_null("InspectPoints/AltarInspect")
-	var inspect_prompt: Label = inspect.get_node_or_null("Prompt") if inspect != null else null
-	_check(inspect_prompt != null, "第一层祭坛调查点缺少提示")
-	if inspect_prompt != null:
-		_check(int(inspect_prompt.z_index) >= 4, "调查提示被道具挡住 z=%d" % inspect_prompt.z_index)
+	# M5-08：第一层祭坛前面那个 K 调查点已经按组长要求删了，
+	# 这里改成反过来钉一句"别再挂回来"（两段提示叠在同一点玩家会懵）。
+	_check(_level.get_node_or_null("InspectPoints/AltarInspect") == null,
+		"第一层祭坛调查点又被加回来了（会和祭坛自己的 K 提示叠在一起）")
 	for path in ["Mechanisms/Watchman", "Mechanisms/BellMechanism"]:
 		var holder := _level.get_node_or_null(path)
 		var prompt: Label = holder.get_node_or_null("Prompt") if holder != null else null

@@ -27,6 +27,9 @@ func _process(delta: float) -> bool:
 	if _phase == 0 and _elapsed >= 0.35:
 		var altar := _level.get_node("Altar")
 		_check(bool(altar.get("allow_refuse")), "教学祭坛没开拒绝入口")
+		# M5-22：教学关默认把祭坛常驻提示关掉（只留教程那行）。这条测的是拒绝机制本身，
+		# 所以先把常驻提示打开，按真实流程走一遍"没肢体 / 有肢体"两种提示。
+		altar.call("set_hint_enabled", true)
 		altar.set("_player_in_range", true)
 		altar.call("_update_hint")
 		var base_hint := altar.get_node("HintLabel") as Label

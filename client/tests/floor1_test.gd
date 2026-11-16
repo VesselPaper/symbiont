@@ -69,12 +69,13 @@ func _run_checks() -> void:
 			_check(gate.collision_layer == 1, "骨门初始应挡住玩家")
 			_check(gate.get_node_or_null("Shape") != null, "骨门缺少碰撞形状")
 
-	# M4-04：层门只路过播一次，不再挂 K；只保留祭坛这个关键机制提示
+	# M4-04：层门只路过播一次，不再挂 K；M5-08：祭坛前面那个 K 调查也删了
+	# （和祭坛自己的"献上肢体（K）"叠在同一点，玩家分不清按 K 会干什么）
 	var inspect := _level.get_node_or_null("InspectPoints")
 	_check(inspect != null, "缺少 InspectPoints")
 	if inspect != null:
-		_check(inspect.get_child_count() == 1, "调查点应为 1 个（只留祭坛），实际 %d" % inspect.get_child_count())
-		_check(inspect.get_node_or_null("AltarInspect") != null, "缺少祭坛调查点")
+		_check(inspect.get_child_count() == 0, "调查点应全部删掉，实际还有 %d 个" % inspect.get_child_count())
+		_check(inspect.get_node_or_null("AltarInspect") == null, "祭坛调查点没删干净")
 		_check(inspect.get_node_or_null("GateInspect") == null, "层门不应再有重复 K 调查点")
 
 	# 掉出地图的重伤区
@@ -88,9 +89,10 @@ func _run_checks() -> void:
 		_check(transition.get_node_or_null("Fade") != null, "缺少转场黑幕")
 		_check(transition.get_node_or_null("FloorName") != null, "缺少第二层层名")
 
-	# 敌人：钟厅不给怪；钟厅之后沿路线铺 4 只史莱姆 + 1 只孢子射手
+	# 敌人：钟厅不给怪；钟厅之后沿路线铺 3 只史莱姆 + 1 只孢子射手
+	# M5-14（组长要求"两怪物处删史莱姆"）：遗物廊出口那对里史莱姆删了，所以是 3+1
 	var enemies := _level.get_node_or_null("Enemies")
-	_check(enemies != null and enemies.get_child_count() == 5, "敌人应为 4 只史莱姆 + 1 只孢子射手")
+	_check(enemies != null and enemies.get_child_count() == 4, "敌人应为 3 只史莱姆 + 1 只孢子射手")
 	_check(enemies != null and enemies.get_node_or_null("SporeShooter") != null, "缺少 SporeShooter")
 	# 剧情触发器周围不放怪：每个触发器和最近史莱姆至少隔 200px
 	if enemies != null and triggers != null:

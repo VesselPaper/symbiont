@@ -1,10 +1,10 @@
 extends SceneTree
 ## 摄像机规格回归（补 M1-09 验收里“zoom / limit”这一项）：
-## 教学关和三层都必须用“垂直视野 = 15 个角色身高”的 zoom，并各自覆盖整张地图；
-## 相机必须挂 camera_follow.gd，不能退回固定镜头。
+## 教学关和三层都必须用“垂直视野 = 12 个角色身高”的 zoom（M4-62 放大人物后从 15 收到 10，M4-63 再放到 12），
+## 并各自覆盖整张地图；相机必须挂 camera_follow.gd，不能退回固定镜头。
 ## 跑法：Godot_v4.7.2-stable_win64_console.exe --headless --path client --script res://tests/camera_spec_test.gd
 
-const VIEW_HEIGHT_IN_CHARACTERS := 15.0
+const VIEW_HEIGHT_IN_CHARACTERS := 12.0
 const PLAYER_CHARACTER_HEIGHT := 28.0
 const EXPECTED_ZOOM := 720.0 / (VIEW_HEIGHT_IN_CHARACTERS * PLAYER_CHARACTER_HEIGHT)
 const CASES := [

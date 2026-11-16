@@ -9,7 +9,7 @@ extends CharacterBody2D
 ## 数值先用脚本顶部常量占位，M2 迁入数据文件（见 docs/02 §2.3）。
 
 # ---- 水平移动 ----
-const RUN_SPEED := 300.0        # 最大跑速 px/s
+const RUN_SPEED := 250.0        # 最大跑速 px/s
 const ACCELERATION := 1800.0    # 有方向输入时的加速（地面/空中一致，手感更跟手）
 const FRICTION := 1600.0        # 地面无输入时的减速
 const AIR_FRICTION := 300.0     # 空中无输入时只轻微减速，保留跳跃飘动感
@@ -17,7 +17,15 @@ const AIR_FRICTION := 300.0     # 空中无输入时只轻微减速，保留跳�
 # ---- 垂直移动 ----
 const GRAVITY := 2550
 const MAX_FALL_SPEED := 900.0
-const CHARACTER_HEIGHT := 28.0    # 角色视觉身高（Body Polygon2D 高 28px）
+const CHARACTER_HEIGHT := 28.0    # 角色视觉身高（knight_body.tscn 里贴图整体就是 28 单位高）
+## 头的基准位置：和 knight_body.tscn 里 Head 节点的 position 一致（M4-61 换成第二版渲染图后重接）
+const HEAD_BASE := Vector2(0, 0)
+## 斗篷的基准位置（也和 knight_body.tscn 对齐）：_update_cloth 会在这里加减摆动量。
+## M4-62：斗篷切成"上段 + 下摆"两片 —— 一片整布只能整块摇，切成两片下摆才能自己甩起来。
+## 身后那片深色披风本身是黑的，已经并进身体层，CAPE 只留占位。
+const CAPE_BASE := Vector2(2, 0.5)
+const TAIL_BASE := Vector2(-3, 0.5)
+const HEM_BASE := Vector2(-1, 3.76)
 const JUMP_VELOCITY := -727.0     # 跳跃初速：√(2×2550×3.7×28)≈727 → 跳高≈3.7 倍身高（D-009）
 const AIR_JUMP_VELOCITY := -640.0 # 二段跳略低于一段，避免拿靴后跳跃高度失控
 const COYOTE_TIME := 0.1        # 离开平台边缘后仍可起跳的宽容时间
@@ -35,6 +43,9 @@ const POGO_BOUNCE_VELOCITY := -650.0 # 命中实体后的向上反弹初速（�
 const POGO_RETRIGGER_COOLDOWN := 0.1 # 反弹后可再次下砍的最小间隔（支持多段踩跳）
 const POGO_END_LAG := 0.2        # 下砍结束后的后摇：期间按 J 不触发攻击（防落地瞬间秒横砍）
 const POGO_MIN_FALL_DISTANCE := 20.0  # 下砍需已下落的距离阈值（刚起跳/刚出边缘/贴地时不触发）
+## 空中攻击后的硬后摇（M5-07）：这一整段内按 J 不出刀，落地立刻解除。
+## 0.34 秒 ≈ 一次下劈动作的长度，玩家读得出"这一刀挥完了才能接下一刀"。
+const AIR_ATTACK_RECOVERY := 0.34
 
 # ---- 命中手感（M4-02）----
 ## 命中瞬间双方各停一拍，给刀“砍进去了”的顿挫；只停玩家物理，不改全局时间。
@@ -58,8 +69,15 @@ const KNOCKBACK_UPWARD := -220.0
 # ---- 动画时长（表现层，不影响手感数值）----
 const ATTACK_ANIM_TIME := 0.42  # 一次挥砍的完整动作时长（判定仍只有 0.12s；组长反馈 0.28 太短）
 const HURT_ANIM_TIME := 0.25    # 受击缩身时长
-const DEATH_ANIM_TIME := 0.85  # 倒地到复活的总时长
+## 死亡表现（M4-60，组长定）：身体化成一团黑雾，只把空头盔留在原地、掉到地上躺住。
+const DEATH_ANIM_TIME := 1.15   # 化雾 → 头盔落地躺住 → 才复活。留够时间让"盔掉下来"看得清
+const DEATH_DISSOLVE_TIME := 0.26  # 身体化雾用的时间，剩下都留给头盔落地
+const DEATH_HELMET_GRAVITY := 1450.0
+## 掉在地上的空头盔贴图：和头上一层同一张，只是眼窝里的蓝眼换成近黑（摘空了就该是空的）
+const HELMET_EMPTY_TEX := preload("res://assets/art/knight4/helmet_empty.png")
 const REVIVE_ANIM_TIME := 0.4   # 复活起身时长
+## 开场从虚空砸下来之后的"落地站起"时长（落地压扁 → 弹起过头 → 站定）
+const INTRO_LAND_TIME := 0.62
 const WEAPON_FLASH_TIME := 0.35 # 刚捡到剑时的亮一下
 ## 横砍白色弧线的半径：判定框是 64px 宽，弧线视觉要接近边缘，不能只到 26px。
 const SLASH_ARC_RADIUS := 48.0
@@ -110,6 +128,10 @@ var _pogo_requested := false    # 下砍请求：按下 J 后从按下点下落�
 var _pogo_request_y := 0.0      # 按下 J 时的位置 y
 var _attack_cooldown_timer := 0.0
 var _attack_active_timer := 0.0
+## "这一次按住攻击键已经出过刀"（M5-07）：松开才解锁，防长按 echo 触发连发
+var _attack_press_latch := false
+## 空中攻击后摇剩余（落地清零）
+var _air_attack_recovery := 0.0
 var _hit_this_swing: Array[Node2D] = []     # 本次挥砍已命中的目标，防止同一判定框重复扣血
 var _invincible_timer := 0.0
 var _hitstop_timer := 0.0       # 命中顿帧：期间玩家不移动，给打击反馈留出阅读时间
@@ -117,6 +139,25 @@ var _recoil_timer := 0.0        # 攻击反作用力期间不响应移动输入�
 var _input_locked := false      # 对话期间锁输入：不能移动/跳跃/攻击/下砍（见 _on_dialogue_*）
 var _spawn_point := Vector2.ZERO
 var _anim_time := 0.0           # 视觉动画时钟（待机起伏 / 走步颤步），与物理无关
+## M4-56 布料与反冲：披风和下摆的角度、攻击反冲、攻击时甩出来的额外摆幅。
+## 这三个都只在 _update_visual_anim / _update_cloth 里写，别在别处碰
+var _cape_rot := 0.0
+var _tail_rot := 0.0
+## 斗篷下摆自己的角度（M4-62 切成两片后才有）：比上段慢半拍、甩得更开
+var _hem_rot := 0.0
+## 开场砸地后"压扁 → 弹起 → 站定"的计时（M4-62）：结算在 _update_visual_anim 里
+var _intro_land_timer := 0.0
+## 启动/停止的视觉量（M4-69）：上一帧水平速度、起步前倾、停步顿挫
+var _prev_vx := 0.0
+var _start_lean := 0.0
+var _stop_lean := 0.0
+var _start_dip := 0.0
+var _stop_dip := 0.0
+## 斜切（布被风推着走的横向错位）：上段小、下摆大
+var _tail_skew := 0.0
+var _hem_skew := 0.0
+var _recoil := 0.0
+var _cloak_flare := 0.0
 var _attack_anim_timer := 0.0   # 挥砍动作剩余时间（表现，不影响 0.12s 判定）
 var _attack_anim_total := ATTACK_ANIM_TIME  # 本次动作的总时长，用来算动画进度（三段各不同）
 var _attack_anim_kind := 0      # 0 = 横砍，1 = 下劈
@@ -131,8 +172,17 @@ var _rest_timer := 0.0          # 篝火休息：坐姿剩余时间（期间压�
 var _rest_total := 0.0          # 本次休息的总时长，用来分段：放剑 / 坐 / 起身
 var _rest_prop: Node2D          # 休息时放在身侧的剑
 var _hurt_timer := 0.0          # 受击缩身剩余时间
-var _death_timer := 0.0         # 倒地剩余时间，走完才复活
+var _death_timer := 0.0         # 化雾/等复活剩余时间，走完才复活
 var _revive_timer := 0.0        # 复活起身剩余时间
+## 死亡后掉在地上的空头盔（挂在关卡里而不是玩家身上：玩家复活要传送走，盔得留在原地）
+var _dropped_helmet: Node2D
+var _helmet_vy := 0.0
+var _helmet_vx := 0.0
+var _helmet_spin := 0.0
+var _helmet_ground := 0.0
+var _helmet_bounces := 1
+var _helmet_rest := true
+var _helmet_rest_rot := 0.0
 var _weapon_flash_timer := 0.0  # 捡剑亮光
 var _last_air_vy := 0.0         # 离地时的下落速度，用来判断落地扬尘的力度
 var _land_impact_vy := 0.0       # 落地那一帧保留的冲击速度，供扬尘/落地声使用
@@ -153,10 +203,20 @@ var _slash_down_glow: Line2D    # 下劈外层柔光
 var _slash_down_core: Line2D    # 下劈内层白芯
 
 @onready var _body: Node2D = $Body
-@onready var _cloak: Polygon2D = $Body/Cloak
-@onready var _cape: Polygon2D = $Body/Cape
-@onready var _arm: Node2D = $Body/ArmPivot
-@onready var _sword: Node2D = $Body/ArmPivot/SwordPivot
+## M4-56：不再给角色手里画剑。斗篷把身体盖住，只露两只脚；
+## 攻击靠身前一道白剑痕 + 粒子 + 反冲来表达（组长定稿：拿剑摆着突兀，动作也不好做）。
+## 斗篷分前后两层：Cape 在身后跟着风摆；CloakTail 盖在身体上、右侧只留一条缝给内袍。
+## M4-59：美术改成组长新画的高质量图，拆成 4 张透明 PNG（盔/身/斗篷左/斗篷右），
+## 节点名和以前一样，动画逻辑不用重写；Head 现在能单独点头。
+@onready var _cape: Node2D = $Body/Cape
+@onready var _cloak_tail: Node2D = $Body/CloakTail
+## 斗篷下摆（下段）：单独一层才能"随风飘"，见 _update_cloth
+@onready var _cloak_hem: Node2D = $Body/CloakTail/CloakHem
+@onready var _head: Node2D = $Body/Head
+## 眼睛单独一层（M4-71）：虚空坠落时不亮、死亡时也不亮，只有活着/进关时亮
+@onready var _eyes: CanvasItem = $Body/Head/Eyes
+@onready var _foot_l: Node2D = $Body/FootL
+@onready var _foot_r: Node2D = $Body/FootR
 @onready var _slash: Line2D = $Body/SlashArc
 @onready var _slash_down: Line2D = $Body/SlashDown
 @onready var _hitbox_side: Area2D = $HitboxSide
@@ -194,7 +254,6 @@ func _ready() -> void:
 	_slash_down.default_color = Color(0.94, 1.0, 1.0, 0.9)
 	_slash_down.points = _make_arc(Vector2.ZERO, SLASH_DOWN_RADIUS, 9.0, 0.15, 2.95, 10)
 	_build_slash_layers()
-	_sword.visible = has_weapon
 	_build_fx()
 	_build_corruption()
 	# 献祭后会长出寄生组织；先连信号，再按当前献祭数恢复（读档/重生不丢）
@@ -218,6 +277,9 @@ func _physics_process(delta: float) -> void:
 		_update_visual_anim(delta)
 		return
 	_recoil_timer = maxf(_recoil_timer - delta, 0.0)
+	# 空头盔自己往下掉：它挂在关卡里，玩家复活传送走之后还要继续落地
+	if not _helmet_rest:
+		_update_helmet_prop(delta)
 	if _hitstop_timer > 0.0:
 		# 顿帧期间完全冻结玩家物理；下劈的反弹速度先存着，顿完再走。
 		_hitstop_timer = maxf(_hitstop_timer - delta, 0.0)
@@ -272,7 +334,7 @@ func _on_item_picked(item_id: String, _count: int) -> void:
 	if item_id == "iron_sword":
 		has_weapon = true
 		GameManager.has_weapon = true
-		_sword.visible = true
+		# 手里不再挂剑（M4-56）：只亮一下表示"能砍了"，剑本身留给敌人/场景里的道具
 		_weapon_flash_timer = WEAPON_FLASH_TIME
 	elif item_id == "steam_boots":
 		has_steam_boots = true
@@ -293,6 +355,9 @@ func _update_anim_timers(delta: float) -> void:
 	_hurt_timer = maxf(_hurt_timer - delta, 0.0)
 	_weapon_flash_timer = maxf(_weapon_flash_timer - delta, 0.0)
 	_revive_timer = maxf(_revive_timer - delta, 0.0)
+	# 空中后摇一旦落地就立刻解除：地上一帧都不该多等
+	if _air_attack_recovery > 0.0:
+		_air_attack_recovery = 0.0 if is_on_floor() else maxf(_air_attack_recovery - delta, 0.0)
 	if _death_timer > 0.0:
 		_death_timer -= delta
 		if _death_timer <= 0.0:
@@ -425,7 +490,8 @@ func _hide_slash_layers() -> void:
 ##   受击 → 缩身抖一下；倒地 → 侧倒淡出；复活 → 从地上撑起来。
 func _update_visual_anim(delta: float) -> void:
 	if _rest_timer > 0.0:
-		# 篝火休息：放剑到身侧地上 → 蹲坐 → 抓剑、撑地起身；按方向键可随时中断
+		# 篝火休息：蹲坐 → 撑地起身；按方向键可随时中断。
+		# M4-56 起角色手里不挂剑，所以不再有"把剑放到地上再抓回来"那一段。
 		if absf(Input.get_axis("move_left", "move_right")) > 0.1:
 			_end_rest_pose()
 			return
@@ -434,210 +500,322 @@ func _update_visual_anim(delta: float) -> void:
 		var t := total - _rest_timer
 		var stand_at := maxf(total - 0.95, 0.6)
 		if t < 0.45:
-			# ① 把剑放到身侧地上（手里那把先收起来）
 			var p := t / 0.45
-			_sword.visible = p < 0.55
-			_ensure_ground_sword()
 			_body.scale = Vector2(float(_facing), lerpf(1.0, 0.86, p))
 			_body.position = Vector2(0, lerpf(0.0, 3.0, p))
 			_body.rotation = 0.03 * float(_facing) * p
 		elif t < stand_at:
-			# ② 蹲坐着歇息：膝盖压低、身体前倾，剑就放在手边
-			_sword.visible = false
-			_ensure_ground_sword()
 			_body.scale = Vector2(float(_facing) * 1.04, 0.60)
 			_body.position = Vector2(0, 10)
 			_body.rotation = 0.12 * float(_facing)
 		else:
-			# ③ 起身：先抓剑回手，再单手撑地站起来
 			var q := clampf((t - stand_at) / maxf(total - stand_at, 0.01), 0.0, 1.0)
-			var grab := clampf(q * 2.4, 0.0, 1.0)
-			if grab >= 0.55:
-				_free_ground_sword()
-			_sword.visible = grab >= 0.5
 			var rise := clampf((q - 0.35) / 0.65, 0.0, 1.0)
 			_body.scale = Vector2(float(_facing), lerpf(0.60, 1.0, rise))
 			_body.position = Vector2(0, lerpf(10.0, 0.0, rise) - 4.0 * sin(rise * PI))
 			_body.rotation = 0.12 * float(_facing) * (1.0 - rise)
+		_update_cloth(delta, 0.0, 0.0)
 		return
 	_anim_time += delta
+	# 开场砸地那一下的计时（M4-62）：放在这里统一递减，_update_visual_anim 只负责摆姿势
+	_intro_land_timer = maxf(_intro_land_timer - delta, 0.0)
+	_update_start_stop(delta)
 	if _body == null:
 		return
+	var body_x := 0.0
 	var body_y := 0.0
 	var body_rot := 0.0
 	var body_scale := Vector2(1.0, 1.0)
-	var arm_rot := 0.55
-	var sword_rot := 0.35
-	var cloak_rot := 0.0
 	var tint := Color(1, 1, 1, 1)
+	var foot_l := Vector2.ZERO
+	var foot_r := Vector2.ZERO
+	# 攻击时身前那道白痕的朝向：0 = 横劈弧，负 = 上撩，正 = 下压
+	var slash_rot := 0.0
 	_hide_slash_layers()
 
 	if _death_timer > 0.0:
-		# 倒地：前 40% 快速侧倒，后面保持，等计时结束复活
+		# 死亡（M4-60）：身体不是侧倒，是往下塌、化成一团黑雾散掉，只剩一只空头盔掉在地上。
+		# 前 30% 化完，后面身体就当不存在了 —— 盔已经由 _drop_helmet 摘下来自己掉。
 		var p := 1.0 - _death_timer / DEATH_ANIM_TIME
-		var fall := minf(1.0, p * 2.2)
-		fall = fall * fall
-		body_rot = 1.5 * fall
-		body_y = 5.0 * fall
-		body_scale = Vector2(1.0 + 0.10 * fall, 1.0 - 0.08 * fall)
-		arm_rot = 1.1
-		sword_rot = 1.35
-		tint = Color(1, 1, 1, 1.0 - 0.35 * fall)
+		var dissolve := clampf(p / (DEATH_DISSOLVE_TIME / DEATH_ANIM_TIME), 0.0, 1.0)
+		body_scale = Vector2(1.0 + 0.22 * dissolve, 1.0 - 0.14 * dissolve)
+		body_y = -2.0 * dissolve
+		tint = Color(1, 1, 1, 1.0 - dissolve)
+	elif _intro_land_timer > 0.0:
+		# 开场砸地（M4-62）：砸下去那一下压到最扁，再弹起过头，最后站定。
+		# 这三段是"落地的重量"全部来源 —— 少了压扁，落地就只是一次停住。
+		var p := 1.0 - _intro_land_timer / INTRO_LAND_TIME
+		var squash := 0.0
+		if p < 0.30:
+			squash = lerpf(0.0, 1.0, p / 0.30)
+		elif p < 0.60:
+			squash = lerpf(1.0, -0.32, (p - 0.30) / 0.30)
+		else:
+			squash = lerpf(-0.32, 0.0, (p - 0.60) / 0.40)
+		body_scale = Vector2(1.0 + 0.26 * squash, 1.0 - 0.34 * squash)
+		body_y = 6.0 * maxf(squash, 0.0)
+		_cloak_flare = maxf(_cloak_flare, 0.5 * maxf(squash, 0.0))
 	elif _revive_timer > 0.0:
-		# 复活：从侧倒姿态回正，先蹲一下再站直
 		var p := 1.0 - _revive_timer / REVIVE_ANIM_TIME
 		var up := p * p
 		body_rot = 1.5 * (1.0 - up)
 		body_y = 5.0 * (1.0 - up) - 6.0 * sin(p * PI)
 		body_scale = Vector2(0.9 + 0.1 * up, 0.85 + 0.15 * up)
-		arm_rot = lerpf(1.1, 0.55, up)
-		sword_rot = lerpf(1.35, 0.35, up)
 		tint = Color(1, 1, 1, up)
 	else:
 		if _pogo_active:
-			# 下劈：剑尖朝地，身体略前倾；弧线只在判定窗口内亮，之后收掉
-			arm_rot = 1.45
-			sword_rot = 1.55
-			# 起手 0.09s 先缩一下：刀先扎下去，人跟着沉，再等反弹
+			# 下劈：没有剑可挥，改成整个人往下砸 —— 先缩、再拉长，脚下那道白痕朝下
 			var wind := 1.0 - clampf((_attack_anim_total - _attack_anim_timer) / 0.09, 0.0, 1.0)
-			body_scale = Vector2(1.0 + 0.10 * wind, 1.0 - 0.14 * wind)
-			_set_down_slash(_attack_anim_timer > 0.0, 0.7 * minf(1.0, _attack_anim_timer / 0.2))
+			body_scale = Vector2(1.0 + 0.12 * wind, 1.0 - 0.16 * wind)
+			body_y = 2.0 * wind
+			slash_rot = 0.0
+			_set_down_slash(_attack_anim_timer > 0.0, 0.75 * minf(1.0, _attack_anim_timer / 0.2))
 		elif _attack_anim_timer > 0.0:
 			var p := 1.0 - _attack_anim_timer / maxf(0.01, _attack_anim_total)
 			if _attack_anim_kind == 1:
 				# 下劈动作（判定已结束也把动作收完）
-				arm_rot = 1.45
-				sword_rot = 1.55
+				body_scale = Vector2(1.06, 0.94)
 				_set_down_slash(p < 0.7, maxf(0.0, 0.75 - p))
 			elif _attack_running:
-				# 跑砍：不举过头顶，直接前倾压刀横扫。整体比站砍低一档，
-				# 同时保留走路的颠步，免得人看着像“定在跑道上挥刀”。
+				# 跑砍：身体整体前压，脚下的步子不停；白痕在身前亮一条横的
 				var step_run := sin(_anim_time * 12.0)
 				body_y = -absf(step_run) * 1.4
-				body_rot += 0.12
-				body_scale = Vector2(1.04, 0.96)
+				body_rot = 0.14
+				body_scale = Vector2(1.05, 0.95)
+				foot_l = Vector2(step_run * 1.6, -absf(step_run) * 1.2)
+				foot_r = Vector2(-step_run * 1.6, -absf(step_run) * 1.2)
+				slash_rot = 0.0
 				if p < 0.18:
-					var q0 := p / 0.18
-					arm_rot = lerpf(0.95, 0.45, q0)
-					sword_rot = lerpf(-0.15, 0.20, q0)
+					body_x = -0.8
 				elif p < 0.74:
 					var q1 := (p - 0.18) / 0.56
-					var swing_run := q1 * q1
-					arm_rot = lerpf(0.45, 1.15, swing_run)
-					sword_rot = lerpf(0.20, 0.92, swing_run)
+					body_x = 1.2 * q1 * q1
 					_set_side_slash(true, sin(minf(q1, 0.9) * PI) * 0.95)
 				else:
 					var q2 := (p - 0.74) / 0.26
-					arm_rot = lerpf(1.15, 0.55, q2)
-					sword_rot = lerpf(0.92, 0.35, q2)
+					body_x = 1.2 * (1.0 - q2)
 					_set_side_slash(true, (1.0 - q2) * 0.5)
 			elif _combo_step == 1:
-				# 第二段·反手上撩：先把刀沉到身下，再贴着地面往上挑
+				# 第二段·上撩：身体先沉下去，再整体往上一弹，白痕自下往上扫
+				slash_rot = -0.85
 				if p < 0.20:
 					var q2 := p / 0.20
-					arm_rot = lerpf(0.55, 1.28, q2)
-					sword_rot = lerpf(0.35, 1.40, q2)
+					body_y = 2.2 * q2
+					body_scale = Vector2(1.0 + 0.06 * q2, 1.0 - 0.10 * q2)
 				elif p < 0.72:
 					var q3 := (p - 0.20) / 0.52
 					var swing_up := q3 * q3
-					arm_rot = lerpf(1.28, -0.30, swing_up)
-					sword_rot = lerpf(1.40, -0.95, swing_up)
+					body_y = lerpf(2.2, -2.0, swing_up)
+					body_scale = Vector2(0.98, 1.06)
 					_set_side_slash(true, sin(minf(q3, 0.9) * PI) * 0.92)
 				else:
 					var q4 := (p - 0.72) / 0.28
-					arm_rot = lerpf(-0.30, 0.55, q4)
-					sword_rot = lerpf(-0.95, 0.35, q4)
+					body_y = lerpf(-2.0, 0.0, q4)
 					_set_side_slash(true, (1.0 - q4) * 0.5)
 			elif _combo_step == 2:
-				# 第三段·前刺：收刀到腰侧、整个人前压、刺完慢慢收
+				# 第三段·前刺：整个人往前扎出去，斗篷被甩在身后
+				var thrust := 0.0
 				if p < 0.30:
 					var q5 := p / 0.30
-					arm_rot = lerpf(0.55, 1.05, q5)
-					sword_rot = lerpf(0.35, 1.15, q5)
+					body_x = -1.6 * q5
+					body_scale = Vector2(0.96, 1.02)
 				elif p < 0.60:
 					var q6 := (p - 0.30) / 0.30
 					var push := 1.0 - pow(1.0 - q6, 3.0)
-					arm_rot = lerpf(1.05, 0.30, push)
-					sword_rot = lerpf(1.15, -0.05, push)
-					body_rot = -0.10 * push
+					thrust = push
+					body_x = lerpf(-1.6, 3.2, push)
+					body_rot = -0.12 * push
 					_set_side_slash(true, sin(minf(q6, 0.9) * PI) * 0.95)
 				else:
 					var q7 := (p - 0.60) / 0.40
-					arm_rot = lerpf(0.30, 0.55, q7)
-					sword_rot = lerpf(-0.05, 0.35, q7)
-					body_rot = -0.10 * (1.0 - q7)
+					body_x = lerpf(3.2, 0.0, q7)
+					body_rot = -0.12 * (1.0 - q7)
 					_set_side_slash(true, (1.0 - q7) * 0.6)
+				slash_rot = -0.25
+				_cloak_flare = maxf(_cloak_flare, thrust) * 0.8
 			elif p < 0.26:
-				# 第一段·横劈 蓄力：手臂抬到脑后
+				# 第一段·横劈 蓄力：重心后坐，斗篷先被拉开
 				var q := p / 0.26
-				arm_rot = lerpf(0.55, -1.15, q)
-				sword_rot = lerpf(0.35, -0.70, q)
+				body_x = -1.8 * q
+				body_rot = -0.16 * q
+				body_scale = Vector2(0.98, 1.02)
+				_cloak_flare = maxf(_cloak_flare, q * 0.7)
 			elif p < 0.78:
-				# 挥出：手臂从后上方甩到身前，同时亮出弧线残影；
-				# 弧线保留到收招前，避免动作加长后刀光只在开头闪一下
+				# 挥出：人往前压回去，白痕在身前扫过；斗篷被这一下甩起来
 				var q := (p - 0.26) / 0.52
 				var swing := q * q
-				arm_rot = lerpf(-1.15, 0.95, swing)
-				sword_rot = lerpf(-0.70, 0.60, swing)
+				body_x = lerpf(-1.8, 1.6, swing)
+				body_rot = lerpf(-0.16, 0.10, swing)
 				_set_side_slash(true, sin(minf(q, 0.9) * PI) * 0.95)
+				_cloak_flare = maxf(_cloak_flare, sin(minf(q, 0.9) * PI) * 0.9)
 			else:
-				# 收招：慢慢回到持剑站姿
+				# 收招：回到站姿
 				var q := (p - 0.78) / 0.22
-				arm_rot = lerpf(0.95, 0.55, q)
-				sword_rot = lerpf(0.60, 0.35, q)
+				body_x = lerpf(1.6, 0.0, q)
+				body_rot = lerpf(0.10, 0.0, q)
 				_set_side_slash(true, (1.0 - q) * 0.55)
 		elif not is_on_floor():
-			# 跳跃上行：手向后收，披风向上掀；下落：手略前伸
+			# 空中（M4-62 重做）：不做伸缩（组长说那是"橡皮人"），只留一点前后倾，
+			# 上升绷直一点、下落重心往前，剩下的交给斗篷去飘。
 			if velocity.y < 0.0:
-				arm_rot = -0.40
-				sword_rot = -0.10
-				body_scale.y = 1.05
-				cloak_rot = -0.18
+				body_rot = -0.06 * float(_facing)
 			else:
-				arm_rot = 0.30
-				sword_rot = 0.55
-				body_scale.y = 0.96
-				cloak_rot = 0.12
+				body_rot = 0.10 * float(_facing)
 		elif absf(velocity.x) > 30.0:
-			# 走路：颠步 + 手臂前后摆，披风滞后
+			# 走路（M4-62 重做）：不做伸缩。走路只做两件事 ——
+			# 身体一上一下地颠（落脚的重量），头跟着摆（_update_head 里做），斗篷跟着风飘。
 			var step := sin(_anim_time * 12.0)
-			body_y = -absf(step) * 1.4
-			arm_rot = 0.55 + step * 0.22
-			cloak_rot = -0.10 + step * 0.05
+			body_y = -absf(step) * 1.6
+			foot_l = Vector2(step * 2.4, -absf(step) * 1.2)
+			foot_r = Vector2(-step * 2.4, -absf(step) * 1.2)
+			# M4-69 启动/停止：起步时身子先往前压一点（像被自己拽出去），
+			# 停步时反过来往后坐一下再回正。这个量只看"有没有在加速/减速"，
+			# 稳态跑动时它是 0，所以不会让跑动变成一直斜着。
+			body_rot += _start_lean
+			body_y += _start_dip
+			body_scale = Vector2(1.0 + 0.03 * _start_dip, 1.0 - 0.05 * _start_dip)
 		else:
-			# 待机：呼吸起伏，剑尖轻晃
+			# 待机：呼吸起伏，斗篷轻轻起伏
 			var breath := sin(_anim_time * 2.0)
 			body_y = breath * 0.8
-			arm_rot = 0.55 + breath * 0.04
-			sword_rot = 0.35 + breath * 0.03
+			# 刚停下来那几帧：身子往前一顿再收回来（M4-69 的"停止"）
+			body_rot += _stop_lean
+			body_y += _stop_dip
+			foot_l = Vector2(0.0, breath * 0.2)
+			foot_r = Vector2(0.0, -breath * 0.2)
 		# 受击：短暂缩身 + 泛红，叠加在其它状态上
 		if _hurt_timer > 0.0:
 			var k := _hurt_timer / HURT_ANIM_TIME
 			body_rot += sin(_hurt_timer * 45.0) * 0.18 * k
 			tint = tint.lerp(Color(1.0, 0.62, 0.62, 1.0), 0.5 * k)
 
-	# 命中顿帧时压扁一点，让“停住”不是单纯的卡帧，而是有受力形变
+	# 攻击反冲：打完这一下人会往回收一点。它不是"位移"，只是身体在局部坐标里退半步，
+	# 物理位置不动 —— 否则会把手感搅乱（位移归 _physics_process 管）
+	_recoil = maxf(_recoil - delta * 7.0, 0.0)
+	body_x += -2.6 * _recoil
+	_cloak_flare = maxf(_cloak_flare - delta * 2.2, 0.0)
+
+	# 命中顿帧时压扁一点，让"停住"不是单纯的卡帧，而是有受力形变
 	if _pogo_kick_timer > 0.0:
-		# 下劈命中：腿弹开，横向撑一下再收回
 		var kk := _pogo_kick_timer / 0.18
 		body_scale = Vector2(body_scale.x * (1.0 + 0.12 * kk), body_scale.y * (1.0 - 0.10 * kk))
 		body_y -= 2.0 * kk
 	if _hitstop_timer > 0.0:
 		body_scale = Vector2(body_scale.x * 1.10, body_scale.y * 0.88)
-	_body.position = Vector2(0, body_y)
+
+	_body.position = Vector2(body_x, body_y)
 	_body.rotation = body_rot
 	_body.scale = Vector2(float(_facing) * body_scale.x, body_scale.y)
 	_body.modulate = tint
-	_arm.rotation = arm_rot
-	_sword.rotation = sword_rot
-	_cloak.rotation = cloak_rot
-	_cape.rotation = cloak_rot * 1.4
-	# 没武器就空手：手里不画剑；刚捡到时亮一下
-	_sword.visible = has_weapon
+	_foot_l.position = Vector2(-2.6, 10.6) + foot_l
+	_foot_r.position = Vector2(2.6, 10.6) + foot_r
+	_update_head(delta, body_y, body_rot)
+	_slash.rotation = slash_rot
+	_update_cloth(delta, body_x, _cloak_flare)
+	# 刚捡到铁剑时整身亮一下，代替过去"手里那把剑发光"
 	if _weapon_flash_timer > 0.0:
-		_sword.modulate = Color(1.8, 1.9, 1.6, 1.0)
-	else:
-		_sword.modulate = Color(1, 1, 1, 1)
+		tint = tint.lerp(Color(1.5, 1.6, 1.4, 1.0), 0.35)
+		_body.modulate = tint
+
+## 启动 / 停止（M4-69）：从"速度变化量"里读出来，专门给视觉用，不碰物理。
+## 起步那一下身子往前压、停步那一下往前一顿再收回，靠这两个量在走路/待机里叠加。
+## 为什么用加速度而不是"按了键"：按住方向键跑起来以后加速度是 0，
+## 这时必须归零，否则人会一直斜着跑（看起来像瘸了）。
+func _update_start_stop(delta: float) -> void:
+	var acc := 0.0
+	if delta > 0.0001:
+		acc = (velocity.x - _prev_vx) / delta
+	_prev_vx = velocity.x
+	var k_in := 1.0 - exp(-14.0 * delta)     # 起步要快，才有"被拽出去"的感觉
+	var k_out := 1.0 - exp(-7.0 * delta)     # 收回来慢一点，读得出余味
+	var toward := signf(velocity.x) if absf(velocity.x) > 1.0 else float(_facing)
+	var pushing := acc * toward            # >0 = 往当前方向加速
+	var target_start := 0.0
+	var target_stop := 0.0
+	if is_on_floor():
+		if pushing > 250.0:
+			target_start = 0.11 * float(_facing) * clampf(pushing / 1600.0, 0.0, 1.0)
+		if absf(velocity.x) < RUN_SPEED * 0.9 and pushing < -300.0:
+			target_stop = 0.09 * float(_facing) * clampf(-pushing / 1600.0, 0.0, 1.0)
+	_start_lean = lerpf(_start_lean, target_start, k_in if target_start != 0.0 else k_out)
+	_stop_lean = lerpf(_stop_lean, target_stop, k_in if target_stop != 0.0 else k_out)
+	# 顿挫：起步时身体往下坐一点（脚在蹬），停止时也坐一下（重量压回去）
+	_start_dip = lerpf(_start_dip, absf(target_start) / 0.11 * 0.9, k_in if target_start != 0.0 else k_out)
+	_stop_dip = lerpf(_stop_dip, absf(target_stop) / 0.09 * 0.8, k_in if target_stop != 0.0 else k_out)
+
+## 头比身体慢半拍（M4-59）：身体一冲，头先留在原地再跟上来，这一下的延迟就是"重量"。
+## M4-62：走路时头要跟着步频摆（组长要的"正常的摆动"）—— 左右点一点、上下慢半拍，
+## 不能再只靠身体上下颠，那样看起来像整块木头在跳。
+func _update_head(delta: float, body_y: float, body_rot: float) -> void:
+	if _head == null:
+		return
+	var target := -body_rot * 0.45
+	if not is_on_floor():
+		# 上升时头往后仰一点、下落时往前点一点，跟随跳跃方向
+		target += clampf(velocity.y / 1400.0, -1.0, 1.0) * float(_facing) * -0.30
+	elif absf(velocity.x) > 30.0:
+		# 走路：每一步点一下头，幅度小、频率跟脚步一致
+		target += sin(_anim_time * 12.0) * 0.075 * float(_facing)
+	_head.rotation = lerpf(_head.rotation, target, 1.0 - exp(-9.0 * delta))
+	# 竖直方向也反过来跟一点：身体往下坐，头还在上面
+	var lag := -body_y * 0.35
+	if absf(velocity.x) > 30.0:
+		# 走路时头自己也有个小起伏，和身体的颠错开半个拍子，看着才不是连体的
+		lag += sin(_anim_time * 12.0 - 0.7) * 0.35
+	_head.position = HEAD_BASE + Vector2(0.0, lag)
+
+## 布料（M4-62 重做）：斗篷分上段和下摆两片，两片一直有风。
+## 组长原话是"帐篷（斗篷）需要随风飘，这样才有反馈" —— 风不是"跑起来才有的奖励"，
+## 站着待机也在飘。摆动不只靠旋转：
+##   旋转 = 上沿钉在肩上、整片往下甩，像合页；
+##   斜切(skew) = 上沿不动、下沿横向错开 —— 这才是布"被风推着走"的样子。
+## 两者叠起来才是飘；只用旋转会像一块硬板在摇。下摆比上段甩得狠、频率也慢半拍。
+func _update_cloth(delta: float, body_x: float, flare: float) -> void:
+	if _cloak_tail == null:
+		return
+	# 正向旋转 = 下摆往身后甩（局部 +x 是面朝方向）
+	var fx := float(_facing) * clampf(velocity.x / 300.0, -1.0, 1.0)
+	# 风：两个正弦叠起来，周期不同才不会像节拍器
+	var wind := sin(_anim_time * 1.9) * 0.075 + sin(_anim_time * 3.1 + 1.2) * 0.035
+	var gust := sin(_anim_time * 1.9 - 0.9) * 0.085 + sin(_anim_time * 2.6 + 0.4) * 0.035
+	if absf(velocity.x) > 30.0:
+		# 走一步被带起来一下，和步频同步
+		wind += sin(_anim_time * 12.0) * 0.055
+		gust += sin(_anim_time * 12.0 - 0.6) * 0.075
+	var target_top := fx * 0.09 + wind
+	var target_hem := fx * 0.14 + wind * 1.9
+	var target_skew_top := fx * 0.05 + gust * 0.6
+	var target_skew_hem := fx * 0.10 + gust
+	if not is_on_floor():
+		# 空中：下摆被风往上掀，速度越快掀得越平、越往后错。
+		# 注意不能整体上移 —— 一吊起来下摆就离开脚，身体那根黑柱子会裸露一大截。
+		var vy := clampf(velocity.y / 900.0, -1.0, 1.0)
+		target_top += 0.10 * vy
+		target_hem += 0.30 * vy + 0.08
+		target_skew_hem += 0.16 * vy
+	# 攻击甩出来的额外摆幅，叠加在速度摆幅上
+	target_top += flare * 0.16
+	target_hem += flare * 0.30
+	target_skew_hem += flare * 0.18
+	_tail_rot = lerpf(_tail_rot, target_top, 1.0 - exp(-6.0 * delta))
+	_hem_rot = lerpf(_hem_rot, target_hem, 1.0 - exp(-4.5 * delta))
+	_tail_skew = lerpf(_tail_skew, target_skew_top, 1.0 - exp(-6.0 * delta))
+	_hem_skew = lerpf(_hem_skew, target_skew_hem, 1.0 - exp(-4.5 * delta))
+	# 身后那片斗篷（Cape）跟着一起摆，幅度小一点：它挡在身体后面，
+	# 甩太开会把黑影露出一条缝。身体现在是从"没斗篷"那张图拿的完整黑影，
+	# 所以就算真露出来一点，看到的也是完整躯干（M4-70）。
+	_cape_rot = lerpf(_cape_rot, target_top * 0.7, 1.0 - exp(-5.0 * delta))
+	if _cape != null:
+		_cape.rotation = _cape_rot
+		_cape.skew = _tail_skew * 0.7
+	_cloak_tail.rotation = _tail_rot
+	_cloak_tail.skew = _tail_skew
+	if _cloak_hem != null:
+		_cloak_hem.rotation = _hem_rot
+		_cloak_hem.skew = _hem_skew
+		# 下摆再带一点"张开/收拢"：布被风灌进去会胀，收风会贴回身上。
+		# 幅度很小（±6%），但三条信号叠起来（转、斜、胀）才真的像布在飘。
+		_cloak_hem.scale = Vector2(1.0 + 0.06 * _hem_skew * 4.0, 1.0)
 
 ## 献祭后果：不是加数值，而是让寄生体真的在背上长出来。
 ## 第一次在肩后出现一小簇紫色菌丝/触须，第二次再向外爬一圈；只改外观。
@@ -960,15 +1138,29 @@ func _try_start_attack() -> void:
 	# M1-10：没武器不能攻击（静默返回，不弹任何提示；武器剧情见 seed.sql intro_parasite_1）
 	if not has_weapon:
 		return
+	# M5-07（组长反馈「空中一直按攻击会无限攻击」）：
+	# 以前这里只靠 Input.is_action_just_pressed 判断，但键盘长按的重复事件（echo）
+	# 每一帧都会让 just_pressed 再变 true 一次 —— 按住 J 就等于每帧都在"重新按下"，
+	# 空中的下劈又只有 0.1 秒冷却，于是变成了连发。
+	# 现在认两种"按下"：真正的按下沿（just_pressed），或者"这一轮还没出过刀"的按下状态；
+	# 只要这一轮已经出过刀，按住不放就不会再出刀，松开才解锁。
+	var pressed := Input.is_action_pressed("attack")
+	var just := Input.is_action_just_pressed("attack")
+	if not pressed and not just:
+		_attack_press_latch = false
+		return
+	if pressed and _attack_press_latch:
+		return
 	# 最短间隔统一由冷却卡：狂按不会跳段，也不会把连招打成每帧一次
 	if _attack_cooldown_timer > 0.0:
 		return
 	# 下砍后摇期间不触发任何攻击（防落地瞬间秒横砍）
 	if _pogo_end_lag_timer > 0.0:
 		return
-	# 必须按下攻击键(J)才攻击，否则冷却一结束就会无限自动挥砍
-	if not Input.is_action_just_pressed("attack"):
+	# 空中攻击后的硬后摇：落地前不许再出下一刀，避免"按住 J = 空中连劈"
+	if _air_attack_recovery > 0.0:
 		return
+	_attack_press_latch = true
 	if is_on_floor():
 		# 地面上：按住下键(S) + 攻击 = 朝下劈；只按攻击 = 前方横砍（或接下一段连招）
 		if Input.is_action_pressed("move_down"):
@@ -980,6 +1172,7 @@ func _try_start_attack() -> void:
 		# M4-23 组长反馈：原来空中要求“按住 S + J”才下劈，玩家在稻草人头上按 J 只挥了
 		# 一记横砍，人接着往下掉，看起来就是“砍到了却不反弹”。空中不需要再按方向键。
 		_start_pogo()
+		_air_attack_recovery = AIR_ATTACK_RECOVERY
 
 ## 地面上的下劈：站在原地朝脚下挥一刀，能打到贴地的矮目标（不再靠下落触发）
 func _start_down_slash() -> void:
@@ -995,6 +1188,12 @@ func _start_down_slash() -> void:
 	_hitbox_down.monitoring = true
 	_pogo_active = false
 	GameManager.play_sfx("swing", -2.0, 0.82)
+	# 反冲：没有剑可挥，这一下的"力气"全靠身体退半步 + 斗篷被甩起来表达
+	_recoil = 1.0
+	_cloak_flare = maxf(_cloak_flare, 0.9)
+	# 下劈同样要有粒子：沿脚下方那条白痕飞散几缕
+	if _sparks != null:
+		_sparks.call("burst", _slash_down.points, _attack_dir)
 
 # 地面横砍。stage 是三连击的第几段（0 横劈 / 1 反手上撩 / 2 前刺）。
 # 每段的弧线、前冲、判定框、动作时长都不同；伤害与最短间隔不变，只改手感。
@@ -1036,6 +1235,9 @@ func _start_side_slash(stage: int = 0) -> void:
 	_pogo_active = false
 	_apply_side_slash_shape()
 	GameManager.play_sfx("swing", -2.0, COMBO_STAGE_PITCH[_combo_step])
+	# 反冲 + 斗篷被这一下甩起来：没有手臂和剑，全靠这两件读出"打了"的力气
+	_recoil = 1.0 * (1.0 + 0.25 * float(_combo_step))
+	_cloak_flare = maxf(_cloak_flare, 0.9)
 	if _sparks != null:
 		_sparks.call("burst", _slash.points, _attack_dir)
 
@@ -1116,12 +1318,53 @@ func _query_pogo_target() -> Node2D:
 ## 下劈命中实体：伤害 + 固定向上反弹（踩跳），逻辑与 _on_hitbox_down_body_entered 一致
 func _pogo_bounce_on(target: Node2D) -> void:
 	_apply_hit(target)
+	# M5-07：下劈砍到东西的那一下补一层"剑魂"——白蓝的刀光 + 光斑 + 往上飘的魂丝。
+	# 以前只有一个腿部弹开的动作，看不出"这一刀劈进了什么东西"。
+	_spawn_pogo_soul(global_position + Vector2(float(_attack_dir) * 24.0, 16.0))
 	velocity.y = POGO_BOUNCE_VELOCITY
 	_end_pogo()
 	_pogo_kick_timer = 0.18
 	_camera_dip()
 	_attack_cooldown_timer = POGO_RETRIGGER_COOLDOWN
 	EventBus.log_event("pogo_bounce", {"target": target.name})
+
+## 下劈命中的"剑魂"：一个 0.26 秒的小爆发，纯代码画，不读贴图（除了现成的径向光斑）。
+## 挂在关卡里而不是挂在玩家身上：人物下劈后马上被弹开，挂在身上特效会跟着人飞走。
+func _spawn_pogo_soul(point: Vector2) -> void:
+	var level := get_parent()
+	if level == null:
+		return
+	var root := Node2D.new()
+	root.name = "PogoSoul"
+	root.position = point
+	root.z_index = 3
+	var glow := Sprite2D.new()
+	glow.texture = _puff_texture()
+	glow.modulate = Color(0.70, 0.90, 1.0, 0.80)
+	glow.scale = Vector2(3.4, 2.6)
+	root.add_child(glow)
+	# 两道斜着交叉的刀光：读作"一刀劈开"，比一个圆圈有方向
+	for ang in [-0.62, 0.62]:
+		var line := Line2D.new()
+		line.width = 3.0
+		line.default_color = Color(0.86, 0.96, 1.0, 0.95)
+		line.points = PackedVector2Array([Vector2(-20, -7), Vector2(0, 0), Vector2(20, -7)])
+		line.rotation = float(ang)
+		root.add_child(line)
+	# 往上飘的魂丝
+	for i in range(3):
+		var streak := Line2D.new()
+		streak.width = 1.4
+		streak.default_color = Color(0.62, 0.84, 1.0, 0.65)
+		var x := -6.0 + 6.0 * float(i)
+		streak.points = PackedVector2Array([Vector2(x, 0), Vector2(x + 2.0, -17.0)])
+		root.add_child(streak)
+	level.add_child(root)
+	var tw := root.create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(root, "scale", Vector2(1.75, 1.75), 0.26).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.tween_property(root, "modulate:a", 0.0, 0.26)
+	tw.chain().tween_callback(root.queue_free)
 
 ## 相机下压：找不到相机就静默跳过（无头测试场景可能没有）
 func _camera_dip() -> void:
@@ -1245,6 +1488,18 @@ func heal_full() -> int:
 		EventBus.player_healed.emit(healed)
 	return healed
 
+## 篝火休息（M5-02 组长新规则）：一次只回 1 颗心，人站在原地不动（不再蹲坐/放剑/起身）。
+## 拆成按颗回的函数，以后药剂、泉水之类也能用，不必一律回满。
+func heal(amount: int = 1) -> int:
+	if _is_dead:
+		return 0
+	var before := hp
+	hp = clampi(hp + amount, 0, MAX_HP)
+	var healed := hp - before
+	if healed > 0:
+		EventBus.player_healed.emit(healed)
+	return healed
+
 ## 篝火休息：放剑 → 蹲坐 → 抓剑撑地起身。默认 3.2 秒足够看清三段动作。
 func sit_rest(duration: float = 3.2) -> void:
 	_rest_total = maxf(duration, 1.8)
@@ -1286,11 +1541,16 @@ func _free_ground_sword() -> void:
 		_rest_prop.queue_free()
 	_rest_prop = null
 
-## 中途起身：恢复持剑、收掉地上的剑
+## 中途起身：把先前收起来的休息道具清掉
 func _end_rest_pose() -> void:
 	_rest_timer = 0.0
-	_sword.visible = true
 	_free_ground_sword()
+
+## 开场从虚空砸到地上之后调用（M4-62）：播"压扁 → 弹起 → 站定"，
+## 由关卡在落地那一帧调，播完玩家自然回到常规待机。
+## 落地声不在这里放：真正的落地冲击已经由 _update_landing_dust 按速度放过了，再加一下会叠成一坨。
+func play_intro_land() -> void:
+	_intro_land_timer = INTRO_LAND_TIME
 
 func take_damage(amount: int, source: Node = null) -> void:
 	if _invincible_timer > 0.0 or _is_dead:
@@ -1319,12 +1579,19 @@ func _die() -> void:
 	# 死亡动作期间不要继承受击无敌的闪烁，否则倒地会一闪一闪
 	_invincible_timer = 0.0
 	_body.visible = true
+	# 死亡时眼睛要灭（组长要求），空盔里不该还亮着两粒
+	if _eyes != null:
+		_eyes.visible = false
 	velocity = Vector2(0, -140.0)
 	_pogo_active = false
 	_pogo_requested = false
 	_hitbox_side.set_deferred("monitoring", false)
 	_hitbox_down.set_deferred("monitoring", false)
 	_hit_this_swing.clear()
+	# 表现：先把头盔摘下来扔出去，再让身体化雾。顺序反过来的话，
+	# 盔会跟着正在消失的身体一起淡掉，看不见"掉在地上"。
+	_drop_helmet()
+	_spawn_death_mist()
 	EventBus.player_died.emit()
 
 func _respawn() -> void:
@@ -1336,6 +1603,8 @@ func _respawn() -> void:
 	_attack_cooldown_timer = 0.0
 	_attack_active_timer = 0.0
 	_attack_anim_timer = 0.0
+	_attack_press_latch = false
+	_air_attack_recovery = 0.0
 	_pogo_active = false
 	_pogo_end_lag_timer = 0.0
 	_pogo_requested = false
@@ -1355,8 +1624,150 @@ func _respawn() -> void:
 	if GameManager.has_steam_boots:
 		has_steam_boots = true
 		_air_jumps_left = 0
-	_sword.visible = has_weapon
 	_body.visible = true
+	# 复活时眼睛重新亮起来（死亡时灭了，见 _die）
+	if _eyes != null:
+		_eyes.visible = true
+
+## 把头盔从头上摘下来扔到地上（M4-60，组长定的死亡表现）。
+## 拿头部贴图另起一个 Node2D 挂在关卡里：给一点向上的初速和自旋，落到"死的时候脚下那条线"
+## 弹一下再歪着躺住。挂在关卡里而不是玩家身上，是因为复活要传送回出生点 ——
+## 盔得留在死的地方，不然就成了"尸体跟着人一起飞走"。
+func _drop_helmet() -> void:
+	var skull := _head.get_node_or_null("Skull") as Sprite2D
+	if skull == null or skull.texture == null:
+		return
+	if _dropped_helmet != null and is_instance_valid(_dropped_helmet):
+		_dropped_helmet.queue_free()
+	_dropped_helmet = null
+	var level := get_parent()
+	if level == null:
+		return
+	# 贴图里"头盔"这一块的中心：贴图 200px 高 = 28 单位，1px = 0.14
+	var px_center := Vector2(53.5, 51.4)
+	var sc := Vector2(0.14 * float(_facing), 0.14)
+	var holder := Node2D.new()
+	holder.name = "DroppedHelmet"
+	var sp := Sprite2D.new()
+	sp.texture = HELMET_EMPTY_TEX
+	sp.centered = false
+	sp.scale = sc
+	sp.position = -px_center * sc
+	holder.add_child(sp)
+	level.add_child(holder)
+	# 刚摘下来那一帧必须和头上那只重合：直接取"贴图里那个点现在的世界坐标"
+	holder.global_position = skull.get_global_transform() * px_center
+	# 插到玩家前面一位：躺在地上要压在玩家脚下，别盖住活着的角色
+	level.move_child(holder, get_index())
+	_dropped_helmet = holder
+	_helmet_vx = -float(_facing) * 26.0
+	_helmet_vy = -155.0
+	_helmet_spin = float(_facing) * 2.2
+	# 躺住的高度不再用"死的时候脚下"直接算（M5-05 组长反馈：从悬崖掉下去死的那一次，
+	# 盔停在半空不掉，看着像挂在墙上）。改成从盔的位置往下打一条射线，
+	# 打到地面就落在地面上；打不到（脚下是深渊）就一直往下掉，掉出画面再收掉。
+	_helmet_ground = _find_helmet_ground(holder.global_position)
+	_helmet_bounces = 1
+	_helmet_rest = false
+	_helmet_rest_rot = float(_facing) * 1.35
+
+## 身体化雾：从身上爆一团深灰的烟，往上飘着散掉。
+## 挂在关卡而不是身体上 —— 身体正在淡出，挂在身上会被 modulate 一起乘成透明。
+func _spawn_death_mist() -> void:
+	var level := get_parent()
+	if level == null:
+		return
+	var mist := GPUParticles2D.new()
+	mist.name = "DeathMist"
+	mist.one_shot = true
+	mist.amount = 20
+	mist.lifetime = 0.65
+	mist.explosiveness = 0.85
+	mist.local_coords = false
+	mist.texture = _puff_texture()
+	var mat := ParticleProcessMaterial.new()
+	mat.direction = Vector3(0, -1, 0)
+	mat.spread = 70.0
+	mat.initial_velocity_min = 30.0
+	mat.initial_velocity_max = 115.0
+	mat.gravity = Vector3(0, -70.0, 0)
+	mat.scale_min = 0.20
+	mat.scale_max = 0.65
+	# 深灰带一点冷色：纯黑在深色背景上根本看不见，亮一点才读得出"烟"
+	mat.color = Color(0.16, 0.18, 0.22, 0.45)
+	mist.process_material = mat
+	level.add_child(mist)
+	mist.global_position = _body.global_position + Vector2(0, -4)
+	mist.emitting = true
+	# 粒子放完自己删掉，不然每死一次就攒一堆节点
+	await get_tree().create_timer(1.6).timeout
+	if is_instance_valid(mist):
+		mist.queue_free()
+
+## 一粒烟的形状：中间实、边缘透明的小圆（不用画图，GradientTexture2D 径向填色就够）
+func _puff_texture() -> Texture2D:
+	var grad := Gradient.new()
+	grad.set_color(0, Color(1, 1, 1, 0.95))
+	grad.set_color(1, Color(1, 1, 1, 0.0))
+	grad.add_point(0.4, Color(1, 1, 1, 0.55))
+	var tex := GradientTexture2D.new()
+	tex.gradient = grad
+	tex.width = 32
+	tex.height = 32
+	tex.fill = GradientTexture2D.FILL_RADIAL
+	tex.fill_from = Vector2(0.5, 0.5)
+	tex.fill_to = Vector2(0.5, 0.0)
+	return tex
+
+## 空盔的落点：从盔的位置往下打 900px（比一屏还高）找地面，也是"为什么用射线"——
+## 直接拿死亡坐标 +9 的话，掉进坑里死的那次脚下根本没有地面，盔就会停在半空。
+## 打不到返回 INF，交给 _update_helmet_prop 一直掉下去。
+func _find_helmet_ground(from: Vector2) -> float:
+	var space := get_world_2d().direct_space_state
+	var q := PhysicsRayQueryParameters2D.create(from, from + Vector2(0, 900.0), 1)
+	q.collide_with_areas = false
+	var hit := space.intersect_ray(q)
+	if hit.is_empty():
+		return INF
+	return float((hit["position"] as Vector2).y) - 1.0
+
+## 地上的空头盔：受重力往下掉，撞地弹一次，再歪着躺住
+func _update_helmet_prop(delta: float) -> void:
+	if _dropped_helmet == null or not is_instance_valid(_dropped_helmet):
+		_helmet_rest = true
+		return
+	_helmet_vy += DEATH_HELMET_GRAVITY * delta
+	_helmet_vx = move_toward(_helmet_vx, 0.0, 300.0 * delta)
+	var pos := _dropped_helmet.global_position + Vector2(_helmet_vx, _helmet_vy) * delta
+	# 脚下一片空：跟着身体一起往下掉，掉出视野就淡掉收走（别让它在关卡外面永远存在）
+	if is_inf(_helmet_ground):
+		if pos.y > global_position.y + 900.0:
+			var fade := maxf(_dropped_helmet.modulate.a - delta * 2.0, 0.0)
+			_dropped_helmet.modulate.a = fade
+			if fade <= 0.0:
+				_dropped_helmet.queue_free()
+				_dropped_helmet = null
+				_helmet_rest = true
+				return
+		_dropped_helmet.global_position = pos
+		_dropped_helmet.rotation += _helmet_spin * delta
+		return
+	if pos.y >= _helmet_ground:
+		pos.y = _helmet_ground
+		if _helmet_bounces > 0:
+			_helmet_bounces -= 1
+			_helmet_vy = -absf(_helmet_vy) * 0.34
+			_helmet_vx *= 0.55
+			_helmet_spin *= -0.55
+		else:
+			_helmet_vy = 0.0
+			_helmet_vx = 0.0
+			_helmet_rest = true
+	_dropped_helmet.global_position = pos
+	_dropped_helmet.rotation += _helmet_spin * delta
+	if _helmet_rest:
+		# 停住时把角度收一收：歪着躺像空壳掉在地上，正着立着像还没死
+		_dropped_helmet.rotation = lerpf(_dropped_helmet.rotation, _helmet_rest_rot, 0.35)
 
 func _update_invincibility(delta: float) -> void:
 	if _invincible_timer <= 0.0:

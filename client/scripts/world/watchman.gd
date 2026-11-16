@@ -10,6 +10,8 @@ const DialogueLocator := preload("res://components/dialogue_locator.gd")
 const InteractionPrompt := preload("res://components/interaction_prompt.gd")
 const DIALOGUE_ID := "floor1_watchman"
 const AFTER_DIALOGUE_ID := "floor1_watchman_after"
+## 聊过一次之后置这个旗标：钟绳靠它判断"能不能拉了"（M5-09 组长要求）
+const TALKED_FLAG := "floor1_watchman_talked"
 
 @export var dialogue_path: NodePath
 
@@ -121,6 +123,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	_dialogue.call("play", AFTER_DIALOGUE_ID if _after else DIALOGUE_ID)
 	_prompt.visible = false
+	# M5-09：说过话才允许拉钟绳 —— 记在 GameManager 的旗标里，
+	# 读档回来也还在（读档会一起恢复 flags），不用再跟守钟人重复一遍。
+	GameManager.set_flag(TALKED_FLAG)
 
 func mark_bell_rung() -> void:
 	_after = true

@@ -17,13 +17,15 @@ extends Node2D
 ## 不再把整块目标文字一起藏掉 —— 那是组长明确不要的行为。
 
 const FONT_PATH := "res://assets/fonts/NotoSansCJKsc-Regular.otf"
-## 目标文字底边大致在锚点上方 88px（不压地形亮边，也离玩家头顶够远）
-const TEXT_OFFSET := Vector2(0, -88)
-## 临时提示再往上让 30px，避免和那一环的刻字叠在一起
-const FLASH_OFFSET := Vector2(0, -30)
-## 每句话的版心：520 宽、60 高，居中排版，长的目标句会自动折行
-const LABEL_SIZE := Vector2(520, 60)
-const FONT_SIZE := 20
+## 目标文字底边大致在锚点上方 56px（M5-22 组长反馈"提示文字往下边一点"：原来是 88）
+const TEXT_OFFSET := Vector2(0, -56)
+## 临时提示再往上让 26px，避免和那一环的刻字叠在一起
+const FLASH_OFFSET := Vector2(0, -26)
+## 每句话的版心：360 宽、40 高，居中排版，长的目标句会自动折行
+## M5-22（组长反馈"文字太大，至少缩到一半"）：字号 20 → 10，版心跟着收一半，
+## 这么大的一行压在场景上会盖住地形和敌人，读起来也累。
+const LABEL_SIZE := Vector2(360, 40)
+const FONT_SIZE := 10
 
 ## 当前环：亮一点（比完成态高出一倍多，扫一眼就知道现在该干什么）
 const ACTIVE_COLOR := Color(0.80, 0.95, 0.90, 0.96)

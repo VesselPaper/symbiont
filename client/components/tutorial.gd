@@ -45,7 +45,7 @@ const STEP_ANCHORS: Array[Vector2] = [
 	Vector2(2694, 372),  # POGO：下劈方台（顶 440）
 	Vector2(3325, 590),  # COMBAT：浅坑底（坑底 659）
 	Vector2(3913, 498),  # PICKUP：祭坛石碗上方（台顶 572）
-	Vector2(3913, 498),  # SACRIFICE：同一点
+	Vector2(3913, 466),  # SACRIFICE：比祭坛自己的提示高一行，两段字不会叠在一起
 ]
 
 ## 教学假人节点名（test_arena 内的实例名，见 test_arena.tscn）

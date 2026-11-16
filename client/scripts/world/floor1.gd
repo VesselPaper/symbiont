@@ -74,14 +74,23 @@ const BONE_GATE_SCENE := preload("res://scenes/world/bone_gate.tscn")
 ## 敌人只留钟厅之后的两只史莱姆和遗物廊出口的孢子射手。
 ## 敌人离剧情触发器至少 200px，对话时 dialogue.gd 还会把 enemy 分组整体冻结。
 const SLIME_SPAWNS: Array[Vector2] = [
-	Vector2(3140, 646), Vector2(4760, 606),
-	# 组长反馈"路上太空、一屏打完就没东西"：在祭坛厅、层门厅、后段长阶各补一只，
-	# 把战斗均匀铺到整条路线上（不是堆在同一处）
+	Vector2(3140, 646),
+	# M5-14（组长反馈「两怪物处：删史莱姆」）：原来遗物廊出口那块小台上挤着
+	# 一只史莱姆（4760）和一个孢子射手（4720），刚跳过断桥就同时被两样东西贴脸。
+	# 史莱姆删掉，只留射手；射手也按组长说的"不放在刚跳过来处"往后挪到大平台。
 	Vector2(5200, 586), Vector2(5650, 586),
 ]
 
-## 摄像机参数与教学关一致：垂直视野 = 15 倍角色身高
-const VIEW_HEIGHT_IN_CHARACTERS := 15.0
+## 血条出现的距离（世界 px）：一屏多看得到 boss 才显示，走到长廊就收起来
+const BOSS_BAR_RANGE := 900.0
+## 摄像机参数与教学关一致：垂直视野 = 12 倍角色身高
+## M4-62 组长要求“人物放大”：从原来的 15 收到 10（人物在屏幕上放大 1.5 倍）。
+## 为什么不是 2 倍：2 倍时一次普通跳跃要占半屏、前方 100px 深的坑底又得占 343px，
+## 加起来超过 720 的屏高 —— “平地跳镜头不动”和“站高台要看得见下方”不能同时成立，
+## 组长选了 1.5 倍。
+## M4-63 组长又说“正常的时候再拉远一点”，于是 10 → 12（人物约 60px 高，原来是 72px）。
+## 物理数值（跳跃高度、判定框）一个都没动，只有视野跟着变。
+const VIEW_HEIGHT_IN_CHARACTERS := 12.0
 const PLAYER_CHARACTER_HEIGHT := 28.0
 const CAMERA_ZOOM := 720.0 / (VIEW_HEIGHT_IN_CHARACTERS * PLAYER_CHARACTER_HEIGHT)
 
@@ -113,6 +122,8 @@ var _bone_gate: StaticBody2D
 var _bell_rung := false
 var _boss: Node = null
 var _boss_spawned := false
+## 关底战前那段"它是什么"的旁白只播一次（重进战场/读档回来不该再来一遍）
+var _boss_intro_played := false
 var _boss_gate: Node = null
 var _boss_arena: Node = null
 var _boss_hud: CanvasLayer
@@ -121,7 +132,8 @@ var _boss_name: Label
 
 func _ready() -> void:
 	GameManager.mark_floor_start("floor1")
-	_build_campfire()
+	# M5-09（组长要求）：钟厅里、钟绳前那座篝火删掉 —— 三层只留后面的补给点，
+	# 拉绳前先给一堆火，等于把"守钟人—钟绳"这段的紧张感卸掉了。
 	_build_platforms()
 	_build_props()
 	_build_mechanisms()
@@ -747,11 +759,22 @@ func _build_bell_hall(parent: Node) -> void:
 		])
 		hall.add_child(seam)
 
-	# 缓冲段一的壁灯：钟厅唯一一处暖色，落在“听完旁白、还没见到人”那段路上
+	# 缓冲段一的蜡烛：钟厅唯一一处暖色，落在"听完旁白、还没见到人"那段路上。
+	# M5-13（组长反馈"石柱蜡烛错位悬空"）：原来直接挂在 y=620 的半空 ——
+	# 钟厅地面在 BELL_HALL_FLOOR_Y（760），那一段墙上并没有托子，蜡烛就悬在空中。
+	# 现在改成"落地石柱 + 柱头蜡烛"：柱脚由地面高度算出来，蜡烛坐在柱头，
+	# 高度不再写死；位置也往左挪远一点，别和 1620 那根断柱叠在一起。
+	var sconce_h := 96.0
 	var sconce := Node2D.new()
 	sconce.name = "HallSconce"
-	sconce.position = Vector2(1560, 620)
+	sconce.position = Vector2(1420, BELL_HALL_FLOOR_Y - sconce_h)
 	hall.add_child(sconce)
+	var sconce_post := Polygon2D.new()
+	sconce_post.color = Color(0.115, 0.125, 0.135, 0.95)
+	sconce_post.polygon = PackedVector2Array([
+		Vector2(-6, 11), Vector2(6, 11), Vector2(8, sconce_h), Vector2(-8, sconce_h),
+	])
+	sconce.add_child(sconce_post)
 	var sconce_cup := Polygon2D.new()
 	sconce_cup.color = Color(0.20, 0.18, 0.16, 0.92)
 	sconce_cup.polygon = PackedVector2Array([
@@ -1043,12 +1066,12 @@ func _build_inspect_points() -> void:
 	# 调查符文和 K 提示要压在钟/祭坛/门框上方，否则物件挡住提示
 	holder.z_index = 4
 	add_child(holder)
-	# M4-04：层门只是出口，剧情路过看一次就够，不再挂重复 K 调查；
-	# 只保留祭坛（献祭线，玩家可能忘记怎么献）这一处关键机制提示。
-	# 钟绳本身是机关，由 BellMechanism 负责 K；守钟人负责重复讲钟厅规则。
-	var specs: Array[Dictionary] = [
-		{"name": "AltarInspect", "pos": Vector2(2530 + HALL_SHIFT, 612), "id": "floor1_altar", "text": "祭坛"},
-	]
+	# M4-04：层门只是出口，剧情路过看一次就够，不再挂重复 K 调查。
+	# M5-08（组长反馈「前方祭坛前调查删除」）：祭坛前面那个 K 调查点也删了 ——
+	# 祭坛自己本来就有一行"献上肢体（K）"，再挂一个"祭坛调查（K）"两个提示叠在一起，
+	# 玩家站在同一点上不知道按 K 到底会献祭还是只是看字。祭坛的机制提示由祭坛自己负责。
+	# 这里保留空的 InspectPoints 容器：其它层/后续要加调查点时有地方挂，测试也不用改路径。
+	var specs: Array[Dictionary] = []
 	for spec in specs:
 		var point := INSPECT_SCENE.instantiate()
 		point.name = str(spec["name"])
@@ -1088,13 +1111,17 @@ func _spawn_enemies() -> void:
 		slime.name = "Slime%d" % (i + 1)
 		holder.add_child(slime)
 
-	# M2-07：遗物廊出口右侧的孢子射手；站在高台，逼玩家躲直线孢子弹
+	# M2-07：遗物廊出口右侧的孢子射手；站在高台，逼玩家躲直线孢子弹。
+	# M5-14（组长要求）：从 4720（刚跳过断桥的落点）后移到 5450 ——
+	# 那是层门厅后段最宽的一块平台，玩家落地后还得往前走一段才撞上它，
+	# 不再是"刚跳过来就被球打"。
 	var shooter := SPORE_SHOOTER_SCENE.instantiate()
 	shooter.name = "SporeShooter"
-	shooter.position = Vector2(3860 + HALL_SHIFT, 620)
+	shooter.position = Vector2(5450, 586)
 	holder.add_child(shooter)
 
-## 篝火：钟厅里（地图中段偏左），敲完钟、过骨门前歇一脚；这里本来就不放怪
+## 篝火：这一层不再放（M5-09 组长要求删掉钟绳前那座火，见 _ready 的注释）。
+## 保留函数是为了以后要加补给点时知道"放哪、怎么摆"，目前没人调用。
 func _build_campfire() -> void:
 	var fire := CAMPFIRE_SCENE.instantiate()
 	fire.name = "Campfire"
@@ -1148,6 +1175,19 @@ func _spawn_boss() -> void:
 		_boss_gate.call("close")
 	if _boss.has_method("set_arena_floor"):
 		_boss.call("set_arena_floor", 600.0)
+	# M5-16（组长要求"灵魂聚合体前加剧情说明缘由"）：先把它是怎么来的讲清楚，再交手。
+	# 顺序必须是"先放 boss、再播旁白"：dialogue.gd 冻结敌人是遍历已有的 enemy 节点，
+	# 反过来播的话，这只 boss 不在冻结名单里，会在旁白念到一半时自己跳起来砸人。
+	_play_boss_intro()
+
+## 关底战前那一段旁白（台词在 database/game_data/seed.sql 的 floor1_soul_boss 里）
+func _play_boss_intro() -> void:
+	if _boss_intro_played:
+		return
+	_boss_intro_played = true
+	var dialogue := get_node_or_null("Dialogue")
+	if dialogue != null and dialogue.has_method("play"):
+		dialogue.call("play", "floor1_soul_boss")
 	_build_boss_hud()
 	EventBus.boss_encounter_started.emit("soul_slime")
 	EventBus.log_event("boss_encounter_started", {"boss": "soul_slime", "floor": "floor1"})
@@ -1227,13 +1267,27 @@ func _build_boss_hud() -> void:
 	box.add_child(_boss_bar)
 	_boss_hud.visible = false
 
+## M5-10（组长反馈「boss 血条死亡复活后不见了，靠近才显、走远重置」）：
+## 血条只跟"玩家离 boss 有多近"走，不再跟"这一局有没有开过战"走。
+## 玩家倒下复活会被送回出生点，靠这条判断血条自己收起来；再走回 boss 面前又出现，
+## 不需要任何一次性开关（以前那个开关正是复活后血条再也回不来的原因）。
 func _update_boss_hud() -> void:
-	if _boss_hud == null or _boss == null or not is_instance_valid(_boss):
+	if _boss_hud == null:
+		return
+	if _boss == null or not is_instance_valid(_boss):
+		_boss_hud.visible = false
 		return
 	if bool(_boss.call("is_dead")):
 		_boss_hud.visible = false
 		return
-	_boss_hud.visible = true
+	var near := true
+	if _player != null and is_instance_valid(_player):
+		near = _player.global_position.distance_to(_boss.global_position) <= BOSS_BAR_RANGE
+	_boss_hud.visible = near
+	if not near:
+		# 走远了顺带把血条按满格重置：回来时从满格开始读，不会残留上一场的进度
+		_boss_bar.value = _boss_bar.max_value
+		return
 	var hp := int(_boss.call("get_hp"))
 	var max_hp := maxi(int(_boss.call("get_max_hp")), 1)
 	_boss_bar.max_value = float(max_hp)

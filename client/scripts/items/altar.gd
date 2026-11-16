@@ -36,6 +36,10 @@ var _player_in_range := false
 var _feedback_timer := 0.0
 var _anim_time := 0.0
 var _sequence_active := false
+## M5-22（组长反馈"祭坛上方的文字只留一行"）：教学关里教程自己会在祭坛上方刻一句目标，
+## 祭坛再挂一行自己的"献上肢体（K）"，两句叠在一起。教学关把这行关掉，只留教程那一句；
+## 别的楼层没有教程，祭坛这行照常显示（它是唯一的机制提示）。
+var _hint_enabled := true
 
 func _ready() -> void:
 	body_entered.connect(_on_body_entered)
@@ -90,6 +94,14 @@ func set_refuse_allowed(enabled: bool) -> void:
 	allow_refuse = enabled
 	_update_hint()
 
+## 教学关用：关掉祭坛自己那行提示，只留教程刻在上面的目标句（免得两句叠在一起）
+func set_hint_enabled(enabled: bool) -> void:
+	_hint_enabled = enabled
+	if not enabled:
+		_hide_hint()
+	else:
+		_update_hint()
+
 ## 拒绝也需要手里有肢体；没有时给一行反馈，避免 R 像坏键。
 func show_no_limb() -> void:
 	_show_feedback(HINT_NO_LIMB)
@@ -122,25 +134,29 @@ func try_restore() -> bool:
 	return true
 
 ## 献祭演出：肢体从玩家身上飞进石碗，紫雾/触须收拢，祭坛亮一下，再淡掉。
-## 逻辑在 record_sacrifice 时已经完成，动画只负责让玩家看见“交出去了什么”。
+## 逻辑在 record_sacrifice 时已经完成，动画只负责让玩家看见"交出去了什么"。
+##
+## M5-08（组长反馈「献祭后角色后方不应新增肢体」）：
+## 原来肢体是从**玩家身上**长出来再飞进碗里 —— 主角没有手臂，那一截东西贴在背上，
+## 读起来就成了"献祭长了个新肢体"。现在改成只演碗：肢体从碗口上方浮起、再被吸回碗里，
+## 角色身上什么都不出现。
 func _play_sacrifice_sequence() -> void:
 	_sequence_active = true
-	var player := get_tree().get_first_node_in_group("player") as Node2D
-	var start := Vector2(0, -50)
-	if player != null:
-		start = player.global_position - global_position + Vector2(0, -18)
 	var limb_script := load("res://scripts/items/limb_visual.gd")
 	var limb := Node2D.new()
 	limb.name = "OfferingLimb"
 	limb.set_script(limb_script)
-	limb.position = start
+	limb.position = Vector2(0, -86)
+	limb.scale = Vector2(0.72, 0.72)
 	limb.z_index = 2
+	limb.modulate.a = 0.0
 	_visual.add_child(limb)
 	var tw := create_tween()
 	tw.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
-	tw.tween_property(limb, "position", Vector2(0, -48), 0.55)
-	tw.parallel().tween_property(limb, "scale", Vector2(0.72, 0.72), 0.55)
-	tw.parallel().tween_property(limb, "rotation", TAU * 1.3, 0.55)
+	tw.tween_property(limb, "modulate:a", 0.85, 0.18)
+	tw.tween_property(limb, "position", Vector2(0, -48), 0.45)
+	tw.parallel().tween_property(limb, "scale", Vector2(0.42, 0.42), 0.45)
+	tw.parallel().tween_property(limb, "rotation", TAU * 1.3, 0.45)
 	tw.tween_property(limb, "modulate:a", 0.0, 0.30)
 	tw.tween_callback(limb.queue_free)
 	# 石碗上方的紫色触须：从碗口向外抓一下，再收回
@@ -319,13 +335,15 @@ func _player_input_locked() -> bool:
 	return bool(player.get("_input_locked"))
 
 func _show_feedback(text: String) -> void:
+	# 反馈（"你手上没有肢体""献祭已成"）是按键之后的一次性回应，和"关掉常驻提示"无关：
+	# 教学关里常驻那行被关掉，玩家按 R/K 仍然要知道发生了什么。
 	_hint_label.text = text
 	_hint_label.visible = true
 	_feedback_timer = FEEDBACK_DURATION
 
 ## 基准提示：玩家在范围内显示"按 K 献祭"，离开隐藏
 func _update_hint() -> void:
-	if not _player_in_range:
+	if not _player_in_range or not _hint_enabled:
 		_hide_hint()
 		return
 	if GameManager.has_flag("true_he_relic"):
