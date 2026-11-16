@@ -60,9 +60,9 @@
 
 ## 四、团队协作：成员同步与提交指南
 
-代码都放在 GitHub 上。组员只需要记住两句话：**开工前先更新本地，干完活开分支发 PR**。照着下面的步骤复制命令就行。
+代码都放在 GitHub 上。组员只需要记住两句话：**开工前先更新本地，干完活提交上去**。照着下面的步骤复制命令就行。
 
-> `main` 分支已开启保护，不能直接 push；所有改动都要走"分支 → PR → review → CI 绿 → 合并"。详细规则见根目录 [`CONTRIBUTING.md`](CONTRIBUTING.md)。
+> 小组约定：**小改动可以直接推 main**（main 没有分支保护，方便大家随时看到最新版本）。美术重做、动画系统、存档格式、剧情大段重写这类大改，先开分支或备份分支，跑完全量回归再合回 main。规矩写在根目录 [`AGENTS.md`](AGENTS.md)。
 
 ### 第一次（每人只做一次）：把项目下载到电脑
 
@@ -95,25 +95,32 @@ git pull
 
 看到 `Already up to date` 就是已经最新，看到 `Updating` 就是在更新。
 
-### 干完活：开分支 + 发 PR（不要直接推 main）
+### 干完活：提交
 
-main 有保护，直接 push 会被挡下。每次干活开一个分支：
+小改动（改个数值、修个提示、补一句台词）：直接在 main 上提交推送就行。
 
 ```
 git checkout main
 git pull
-git checkout -b feature/你的任务
 git add .
-git commit -m "feat: 写一句话：你这次改了啥，比如：加了玩家移动"
-git push -u origin feature/你的任务
+git commit -m "fix: 写一句话：你这次改了啥，比如：改了火堆回血提示"
+git push
 ```
 
-推完后到 GitHub 网页上点 **Compare & pull request** 开 PR，按模板勾选验收清单，等 CI 变绿、组长 review 通过后合并，再删掉这个分支。
+大改动（美术重做、动画系统、存档格式、剧情大段重写）：先开分支，推上去让别人也能看，确认没问题再合回 main。
+
+```
+git checkout -b feature/你的任务
+git add .
+git commit -m "feat: 干了啥"
+git push -u origin feature/你的任务
+```
 
 - 分支名：`feature/<任务卡编号>-<简述>`、`fix/<简述>`、`docs/<简述>`、`chore/<简述>`
 - 提交信息：`类型: 干了啥`，类型用 feat / fix / docs / chore
 - 一次只做一张任务卡，小步提交，方便随时回退
-- 小组约定：**小改动可以直接推 main**（main 没有分支保护）；美术重做、动画系统、存档格式这类大改走分支 + PR
+- 动大手术之前先留退路：`git branch backup/local-日期`，再 `git push -u origin backup/local-日期`
+- 推之前本地跑一遍 `scripts/test_all.ps1`（要全绿）；组里的规范细节见根目录 [`AGENTS.md`](AGENTS.md)
 
 ### 出问题了怎么办
 
