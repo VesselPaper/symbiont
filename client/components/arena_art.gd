@@ -21,9 +21,11 @@ const VIGNETTE_SHADER := preload("res://assets/shaders/vignette.gdshader")
 @export var gap_from := -1.0
 @export var gap_to := -1.0
 
-const STONE_GROUND := Color(0.170, 0.190, 0.200)
-const STONE_PLATFORM := Color(0.200, 0.220, 0.235)
-const STONE_PIT := Color(0.185, 0.205, 0.215)
+## M5-28（组长反馈"高台的材质和平地不一样"）：三档石材色统一成一种。
+## 原来平台比地面亮一档、坑底又另算一档，两块地形挨着就是两种颜色，怎么看都是拼的。
+const STONE_GROUND := Color(0.176, 0.196, 0.208)
+const STONE_PLATFORM := STONE_GROUND
+const STONE_PIT := STONE_GROUND
 const STONE_WALL := Color(0.070, 0.085, 0.095)
 const RIM_COLOR := Color(0.42, 0.55, 0.56, 0.75)
 const MOSS_COLOR := Color(0.140, 0.215, 0.180, 0.9)
@@ -62,6 +64,8 @@ func _build_all() -> void:
 	_build_fog()
 	_build_spores()
 	_dress_terrain()
+	# 全局石材纹理铺在所有地形上（跨过平台/地面/台阶的边界，看不出拼接）
+	_build_terrain_material()
 	# 地表细节要在 _dress_terrain 之后：地面顶边颜色已经定好，碎石/草才压得住
 	_build_surface_detail()
 	_dress_props()
@@ -531,6 +535,10 @@ func _dress_terrain() -> void:
 		if visual == null:
 			continue
 		visual.color = names[body_name]
+		# M5-28：地形统一压到 z=-1。这样"全局材质层"（z=0，插在 Player 前面）能盖住地形，
+		# 又不会盖住玩家 —— 地形和玩家都是 z=0 时只能靠树的先后顺序，平台节点在 Player 后面，
+		# 材质层就永远被平台压住（组长看到的就是"平台还是一块平灰"）。
+		body.z_index = -1
 		var col := body.get_node_or_null("CollisionShape2D") as CollisionShape2D
 		if col == null or col.shape == null:
 			continue
@@ -539,91 +547,195 @@ func _dress_terrain() -> void:
 			continue
 		_add_top_rim(body, col)
 		_add_seams_and_moss(body, col)
-		# M5-27：地面本体要能看出是"一堵石砌的断面"，不然 60px 高的一条只剩平灰
-		if body_name.begins_with("Ground"):
-			_add_ground_face(body, col)
+		# M5-28（组长反馈"矩形地面拼上去一眼看出接缝，高台和平地材质不一样"）：
+		# 地面断面的石块/砌层不再按"每块地形自己"画，改成 `_build_terrain_material()`
+		# 在**世界坐标**里统一铺一层，跨过地面/平台/台阶的边界，看不出拼接。
+
+## 全局地形材质（M5-28）。
+##
+## 原来的做法是每块地形（GroundLeft / JumpPlatform / …）各自在自己的局部坐标里
+## 从左上角开始铺泥土层、石块、横缝 —— 两块地形挨着的时候，图案在边界处断掉，
+## 高台又用了另一种底色，于是"高台像是贴上去的"，而且边界上还有一条明显的分界。
+##
+## 现在：所有地形共用同一种石材底色，石块、砌层、竖缝全部按**世界坐标**铺，
+## 只画在"落在某块地形内部"的那些位置 —— 岩浆一层连续的石壁，穿过平台和地面。
+## 画出来的东西挂在地形节点下面（继承它的层级），所以既在视觉层之上，又不会挡住玩家。
+func _build_terrain_material() -> void:
+	var rects := _terrain_rects()
+	if rects.is_empty():
+		return
+	var anchor := get_parent().get_node_or_null("GroundLeft") as StaticBody2D
+	if anchor == null:
+		anchor = get_parent().get_node_or_null("JumpPlatform") as StaticBody2D
+	if anchor == null:
+		return
+	# 挂到关卡根上、并插到 Player 前面：
+	# 地形和玩家都是 z=0，同级按树的先后顺序画 —— 放在玩家之前，就"盖住地形、不盖角色"。
+	var parent := get_parent()
+	var root := Node2D.new()
+	root.name = "TerrainMaterial"
+	parent.add_child(root)
+	var player := parent.get_node_or_null("Player")
+	if player != null:
+		parent.move_child(root, player.get_index())
+
+	var top := 1.0e9
+	var bottom := -1.0e9
+	for r in rects:
+		top = minf(top, r.position.y)
+		bottom = maxf(bottom, r.end.y)
+
+	# ① 砌层：横向一格格铺，每格颜色深浅略有不同（不是一条均匀的灰）
+	var y := top + 6.0
+	var row := 0
+	while y < bottom - 2.0:
+		var tone := 0.150 + float(row % 3) * 0.012 + _rng.randf_range(-0.006, 0.006)
+		for span in _spans_at(rects, y):
+			var band := Polygon2D.new()
+			band.name = "CourseBand"
+			band.color = Color(tone, tone * 1.05, tone * 1.10, 0.55)
+			band.polygon = PackedVector2Array([
+				Vector2(span.x, y), Vector2(span.y, y),
+				Vector2(span.y, y + 12.0), Vector2(span.x, y + 12.0),
+			])
+			root.add_child(band)
+			var seam := Line2D.new()
+			seam.name = "CourseSeam"
+			seam.width = 1.0
+			seam.default_color = Color(0.052, 0.062, 0.070, 0.42)
+			seam.points = PackedVector2Array([Vector2(span.x + 2.0, y + 0.5), Vector2(span.y - 2.0, y + 0.5)])
+			root.add_child(seam)
+		y += 12.0
+		row += 1
+
+	# ② 石块：按世界网格铺，只在落进地形里的位置画，跨越边界也不断。
+	# M5-28 二次调整：石块原来等宽等高、一行行排得太齐，看着像贴砖 ——
+	# 现在宽高随机、每块单独错位、随机跳过一些、边上再补几块大石，才像天然岩面。
+	var gx := -80.0
+	while gx < world_width + 80.0:
+		var stones_y := top + 4.0
+		while stones_y < bottom - 4.0:
+			var cx := gx + _rng.randf_range(-14.0, 14.0)
+			var cy := stones_y + _rng.randf_range(-7.0, 7.0)
+			if _inside_terrain(rects, Vector2(cx, cy)) and _rng.randf() > 0.12:
+				var w := _rng.randf_range(20.0, 58.0)
+				var h := _rng.randf_range(7.0, 15.0)
+				var tone2 := _rng.randf_range(0.138, 0.222)
+				var stone := Polygon2D.new()
+				stone.name = "TerrainStone"
+				stone.color = Color(tone2, tone2 * 1.04, tone2 * 1.10, 0.90)
+				var skew := _rng.randf_range(-3.0, 3.0)
+				var dent := _rng.randf_range(-3.0, 3.0)
+				stone.polygon = PackedVector2Array([
+					Vector2(cx - w * 0.5, cy + skew),
+					Vector2(cx - w * 0.2, cy + skew - 1.6),
+					Vector2(cx + w * 0.5, cy + skew + dent),
+					Vector2(cx + w * 0.5 - 2.0, cy + skew + h),
+					Vector2(cx - w * 0.5 + 2.0, cy + skew + h + 1.0),
+				])
+				root.add_child(stone)
+				var lit := Line2D.new()
+				lit.name = "TerrainStoneLit"
+				lit.width = 1.0
+				lit.default_color = Color(0.285, 0.300, 0.305, 0.16)
+				lit.points = PackedVector2Array([
+					Vector2(cx - w * 0.5 + 1.0, cy + skew + 1.0),
+					Vector2(cx + w * 0.5 - 1.0, cy + skew + dent),
+				])
+				root.add_child(lit)
+			stones_y += _rng.randf_range(11.0, 17.0)
+		gx += _rng.randf_range(44.0, 92.0)
+
+	# ③ 竖缝：稀疏几条，穿过平台和地面，让两块地形读成一整面石壁
+	var jx := 40.0
+	while jx < world_width - 20.0:
+		var spans := _vspans_at(rects, jx)
+		for span2 in spans:
+			if span2.y - span2.x < 16.0:
+				continue
+			var joint := Line2D.new()
+			joint.name = "TerrainJoint"
+			joint.width = 1.0
+			joint.default_color = Color(0.048, 0.058, 0.066, 0.36)
+			var jitter := _rng.randf_range(-2.0, 2.0)
+			joint.points = PackedVector2Array([
+				Vector2(jx + jitter, span2.x + _rng.randf_range(4.0, 12.0)),
+				Vector2(jx + jitter * 0.4, (span2.x + span2.y) * 0.5),
+				Vector2(jx - jitter, span2.y - _rng.randf_range(4.0, 16.0)),
+			])
+			root.add_child(joint)
+		jx += _rng.randf_range(120.0, 260.0)
+
+## 地形矩形（世界坐标）：地面、平台、台阶都算
+func _terrain_rects() -> Array[Rect2]:
+	var out: Array[Rect2] = []
+	var parent := get_parent()
+	for n in ["GroundLeft", "GroundRight", "PitFloor", "JumpPlatform", "PogoPlatform", "AltarPlatform"]:
+		var body := parent.get_node_or_null(n) as StaticBody2D
+		if body == null:
+			continue
+		var r := _body_rect(body)
+		if r.size != Vector2.ZERO:
+			out.append(r)
+	for holder_name in ["HollowSteps", "CorridorGallery"]:
+		var holder := parent.get_node_or_null(str(holder_name))
+		if holder == null:
+			continue
+		for child in holder.get_children():
+			var body2 := child as StaticBody2D
+			if body2 == null:
+				continue
+			var r2 := _body_rect(body2)
+			if r2.size != Vector2.ZERO:
+				out.append(r2)
+	return out
+
+func _body_rect(body: StaticBody2D) -> Rect2:
+	var col := body.get_node_or_null("CollisionShape2D") as CollisionShape2D
+	if col == null or col.shape == null:
+		return Rect2()
+	var shape := col.shape as RectangleShape2D
+	if shape == null:
+		return Rect2()
+	var size := shape.size
+	return Rect2(body.global_position + col.position - size * 0.5, size)
+
+## 某一高度上，地形覆盖的横向区间（[x0, x1] 的 Vector2 列表，已合并重叠段）
+func _spans_at(rects: Array[Rect2], y: float) -> Array[Vector2]:
+	var raw: Array[Vector2] = []
+	for r in rects:
+		if y >= r.position.y and y <= r.end.y:
+			raw.append(Vector2(r.position.x, r.end.x))
+	return _merge_spans(raw)
+
+## 某一横坐标上，地形覆盖的纵向区间
+func _vspans_at(rects: Array[Rect2], x: float) -> Array[Vector2]:
+	var raw: Array[Vector2] = []
+	for r in rects:
+		if x >= r.position.x and x <= r.end.x:
+			raw.append(Vector2(r.position.y, r.end.y))
+	return _merge_spans(raw)
+
+func _merge_spans(raw: Array[Vector2]) -> Array[Vector2]:
+	var list := raw.duplicate()
+	list.sort_custom(func(a: Vector2, b: Vector2) -> bool: return a.x < b.x)
+	var out: Array[Vector2] = []
+	for s in list:
+		if out.is_empty() or s.x > out[out.size() - 1].y + 0.5:
+			out.append(s)
+		else:
+			out[out.size() - 1].y = maxf(out[out.size() - 1].y, s.y)
+	return out
+
+func _inside_terrain(rects: Array[Rect2], p: Vector2) -> bool:
+	for r in rects:
+		if r.has_point(p):
+			return true
+	return false
+
 		# M5-25（组长反馈"坑两边灰色矩形、有个多出来的一点没有碰撞体积"）：
 		# `_add_edge_chunks` 会在碰撞盒边缘**多画出去几像素**的碎石和垂根 ——
 		# 那是纯装饰、没有碰撞，走过去看着像悬空的灰块。不画了，地形边缘就是碰撞边缘。
-
-## 地面断面（M5-27）：地面上只看得到约 60px 高的一条，原来只有顶边亮边 + 几条几乎看不见的横缝，
-## 读起来就是"一条平灰带"。这里补三样东西：
-##   ① 顶边底下一条更亮的泥土层（草根扎进去的那一层）
-##   ② 两排大小不一的石块，压在地面本体上，深浅错开
-##   ③ 从地面下沿垂下来的根须 + 断口，让"地面底下"不是一刀切的平底
-func _add_ground_face(body: StaticBody2D, col: CollisionShape2D) -> void:
-	var shape := col.shape as RectangleShape2D
-	if shape == null:
-		return
-	var half_w := shape.size.x * 0.5
-	var top_y := col.position.y - shape.size.y * 0.5
-	var bottom := col.position.y + shape.size.y * 0.5
-	var left := col.position.x - half_w
-	var right := col.position.x + half_w
-
-	# ①泥土层：贴在顶边下面 7px，偏暖一点，和石灰色区分开
-	var soil := Polygon2D.new()
-	soil.name = "SoilBand"
-	soil.color = Color(0.118, 0.108, 0.094, 0.80)
-	soil.polygon = PackedVector2Array([
-		Vector2(left, top_y + 1.0), Vector2(right, top_y + 1.0),
-		Vector2(right, top_y + 8.0), Vector2(left, top_y + 7.0),
-	])
-	body.add_child(soil)
-
-	# ②石块：两排，宽 30~64，深浅随机，往下错开
-	for row in range(2):
-		var y := top_y + 10.0 + float(row) * 15.0
-		var x := left + _rng.randf_range(10.0, 50.0)
-		while x < right - 40.0:
-			var w := _rng.randf_range(30.0, 64.0)
-			var h := _rng.randf_range(11.0, 15.0)
-			var off := _rng.randf_range(-1.5, 1.5)
-			var tone := _rng.randf_range(0.135, 0.205)
-			var block := Polygon2D.new()
-			block.name = "GroundStone"
-			block.color = Color(tone, tone * 1.06, tone * 1.12, 0.95)
-			block.polygon = PackedVector2Array([
-				Vector2(x, y + off), Vector2(x + w, y + off - 1.0),
-				Vector2(x + w - 2.0, y + off + h), Vector2(x + 2.0, y + off + h + 1.0),
-			])
-			body.add_child(block)
-			# 石块上沿一条细亮线：不然一排排方块像贴纸
-			var edge := Line2D.new()
-			edge.width = 1.0
-			edge.default_color = Color(0.290, 0.305, 0.310, 0.22)
-			edge.points = PackedVector2Array([
-				Vector2(x + 1.0, y + off + 1.0), Vector2(x + w - 1.0, y + off),
-			])
-			body.add_child(edge)
-			x += w + _rng.randf_range(4.0, 16.0)
-
-	# ③地面下沿：断口锯齿 + 垂下来的根须（只往下挂 12~40px，不挡人）
-	var bite := left + 60.0
-	while bite < right - 60.0:
-		var tooth := Polygon2D.new()
-		tooth.name = "GroundBite"
-		tooth.color = Color(0.095, 0.108, 0.118, 0.9)
-		var tw := _rng.randf_range(18.0, 46.0)
-		var depth := _rng.randf_range(4.0, 14.0)
-		tooth.polygon = PackedVector2Array([
-			Vector2(bite, bottom), Vector2(bite + tw, bottom),
-			Vector2(bite + tw * 0.5, bottom - depth),
-		])
-		body.add_child(tooth)
-		bite += _rng.randf_range(90.0, 190.0)
-	for i in range(int(shape.size.x / 260.0) + 2):
-		var rx := left + _rng.randf_range(20.0, maxf(shape.size.x - 20.0, 21.0))
-		var hang := Line2D.new()
-		hang.name = "GroundRoot"
-		hang.width = 1.4
-		hang.default_color = Color(0.050, 0.066, 0.056, 0.65)
-		var pts := PackedVector2Array([Vector2(rx, bottom - 2.0)])
-		var len := _rng.randf_range(12.0, 34.0)
-		pts.append(Vector2(rx + _rng.randf_range(-4.0, 4.0), bottom + len * 0.6))
-		pts.append(Vector2(rx + _rng.randf_range(-7.0, 7.0), bottom + len))
-		hang.points = pts
-		body.add_child(hang)
 
 func _add_top_rim(body: StaticBody2D, col: CollisionShape2D) -> void:
 	var shape := col.shape as RectangleShape2D
@@ -660,17 +772,8 @@ func _add_seams_and_moss(body: StaticBody2D, col: CollisionShape2D) -> void:
 	var left := col.position.x - half_w
 	var right := col.position.x + half_w
 	var bottom := col.position.y + shape.size.y * 0.5
-	# 石块横缝：把 60px 厚的地面分成三到四层，避免整块像一块塑料
-	var course_y := top_y + 20.0
-	while course_y < bottom - 8.0:
-		var course := Line2D.new()
-		course.width = 1.0
-		course.default_color = Color(0.055, 0.070, 0.080, 0.55)
-		course.points = PackedVector2Array([
-			Vector2(left + 12.0, course_y), Vector2(right - 12.0, course_y)
-		])
-		body.add_child(course)
-		course_y += 17.0
+	# M5-28：横向砌层已改由 `_build_terrain_material()` 在世界坐标里统一铺，
+	# 这里不再按"每块地形自己"画横缝 —— 那样两块地形挨着时图案会在边界断掉。
 	# 砖缝：每隔约 90px 一道短竖线，不铺满，免得像栅栏
 	# M5-20（组长反馈"借力跳高下方的平台两侧只有灰色矩形"）：
 	# 原来砖缝只从顶面往下画 9px，矮平台够用，但下劈方台有 131px 高 ——
