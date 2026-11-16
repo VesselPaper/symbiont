@@ -1,15 +1,15 @@
 """生成《共生之缚》场景文档（Word）。
 
-正文宋体、标题黑体、A4、白底黑字，不设颜色；能上表格的地方上表格。
-图片来自 client/shots/doc/*.png（由 tests/tmp_doc_shots.gd 拍的实机画面）。
+正文宋体、标题黑体、A4、白底黑字；不用表格，能写成句子的就写句子，条目用短横线列表。
+图片来自 client/shots/doc/*.png（由 client/tests/doc_shots.gd 拍的实机画面）。
 """
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 from docx import Document
-from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml.ns import qn
 from docx.shared import Cm, Pt
@@ -32,9 +32,8 @@ def style_font(style, name: str, size: float, bold: bool = False) -> None:
     if rfonts is None:
         rfonts = rpr.makeelement(qn("w:rFonts"), {})
         rpr.append(rfonts)
-    rfonts.set(qn("w:ascii"), name)
-    rfonts.set(qn("w:hAnsi"), name)
-    rfonts.set(qn("w:eastAsia"), name)
+    for tag in ("w:ascii", "w:hAnsi", "w:eastAsia"):
+        rfonts.set(qn(tag), name)
 
 
 def run_font(run, name: str) -> None:
@@ -44,9 +43,8 @@ def run_font(run, name: str) -> None:
     if rfonts is None:
         rfonts = rpr.makeelement(qn("w:rFonts"), {})
         rpr.append(rfonts)
-    rfonts.set(qn("w:ascii"), name)
-    rfonts.set(qn("w:hAnsi"), name)
-    rfonts.set(qn("w:eastAsia"), name)
+    for tag in ("w:ascii", "w:hAnsi", "w:eastAsia"):
+        rfonts.set(qn(tag), name)
 
 
 class Doc:
@@ -72,7 +70,6 @@ class Doc:
             st.paragraph_format.space_after = Pt(6)
             st.paragraph_format.line_spacing = 1.2
 
-    # ---------- 基础元素 ----------
     def title(self, text: str) -> None:
         p = self.d.add_paragraph()
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -90,42 +87,21 @@ class Doc:
         if indent:
             para.paragraph_format.first_line_indent = Pt(21)
 
-    def table(self, header: list[str], rows: list[list[str]], widths: list[float]) -> None:
-        t = self.d.add_table(rows=1, cols=len(header))
-        t.style = "Table Grid"
-        t.alignment = WD_TABLE_ALIGNMENT.CENTER
-        hdr = t.rows[0].cells
-        for i, text in enumerate(header):
-            hdr[i].text = ""
-            run = hdr[i].paragraphs[0].add_run(text)
-            run_font(run, HEI)
-            run.font.size = Pt(9.5)
-            run.font.bold = True
-            hdr[i].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
-        for row in rows:
-            cells = t.add_row().cells
-            for i, text in enumerate(row):
-                cells[i].text = ""
-                run = cells[i].paragraphs[0].add_run(text)
-                run_font(run, SONG)
-                run.font.size = Pt(9.5)
-                cells[i].paragraphs[0].alignment = (
-                    WD_ALIGN_PARAGRAPH.CENTER if i == 0 else WD_ALIGN_PARAGRAPH.LEFT)
-                cells[i].paragraphs[0].paragraph_format.line_spacing = 1.15
-        for i, w in enumerate(widths):
-            for row in t.rows:
-                row.cells[i].width = Cm(w)
-        # 表后留一点空
+    def items(self, rows: list[str]) -> None:
+        """一组短条目：行首一个短横线，不缩进（换行后也顶格，读起来不歪）。"""
+        for text in rows:
+            para = self.d.add_paragraph()
+            para.paragraph_format.space_after = Pt(2)
+            run_font(para.add_run("— " + text), SONG)
         self.d.add_paragraph().paragraph_format.space_after = Pt(2)
 
-    def img(self, name: str, caption: str, width_cm: float = 15.0) -> None:
+    def img(self, name: str, caption: str, width_cm: float = 13.4) -> None:
         path = SHOTS / name
         self.pic += 1
         para = self.d.add_paragraph()
         para.alignment = WD_ALIGN_PARAGRAPH.CENTER
         para.paragraph_format.space_before = Pt(6)
         para.paragraph_format.space_after = Pt(2)
-        # 图和标题不许分页拆开（不然标题会落到下一页顶上）
         para.paragraph_format.keep_with_next = True
         para.add_run().add_picture(str(path), width=Cm(width_cm))
         cap = self.d.add_paragraph()
@@ -136,66 +112,49 @@ class Doc:
         r.font.size = Pt(9)
 
 
-def main() -> int:
-    doc = Doc()
+def build(doc: Doc) -> None:
     doc.title("《共生之缚》场景文档")
 
-    # ---------- 一 ----------
     doc.h("一、概况")
     doc.p("《共生之缚》是横版动作探索游戏，共六个场景：主菜单、序章、教学关、第一层、第二层、第三层。"
-          "所有场景都由 GDScript 在运行时建出来，不依赖瓦片图和手摆的关卡文件；改布局只改脚本里的一张数表。")
-    doc.table(
-        ["项", "内容"],
-        [
-            ["引擎 / 渲染", "Godot 4.7.2，GL 兼容渲染器"],
-            ["视口", "1280×720，canvas_items 拉伸"],
-            ["可视范围", "高度 12 个角色身高（角色 28px，合计 336px），镜头缩放 2.143"],
-            ["角色碰撞盒", "14×26px，脚底取碰撞盒下沿"],
-            ["场景宽度", "教学关 7400；第一层 6160；第二层 5300；第三层 4300"],
-            ["地形做法", "Polygon2D 多边形 + RectangleShape2D 碰撞，逐层代码生成"],
-            ["主角美术", "7 张分层 PNG（黑影、身后斗篷、身前斗篷上下两节、头盔、空盔、眼睛）"],
-            ["音效", "共 127 个 wav，程序合成与真实录音混用"],
-        ],
-        [3.5, 12.0],
-    )
+          "所有场景都由 GDScript 在运行时建出来，不依赖瓦片图和手摆的关卡文件，改布局只改脚本里的一张数表。")
+    doc.items([
+        "引擎与渲染：Godot 4.7.2，GL 兼容渲染器；视口 1280×720，canvas_items 拉伸。",
+        "可视范围：高度 12 个角色身高，角色 28px，合计 336px；镜头缩放 2.143。",
+        "角色碰撞盒：14×26px，脚底取碰撞盒下沿。",
+        "场景宽度：教学关 7400，第一层 6160，第二层 5300，第三层 4300。",
+        "地形做法：Polygon2D 多边形配 RectangleShape2D 碰撞，逐层代码生成。",
+        "美术：主角 7 张分层 PNG；地形、道具、怪物全部代码建模。",
+        "音效：127 个 wav，程序合成与真实录音混用。",
+    ])
 
-    # ---------- 二 ----------
     doc.h("二、视觉基调")
-    doc.p("六个场景共用一个冷色底子：背景压到 0.02 上下，石材 0.176 / 0.196 / 0.208，"
-          "画面上只留边缘一线路亮，其余靠光点提气。第一层偏青，第二层偏暖褐，第三层偏紫灰，"
-          "进门就知道换层了。")
-    doc.table(
-        ["光源 / 质感", "做法"],
-        [
-            ["顶面亮边", "沿整条地形轮廓画 2px 线，色 0.335；只画在能站人的水平顶面，侧面不留亮线"],
-            ["壁灯", "暖黄光斑加灯架，只在墙面和柱头上"],
-            ["篝火、祭坛", "火焰多边形逐帧抖动，叠一层加色光斑"],
-            ["苔痕、孢子", "低饱和绿点和小光点，交代潮湿与浮尘"],
-            ["血条告警", "血量为 1 时全屏脉冲暗角，配一行“血量危险”"],
-        ],
-        [3.6, 11.9],
-    )
+    doc.p("六个场景共用一个冷色底子：背景压到 0.02 上下，石材 0.176 / 0.196 / 0.208，画面上只留边缘一线路亮。"
+          "第一层偏青，第二层偏暖褐，第三层偏紫灰，走到哪一层一眼就能认出来。")
+    doc.p("画面上的“亮”几乎全靠边缘线和小光点，不打大面积照明：")
+    doc.items([
+        "顶面亮边：沿整条地形轮廓画 2px 线，色 0.335；只画在能站人的水平顶面，侧面不留亮线。",
+        "壁灯：暖黄光斑加灯架，只出现在墙面和柱头上。",
+        "篝火与祭坛：火焰多边形逐帧抖动，再叠一层加色光斑。",
+        "苔痕与孢子：低饱和绿点和小光点，交代潮湿与浮尘。",
+        "血条告警：血量为 1 时全屏脉冲暗角，配一行“血量危险”。",
+    ])
 
-    # ---------- 三 ----------
     doc.h("三、层级与画法")
-    doc.table(
-        ["层级", "内容"],
-        [
-            ["z = -3", "天空渐变、远景岩柱、雾、孢子"],
-            ["z = -2", "背景板 Backdrop"],
-            ["z = -1", "地面、平台、台阶、门框、道具底座"],
-            ["z = 0", "玩家、敌人、掉落物"],
-            ["CanvasLayer 1", "HUD：血条、目标文字、暂停菜单"],
-            ["CanvasLayer 20", "开场黑幕（只有角色周围一圈可见）"],
-        ],
-        [4.0, 11.5],
-    )
+    doc.p("场景从后往前分七层，每一层只放该放的东西：")
+    doc.items([
+        "z = -3：天空渐变、远景岩柱、雾、孢子。",
+        "z = -2：背景板 Backdrop。",
+        "z = -1：地面、平台、台阶、门框、道具底座。",
+        "z = 0：玩家、敌人、掉落物。",
+        "CanvasLayer 1：HUD，血条、目标文字、暂停菜单。",
+        "CanvasLayer 20：开场黑幕，只留角色周围一圈可见。",
+    ])
     doc.p("地形不是矩形。每块地面、平台、台阶的可见轮廓由同一段程序生成：顶面两个点严格贴碰撞顶边，"
           "左右各鼓出 3~7px，底部挂 5~9px 碎岩，所以平台坐在平地上也不会露出直角。")
     doc.p("石材纹理不按块画，而是在世界坐标里统一铺：砌层 12px 一档，石块 20~58px 宽、7~15px 高、随机错位，"
           "竖缝每 120~260px 一溜。两块地形挨着时图案是连续的，看不出拼接。")
 
-    # ---------- 四 ----------
     doc.h("四、主菜单与序章")
     doc.img("01_menu.png", "主菜单：标题、开始与退出两个按钮，背景是同心环和两根拱柱的线稿")
     doc.p("主菜单不放角色，只有一个标题、两个按钮和底部两行操作提示，背景用同心环和拱柱的线稿撑住画面。")
@@ -203,25 +162,21 @@ def main() -> int:
           "角色从高处坠下，镜头跟着下降，落地后黑幕才慢慢散开，交到教学关。"
           "这一段没有背景板也不放物件，全部靠着色器算，所以在文档里不放截图。")
 
-    # ---------- 五 ----------
     doc.h("五、教学关")
     doc.p("教学关是一条 7400px 长的横廊，八个环节按顺序排开，两环之间留足奔跑距离。"
           "地面顶边 y=659，从 0 铺到 5850；5850 到 6890 是悬崖，掉下去判死；"
           "右岸从 6890 接到 7400，祭坛和层门都摆在右岸。")
-    doc.table(
-        ["环节", "x 坐标", "落脚面", "场景构成"],
-        [
-            ["移动", "700", "地面 659", "平地，左侧是三层岩壁"],
-            ["跳跃", "1300", "跳台 571", "长跳台 (1025,571,2695,90)"],
-            ["拾剑", "2000", "跳台 571", "尸体与插在地上的铁剑"],
-            ["攻击", "2700", "跳台 571", "稻草人甲"],
-            ["下劈", "3160", "跳台 571", "下劈方台 (3300,440,200,131) 与悬空踏板"],
-            ["战斗", "4100", "坑底 659", "史莱姆，坑两侧已无台阶"],
-            ["拾取肢体", "5580", "地面 659", "怪物尸体旁，篝火在 5700"],
-            ["献祭", "6950", "右岸 659", "祭坛在层门左边，门在 7300"],
-        ],
-        [2.6, 2.4, 3.2, 7.2],
-    )
+    doc.p("八个环节的站位（x 坐标 / 落脚面）：")
+    doc.items([
+        "移动：700 / 地面 659。平地，左侧是三层岩壁。",
+        "跳跃：1300 / 跳台 571。长跳台 (1025,571,2695,90)。",
+        "拾剑：2000 / 跳台 571。尸体与插在地上的铁剑。",
+        "攻击：2700 / 跳台 571。稻草人甲。",
+        "下劈：3160 / 跳台 571。下劈方台 (3300,440,200,131)，台前悬一根踏板。",
+        "战斗：4100 / 坑底 659。一只史莱姆，坑两侧已无台阶。",
+        "拾取肢体：5580 / 地面 659。怪物尸体旁，篝火在 5700。",
+        "献祭：6950 / 右岸 659。祭坛在层门左边，门在 7300。",
+    ])
     doc.img("03_arena_spawn.png", "出生点：左侧三层岩壁，地表撒草簇与半埋碎石")
     doc.p("出生点左侧补了一整面岩壁，从 -420 一直到贴着墙，内沿做成锯齿断面，加五条裂缝、墙根苔和一盏极暗壁灯，"
           "开局不再是一根细墙线。地表沿全程撒草簇和碎石，碎石露出不超过 5px，走过去不会绊脚。")
@@ -236,75 +191,66 @@ def main() -> int:
     doc.p("悬崖这一段没有地面也没有岩层，只留对岸的四块石台当路；掉进中间山谷的玩家和怪物都会当场判死。"
           "过了悬崖先碰到祭坛，再往右 350px 才是层门，献祭这一步在进门前必然经过。")
 
-    # ---------- 六 ----------
     doc.h("六、第一层 锈钟回廊")
     doc.img("12_floor1_hall.png", "钟厅：石柱、蜡台和地面的苔痕，吊钟在这一段的正中")
     doc.p("第一层宽 6160，钟厅地面顶边 y=760，跨度 1120~2760。吊钟在 x=2250，钟绳一直垂到地面，"
-          "守钟人站在 1950，敲钟要先跟他说话；骨门在 2580，层门在 6000。地面是青灰色，砖缝和苔痕比教学关重。")
+          "守钟人站在 1950，敲钟要先跟他说话；骨门在 2580，层门在 6000。"
+          "地面是青灰色，砖缝和苔痕比教学关重。")
 
-    # ---------- 七 ----------
     doc.h("七、第二层 铸炉与圣坛")
     doc.img("13_floor2_forge.png", "铸炉厅：蒸汽机、工程师与宝箱，暖褐色调，壁面有竖缝与灯")
     doc.p("第二层宽 5300，平台从 (0,620) 一路降到 (3960,560)，形成一路向下的坡度。"
           "中央铸炉厅在 1080~1780，放蒸汽机与工程师；圣坛廊在 1880~2640，放祭司；封印门前厅在 3360~3860。"
           "两名 NPC 只能选一个，选完对面那条路封死。")
 
-    # ---------- 八 ----------
     doc.h("八、第三层 守门者之厅")
     doc.img("15_floor3_hall.png", "守门者之厅：石拱、火盆与插在地上的铁剑，紫灰色调")
     doc.p("第三层宽 4300。骑士像廊 1060~1620，断兵回廊 2200~2700，守门者之厅 2800~4200，"
           "两端是 -80 与 4200 的边界墙。厅里放石拱、火盆和一把半埋的铁剑，Boss 就在这一段。")
 
-    # ---------- 九 ----------
     doc.h("九、镜头与构图")
     doc.p("镜头是 Camera2D 跟人。水平方向按速度给 60px 前瞻，跑起来能提前看到落点；垂直方向落地时缓动回正，"
-          "空中上下各留死区（上 128px、下 28px），普通跳跃不推镜头；水平差超过 480px（瞬移、复活）直接吸附。"
+          "空中上下各留死区，上方 128px、下方 28px，普通跳跃不推镜头；水平差超过 480px（瞬移、复活）直接吸附。"
           "角色常驻屏幕中线下方 28px，六个场景都设了左右限幅，镜头不会推到场景外。")
 
-    # ---------- 十 ----------
     doc.h("十、氛围层")
-    doc.table(
-        ["元素", "参数"],
-        [
-            ["雾", "5 层椭圆，宽 560px，透明度 0.045~0.08，缓慢横移"],
-            ["孢子", "50 颗，寿命 8s，向上飘"],
-            ["远景", "两层岩柱剪影，越远越暗，位置按场景宽度铺满"],
-            ["暗角", "血量为 1 触发，红色脉冲，配“血量危险”文字"],
-        ],
-        [3.0, 12.5],
-    )
+    doc.p("每个场景都叠一层同样结构的氛围，参数按场景宽度铺：")
+    doc.items([
+        "雾：5 层椭圆，宽 560px，透明度 0.045~0.08，缓慢横移。",
+        "孢子：50 颗，寿命 8s，向上飘。",
+        "远景：两层岩柱剪影，越远越暗。",
+        "暗角：血量为 1 触发，红色脉冲，配“血量危险”文字。",
+    ])
 
-    # ---------- 十一 ----------
     doc.h("十一、摆放与校准规则")
-    doc.p("摆件和文字都不手填 y，按落下这三条算出来的，改布局不用再一个个对坐标。")
-    doc.table(
-        ["规则", "做法"],
-        [
-            ["道具落地", "量道具可见部分的最低点，向下打射线找脚下地面，整体平移对齐，误差 ≤1px"],
-            ["提示文字", "文字中心定在这一环落脚面往上 3 个角色身高，即 84px"],
-            ["踏板例外", "下劈踏板（稻草人乙）悬在方台前 54.6px，落地就够不着台顶"],
-            ["地形装饰", "顶边与碰撞顶边误差 ≤1px，侧面鼓出 ≤10px"],
-        ],
-        [3.4, 12.1],
-    )
+    doc.p("摆件和文字都不手填 y，按下面这几条算出来，改布局不用再一个个对坐标：")
+    doc.items([
+        "道具落地：量道具可见部分的最低点，向下打射线找脚下地面，整体平移对齐，误差 ≤1px。",
+        "提示文字：文字中心定在这一环落脚面往上 3 个角色身高，即 84px。",
+        "踏板例外：下劈踏板（稻草人乙）悬在方台前 54.6px，落地就够不着台顶。",
+        "地形装饰：顶边与碰撞顶边误差 ≤1px，侧面鼓出 ≤10px。",
+    ])
 
-    # ---------- 十二 ----------
     doc.h("十二、回归测试")
-    doc.p("六条跟场景直接相关的自动化测试，和其余 72 条一起跑：scripts/test_all.ps1 依次执行数据管道、"
-          "后端 pytest、每条 *_test.gd，全绿才算通过。")
-    doc.table(
-        ["用例", "检查什么"],
-        [
-            ["arena_layout_test", "八环站位、层门位置、右岸宽度、镜头限幅"],
-            ["arena_terrain_layer_test", "地形层级、方台侧面竖缝、装饰不越出碰撞盒"],
-            ["marker_clearance_test", "八环提示离地高度、位置判定正反向"],
-            ["prop_grounding_test", "五个道具贴地误差 ≤1px、踏板必须悬空"],
-            ["player_grounding_test", "角色可见底边对齐脚底线、待机走路不被抬离地面"],
-            ["camera_spec_test", "六个场景的镜头限幅与构图"],
-        ],
-        [5.0, 10.5],
-    )
+    doc.p("场景相关的自动化测试和其余用例一起跑：scripts/test_all.ps1 依次执行数据管道、后端 pytest、"
+          "每条 *_test.gd，全绿才算通过，目前共 72 条。其中直接盯着场景的有六条：")
+    doc.items([
+        "arena_layout_test：八环站位、层门位置、右岸宽度、镜头限幅。",
+        "arena_terrain_layer_test：地形层级、方台侧面竖缝、装饰不越出碰撞盒。",
+        "marker_clearance_test：八环提示离地高度、位置判定正反向。",
+        "prop_grounding_test：五个道具贴地误差 ≤1px、踏板必须悬空。",
+        "player_grounding_test：角色可见底边对齐脚底线，待机走路不被抬离地面。",
+        "camera_spec_test：六个场景的镜头限幅与构图。",
+    ])
 
+
+def main() -> int:
+    global OUT
+    if len(sys.argv) > 1:
+        # 允许指定输出路径：文档在 WPS/Word 里打开时原名会被锁住，先写到临时文件再替换
+        OUT = Path(sys.argv[1]).resolve()
+    doc = Doc()
+    build(doc)
     OUT.parent.mkdir(parents=True, exist_ok=True)
     doc.d.save(str(OUT))
     print(f"已生成 {OUT}（{OUT.stat().st_size / 1024:.0f} KB，{doc.pic} 张图）")
