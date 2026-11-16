@@ -11,13 +11,16 @@ extends SceneTree
 ## 生成文档用 tools/report/make_scene_doc.py。
 
 const OUT_DIR := "res://shots/doc"
+## 史莱姆用运行时 load：写在类顶部的 preload 会在自动单例（GameManager）加载之前编译，
+## 那段脚本里引用了 GameManager，会在解析期报 "Identifier not found"。
+const SLIME_PATH := "res://scenes/entities/slime.tscn"
 
 const SHOTS := [
 	{"name": "01_menu", "scene": "res://scenes/main/main.tscn", "x": -1.0, "y": -1.0, "cam_y": -1.0, "wait": 2.4},
 	{"name": "03_arena_spawn", "scene": "res://scenes/world/test_arena.tscn", "x": 300.0, "y": 646.0, "cam_y": 552.0},
 	{"name": "04_arena_ledge", "scene": "res://scenes/world/test_arena.tscn", "x": 1500.0, "y": 558.0, "cam_y": 530.0},
 	{"name": "05_arena_pogo", "scene": "res://scenes/world/test_arena.tscn", "x": 3150.0, "y": 558.0, "cam_y": 530.0},
-	{"name": "06_arena_pit", "scene": "res://scenes/world/test_arena.tscn", "x": 4120.0, "y": 646.0, "cam_y": 552.0},
+	{"name": "06_arena_pit", "scene": "res://scenes/world/test_arena.tscn", "x": 4120.0, "y": 646.0, "cam_y": 552.0, "slime": Vector2(4360.0, 646.0)},
 	{"name": "07_arena_altar", "scene": "res://scenes/world/test_arena.tscn", "x": 7050.0, "y": 646.0, "cam_y": 552.0},
 	{"name": "08_arena_campfire", "scene": "res://scenes/world/test_arena.tscn", "x": 5640.0, "y": 646.0, "cam_y": 552.0, "cam_x": 5700.0},
 	{"name": "09_arena_chasm", "scene": "res://scenes/world/test_arena.tscn", "x": 5790.0, "y": 646.0, "cam_y": 552.0},
@@ -54,6 +57,14 @@ func _run(index: int) -> void:
 	await _dismiss_dialogue()
 	_hide_masks()
 	await create_timer(float(spec["wait"]) if spec.has("wait") else 2.2)
+	# 需要拍到敌人的那张，就先放一只（游戏里也是这一环才生成）
+	if spec.has("slime"):
+		var packed_slime := load(SLIME_PATH) as PackedScene
+		if packed_slime != null:
+			var slime := packed_slime.instantiate() as Node2D
+			slime.position = spec["slime"]
+			_scene.add_child(slime)
+			await create_timer(0.8)
 	await _dismiss_dialogue()
 	_hide_masks()
 
