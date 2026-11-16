@@ -9,6 +9,9 @@ from pptx import Presentation
 from pptx.util import Inches, Pt
 from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
 
 BG = RGBColor(0x0B, 0x11, 0x14)
 CARD = RGBColor(0x13, 0x1C, 0x21)
@@ -406,6 +409,35 @@ def s_security(prs):
     return slide
 
 
+# ---------------------------------------------------------------- 8.5 代码
+def code_slide(path, title, sub):
+    """一页一张编辑器截图。裁掉了活动栏和标签栏，正文才放得大。"""
+    def build(prs):
+        slide = blank(prs)
+        head(slide, "代码", title, sub)
+        w = Inches(10.3)
+        h = Inches(5.24)
+        slide.shapes.add_picture(str(ROOT / path), Inches((13.333 - 10.3) / 2), Inches(1.95),
+                                 width=w, height=h)
+        return slide
+    return build
+
+
+def s_code_limit(prs):
+    return code_slide("img/code_limit_crop.png", "限流与状态码",
+                      "deploy/nginx/templates/default.conf.template　第 9 到 17 行")(prs)
+
+
+def s_code_proxy(prs):
+    return code_slide("img/code_proxy_crop.png", "反代与转发头",
+                      "同文件　第 96 到 115 行")(prs)
+
+
+def s_code_expose(prs):
+    return code_slide("img/code_expose_crop.png", "端口不外露",
+                      "deploy/docker-compose.yml　第 13 行与第 31 行")(prs)
+
+
 # ---------------------------------------------------------------- 9 两个细节
 def s_details(prs):
     slide = blank(prs)
@@ -618,6 +650,19 @@ def s_judgement(prs):
     return slide
 
 
+# ---------------------------------------------------------------- 15.5 真跑
+def s_game_browser(prs):
+    slide = blank(prs)
+    head(slide, "实测", "先看一眼它真的在浏览器里跑",
+         "地址栏就是网关的 443 端口，证书是我们自己签的。")
+    w = Inches(10.4)
+    h = Inches(5.41)
+    slide.shapes.add_picture(str(ROOT / "img/game_browser_crop.png"),
+                             Inches((13.333 - 10.4) / 2), Inches(1.98),
+                             width=w, height=h)
+    return slide
+
+
 # ---------------------------------------------------------------- 16 演示
 def s_demo(prs):
     slide = blank(prs)
@@ -659,8 +704,9 @@ def s_demo(prs):
 def build(path):
     prs = new_deck()
     for fn in (s_cover, s_topology, s_why, s_seven_steps, s_keepalive, s_stream,
-               s_zone, s_security, s_details, s_threshold, s_algo, s_health,
-               s_before_after, s_measure, s_judgement, s_demo):
+               s_zone, s_security, s_code_limit, s_code_proxy, s_code_expose,
+               s_details, s_threshold, s_algo,
+               s_health, s_before_after, s_measure, s_judgement, s_game_browser, s_demo):
         fn(prs)
     prs.save(path)
     return path
