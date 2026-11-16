@@ -14,6 +14,8 @@ const SCENE := "res://scenes/world/test_arena.tscn"
 const NAMES := ["MOVE", "JUMP", "WEAPON", "ATTACK", "POGO", "COMBAT", "PICKUP", "SACRIFICE"]
 ## 气泡底边离地形顶面的最小距离（世界像素）
 const MIN_TEXT_LIFT := 60.0
+## 组长 M5-25 定的规则：文字中心 = 落脚面往上 3 个角色身高（角色 28px）
+const TEXT_HEIGHT := 84.0
 
 var _level: Node2D
 var _tutorial: Node
@@ -59,15 +61,17 @@ func _check_anchors() -> void:
 		var has_floor := not floor_hit.is_empty()
 		var lift := 0.0
 		if has_floor:
-			# 从锚点往上量到最近的顶面：文字挂在锚点上方，所以要留够高度
+			# M5-25：组长定的新规则是"文字中心 = 落脚面往上 3 个角色身高（28×3=84）"，
+			# 所以这里量"锚点离它脚下那层地面多远"，正例要正好 84；
+			# POGO 那一环故意写在方台**下方**（人还在地上就要能看见），不按这条算。
 			var ray_up := PhysicsRayQueryParameters2D.create(pos, pos + Vector2(0, -260), 1)
 			var above := space.intersect_ray(ray_up)
 			var surface: float = float(floor_hit["position"].y)
 			var ceiling: float = float(above["position"].y) if not above.is_empty() else pos.y - 260.0
-			# 锚点离地面 ≥60，同时头上要有 ≥40 的空间放气泡
 			lift = surface - pos.y
-			if ceiling > pos.y - 40.0:
-				_fail("%s 锚点上方空间不够，气泡会顶到墙/台子" % NAMES[i])
+			# 文字上沿别顶到台底/墙：留 12px 就够（字高 10）
+			if ceiling > pos.y - 12.0:
+				_fail("%s 锚点上方空间不够，文字会顶到墙/台子" % NAMES[i])
 		print("[marker] %-9s pos=%s clear=%s floor=%s lift=%.0fpx" % [
 			NAMES[i], str(pos), str(clear), str(floor_hit.get("position", "none")), lift])
 		if not clear:
@@ -76,6 +80,9 @@ func _check_anchors() -> void:
 			_fail("%s 锚点下方 120px 内没有地面" % NAMES[i])
 		elif lift < MIN_TEXT_LIFT:
 			_fail("%s 锚点离地只有 %.0fpx（要 ≥%.0f，不然文字贴着石墙）" % [NAMES[i], lift, MIN_TEXT_LIFT])
+		elif absf(lift - TEXT_HEIGHT) > 2.0:
+			# 八环都一样：文字中心离落脚面正好 3 个角色身高（POGO 也一样，只是挪到方块左边）
+			_fail("%s 文字离地 %.0fpx，应正好 %.0fpx（3 个角色身高）" % [NAMES[i], lift, TEXT_HEIGHT])
 
 ## 二、位置判定：站在台上通过、站在台边/空中不通过；走过线通过、没到不通过
 func _check_position_checks() -> void:

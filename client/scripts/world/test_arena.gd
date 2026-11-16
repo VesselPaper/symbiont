@@ -447,15 +447,25 @@ func _reveal_at(player: Node2D, cam: Camera2D, normal_zoom: float) -> void:
 ## 平台原点是中心：碰撞换成 rect 大小、子节点归零、视觉按原始多边形缩放。
 ## 原来 JumpPlatform 的碰撞挂在 +343.5 这种手调偏移上，挪平台就得连子节点一起改，
 ## 这里统一成“原点=中心”，以后只给 rect 就行。
-func _place_platform(body: StaticBody2D, rect: Rect2, unit: Vector2) -> void:
+##
+## M5-25（组长反馈"有个多出来的一点没有碰撞体积"）：视觉的缩放不再用写死的 unit，
+## 而是**按它自己多边形有多大**算 —— 祭坛台的 unit 写着 300 宽、多边形却是 350 宽，
+## 于是画出来比碰撞盒宽 112px（两边各多 56px），走过去就是一块没有碰撞的灰。
+## 现在多边形和碰撞盒永远同宽同高，改 rect 也不会再错开。
+func _place_platform(body: StaticBody2D, rect: Rect2, _unit: Vector2) -> void:
 	body.position = rect.position + rect.size * 0.5
 	var col := body.get_node("CollisionShape2D") as CollisionShape2D
 	var shape := col.shape as RectangleShape2D
 	shape.size = rect.size
 	col.position = Vector2.ZERO
 	var vis := body.get_node("Visual") as Polygon2D
-	vis.position = Vector2.ZERO
-	vis.scale = Vector2(rect.size.x / unit.x, rect.size.y / unit.y)
+	var bounds := Rect2(vis.polygon[0], Vector2.ZERO)
+	for p in vis.polygon:
+		bounds = bounds.expand(p)
+	var poly_size := Vector2(maxf(bounds.size.x, 1.0), maxf(bounds.size.y, 1.0))
+	vis.scale = Vector2(rect.size.x / poly_size.x, rect.size.y / poly_size.y)
+	# 把多边形的中心对到原点：不然缩放后有一边会鼓出碰撞盒
+	vis.position = -(bounds.position + bounds.size * 0.5) * vis.scale
 
 ## 悬崖右岸（M5-11）：和左岸同高同画法的一块地面，长廊石台跳过来就落在它上面。
 ## 名字取 GroundRight，arena_art 的装饰表里也加了它，所以亮边/砖缝/苔痕一样有。
@@ -510,13 +520,35 @@ func _box_polygon(size: Vector2) -> PackedVector2Array:
 
 ## 教程 8 个目标文字锚点（下标就是 tutorial.gd 的 Step 枚举）。
 ## 给 Tutorial 用，也给测试用：测试从这里读坐标，改布局就不用再抄一份数字。
-## 只负责“这环的话写在哪”，不再有光点停在上面（M4-21 组长要求删掉指引光）。
-## M4-22：MOVE 那句用 move_hint（左移一个文字宽度避开骨栅门），判定点仍是 move_mark。
+## 只负责"这环的话写在哪"，不再有光点停在上面（M4-21 组长要求删掉指引光）。
+##
+## M5-25（组长定的新规则）：文字中心 = **这一环的落脚面往上 3 个角色身高**
+## （角色高 28 → 84px）。原来的锚点是"人站的位置再往上一大截"，
+## 结果字飘在半空，抬头才看得见；现在贴着这一环的地面/台面放。
+##
+## POGO 这一环例外：它要教的是"先从地上跳上下劈方台"，那句话得写在**方台下面**
+## （台底 571 往上一点是方台，再往下是地面），所以单独给 y=597 ——
+## 写在台面上方的话，人还站在地上时那句就顶到屏幕外面去了（组长反馈）。
+const TEXT_HEIGHT_ABOVE_SURFACE := 84.0
+## 每一环的落脚面（x, 这一环的地面/台面顶 y）；文字由它算出来
+const STATION_SURFACES := [
+	Vector2(508, 659),    # MOVE：平地
+	Vector2(1125, 571),   # JUMP：跳台顶
+	Vector2(1638, 571),   # WEAPON：跳台上（尸体和剑）
+	Vector2(2063, 571),   # ATTACK：跳台上（木桩甲）
+	# POGO：句子的左边是木桩乙、右边是下劈方台。方台从 440 一直堆到 571（和跳台面贴着），
+	# 所以"平台下方"其实是方块里面，字写那儿会被埋进石头 —— 写方块左边，人站在跳台上就能看见。
+	Vector2(2450, 571),
+	Vector2(3325, 659),   # COMBAT：浅坑底
+	Vector2(3913, 572),   # PICKUP：祭坛台
+	Vector2(3913, 572),   # SACRIFICE：祭坛台
+]
 func station_anchors() -> Array[Vector2]:
-	return [
-		STAGE["move_hint"], STAGE["jump_mark"], STAGE["weapon_mark"], STAGE["attack_mark"],
-		STAGE["pogo_mark"], STAGE["combat_mark"], STAGE["pickup_mark"], STAGE["sacrifice_mark"],
-	]
+	var out: Array[Vector2] = []
+	for i in range(STATION_SURFACES.size()):
+		var spec: Vector2 = STATION_SURFACES[i]
+		out.append(Vector2(spec.x, spec.y - TEXT_HEIGHT_ABOVE_SURFACE))
+	return out
 
 ## 位置判定①：玩家是否已横向走到某个站位（MOVE 环用）
 ## 只看横向：这一段本来就是平地，纵向没什么可判的
@@ -653,7 +685,9 @@ func _build_slab_holder(holder_name: String, rects: Array, names: Array) -> void
 		body.add_child(col)
 		var half := rect.size * 0.5
 		var slab := Polygon2D.new()
-		slab.color = Color(0.155, 0.170, 0.180, 1)
+		# M5-25：原来这块是比地面更暗的纯灰 (0.155,0.170,0.180)，在深色背景上就是一块"错误方块"。
+		# 改成和主地面同一个色（0.170,0.190,0.200），再补上横缝和亮边，读起来才是石头台。
+		slab.color = Color(0.170, 0.190, 0.200, 1)
 		slab.polygon = PackedVector2Array([
 			Vector2(-half.x, -half.y), Vector2(half.x, -half.y),
 			Vector2(half.x, half.y), Vector2(-half.x, half.y),
@@ -690,6 +724,21 @@ func _build_slab_holder(holder_name: String, rects: Array, names: Array) -> void
 			Vector2(-half.x + 20.0, -half.y + 6.0), Vector2(-half.x + 8.0, -half.y + 5.0),
 		])
 		body.add_child(moss)
+		# M5-25：再补两三条横缝（和主地面的"砌层"一个画法）。
+		# 台阶只有 26~52px 高，光靠竖缝还是一整块板；有横缝才看得出是叠起来的石头。
+		var course_y := -half.y + 12.0
+		var course_i := 0
+		while course_y < half.y - 6.0:
+			var course := Line2D.new()
+			course.width = 1.0
+			course.default_color = Color(0.055, 0.070, 0.080, 0.55)
+			var inset := 3.0 + float(course_i % 2) * 3.0
+			course.points = PackedVector2Array([
+				Vector2(-half.x + inset, course_y), Vector2(half.x - inset, course_y),
+			])
+			body.add_child(course)
+			course_y += 14.0
+			course_i += 1
 		holder.add_child(body)
 
 func _build_next_floor_door() -> void:

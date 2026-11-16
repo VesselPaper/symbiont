@@ -59,10 +59,50 @@ func _run() -> void:
 		_check(deepest >= 40.0, "下劈方台侧面没有深缝（最深 %.1fpx），还是一块灰" % deepest)
 		_check(seams >= 1, "下劈方台侧面没有多段竖缝")
 
+	# ③ M5-25（组长反馈"坑两边那个多出来的一点没有碰撞体积"）：
+	# 分两档查，因为两者的"允许量"不一样：
+	#   Visual 这一块必须和碰撞盒严丝合缝（差 1px 都不能有，否则就是一块没碰撞的灰）；
+	#   其它装饰（亮边、青苔、砖缝）允许最多 8px —— 草叶本来就会冒出地面一点点。
+	for path in ["GroundLeft", "GroundRight", "JumpPlatform", "PogoPlatform", "AltarPlatform"]:
+		var body := arena.get_node_or_null(path) as StaticBody2D
+		_check(body != null, "缺少地形 %s" % path)
+		if body == null:
+			continue
+		_check(_overshoot(body, true) <= 1.0,
+			"%s 的 Visual 比碰撞盒大 %.1fpx（走上去是没有碰撞的灰块）" % [path, _overshoot(body, true)])
+		_check(_overshoot(body, false) <= 8.0,
+			"%s 有装饰画到碰撞盒外面 %.1fpx" % [path, _overshoot(body, false)])
+
 	arena.queue_free()
 	await process_frame
 	print("[terrain_layer] %s" % ("PASS" if not _failed else "FAIL"))
 	quit(0 if not _failed else 1)
+
+## 画到碰撞盒外面的最大像素数（0 = 全在盒内）。only_visual=true 时只量 Visual 那一块。
+func _overshoot(body: StaticBody2D, only_visual: bool) -> float:
+	var col := body.get_node_or_null("CollisionShape2D") as CollisionShape2D
+	if col == null or col.shape == null:
+		return 0.0
+	var half := (col.shape as RectangleShape2D).size * 0.5
+	var box := Rect2(col.position - half, half * 2.0)
+	var worst := 0.0
+	for child in body.get_children():
+		if only_visual and str(child.name) != "Visual":
+			continue
+		# 子节点可能带 scale（平台的 Visual 就是靠 scale 缩到 rect 大小的），要乘进去
+		var s: Vector2 = (child as Node2D).scale if child is Node2D else Vector2.ONE
+		var pos: Vector2 = (child as Node2D).position if child is Node2D else Vector2.ZERO
+		if child is Polygon2D:
+			for p in (child as Polygon2D).polygon:
+				worst = maxf(worst, _outside(box, pos + p * s))
+		elif child is Line2D:
+			for p in (child as Line2D).points:
+				worst = maxf(worst, _outside(box, pos + p * s))
+	return worst
+
+func _outside(box: Rect2, p: Vector2) -> float:
+	return maxf(maxf(box.position.x - p.x, p.x - box.end.x),
+		maxf(box.position.y - p.y, p.y - box.end.y))
 
 func _check(ok: bool, msg: String) -> void:
 	if not ok:

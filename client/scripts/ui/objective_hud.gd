@@ -17,8 +17,9 @@ extends Node2D
 ## 不再把整块目标文字一起藏掉 —— 那是组长明确不要的行为。
 
 const FONT_PATH := "res://assets/fonts/NotoSansCJKsc-Regular.otf"
-## 目标文字底边大致在锚点上方 56px（M5-22 组长反馈"提示文字往下边一点"：原来是 88）
-const TEXT_OFFSET := Vector2(0, -56)
+## 目标文字就摆在第 level 给的锚点上（M5-25：位置改由关卡按"落脚面往上 3 个身高"算，
+## HUD 不再自己再往上抬一截，抬两下字就飘走了）。留这个常量是为了以后要整体微调时有个口子。
+const TEXT_OFFSET := Vector2(0, 0)
 ## 临时提示再往上让 26px，避免和那一环的刻字叠在一起
 const FLASH_OFFSET := Vector2(0, -26)
 ## 每句话的版心：360 宽、40 高，居中排版，长的目标句会自动折行

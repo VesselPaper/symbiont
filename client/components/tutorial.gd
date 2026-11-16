@@ -37,15 +37,17 @@ const DONE_HINT_DURATION := 1.0
 ## 高度统一抬到地面/平台顶面之上 60px 以上（组长反馈：A/D 那句贴着石墙读不清）。
 ## M4-22：MOVE 那句整句左移一个文字宽度（560 → 406），让开 600 处那道 200px 高的教学骨栅门；
 ## 走路的判定点还是 STAGE 表的 move_mark(560)，这里只挪“话写在哪”。
+## 兜底锚点（M5-25）：这一环落脚面往上 3 个角色身高（28×3=84）。
+## 场景在 _ready 里会调 set_step_anchors 覆盖这份——改布局改 test_arena 的 STATION_SURFACES。
 const STEP_ANCHORS: Array[Vector2] = [
-	Vector2(508, 585),   # MOVE：地面（地面顶 659），避开 750 的骨栅门
-	Vector2(1125, 500),  # JUMP：跳台顶 571
-	Vector2(1638, 500),  # WEAPON：尸体+剑
-	Vector2(2063, 480),  # ATTACK：木桩甲
-	Vector2(2694, 372),  # POGO：下劈方台（顶 440）
-	Vector2(3325, 590),  # COMBAT：浅坑底（坑底 659）
-	Vector2(3913, 498),  # PICKUP：祭坛石碗上方（台顶 572）
-	Vector2(3913, 466),  # SACRIFICE：比祭坛自己的提示高一行，两段字不会叠在一起
+	Vector2(508, 575),   # MOVE：平地 659 - 84
+	Vector2(1125, 487),  # JUMP：跳台顶 571 - 84
+	Vector2(1638, 487),  # WEAPON：同上（尸体+剑）
+	Vector2(2063, 487),  # ATTACK：同上（木桩甲）
+	Vector2(2450, 487),  # POGO：方台左边（写方块里会被埋），台面往上 84
+	Vector2(3325, 575),  # COMBAT：浅坑底 659 - 84
+	Vector2(3913, 488),  # PICKUP：祭坛台 572 - 84
+	Vector2(3913, 488),  # SACRIFICE：同上
 ]
 
 ## 教学假人节点名（test_arena 内的实例名，见 test_arena.tscn）

@@ -51,10 +51,8 @@ func _check_arena() -> void:
 		_check(int(hud.z_index) >= 4, "目标提示还在道具后面 z=%d" % hud.z_index)
 		var consts: Dictionary = hud.get_script().get_script_constant_map()
 		var offset: Vector2 = consts.get("TEXT_OFFSET", Vector2.ZERO)
-		# M5-22 组长把提示文字往下收、字号减半：偏移从 -88 收到 -56，
-		# 所以这里钉的是"确实在锚点上方、但别高到跟物件叠在一起"这个区间
-		_check(offset.y <= -40.0 and offset.y >= -70.0,
-			"目标提示的垂直偏移不对（%s），要么压住物件要么离锚点太远" % offset)
+		# M5-25：文字位置改由关卡按"这一环落脚面往上 3 个角色身高"算，HUD 不再加偏移
+		_check(absf(offset.y) <= 1.0, "HUD 又自己加了一层垂直偏移（%s）" % offset)
 	# M4-21 组长要求删掉引导光：场景里不该再有 guide_mark，也别让“光点”再被谁引用回来
 	_check(_level.get_node_or_null("guide_mark") == null, "教学关还留着引导光 guide_mark")
 	# M5-22（组长要求"祭坛上方的文字只留一行"）：教学关里祭坛自己的常驻提示要关掉，

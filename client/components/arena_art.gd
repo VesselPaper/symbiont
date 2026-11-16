@@ -296,7 +296,9 @@ func _dress_terrain() -> void:
 			continue
 		_add_top_rim(body, col)
 		_add_seams_and_moss(body, col)
-		_add_edge_chunks(body, col)
+		# M5-25（组长反馈"坑两边灰色矩形、有个多出来的一点没有碰撞体积"）：
+		# `_add_edge_chunks` 会在碰撞盒边缘**多画出去几像素**的碎石和垂根 ——
+		# 那是纯装饰、没有碰撞，走过去看着像悬空的灰块。不画了，地形边缘就是碰撞边缘。
 
 func _add_top_rim(body: StaticBody2D, col: CollisionShape2D) -> void:
 	var shape := col.shape as RectangleShape2D
