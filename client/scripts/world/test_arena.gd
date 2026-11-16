@@ -141,7 +141,7 @@ var _player: Node2D
 func _ready() -> void:
 	GameManager.mark_floor_start("tutorial")
 	_build_campfire()
-	_build_beast_encounter.call_deferred()
+	_build_beast_encounter_deferred.call_deferred()
 	# 相机 zoom 由这里设置（垂直视野 = N 倍角色身高）；水平跟随/垂直死区由 camera_follow.gd 处理
 	var camera := $Camera2D as Camera2D
 	camera.zoom = Vector2(CAMERA_ZOOM, CAMERA_ZOOM)
@@ -1295,6 +1295,13 @@ var _beast_started := false
 var _beast_killed := false
 var _beast_hint: Label
 
+## M5-36：场景刚挂进树时还在"装配子节点"，这时候 add_child 会被引擎拒绝
+## （Parent node is busy setting up children）。等一帧再建触发区和史莱姆。
+func _build_beast_encounter_deferred() -> void:
+	await get_tree().process_frame
+	if is_inside_tree():
+		_build_beast_encounter()
+
 func _build_beast_encounter() -> void:
 	var area := Area2D.new()
 	area.name = "BeastTrigger"
@@ -1401,6 +1408,10 @@ func _on_beast_gone() -> void:
 		return
 	_beast_killed = true
 	_beast = null
+	# M5-36：关卡本身正在被拆（切场景/退出）时，不能再往里面挂提示 ——
+	# 那会让引擎报 "Parent node is busy setting up children"，玩家反正也看不到
+	if not is_inside_tree():
+		return
 	if _beast_hint != null and is_instance_valid(_beast_hint):
 		return
 	var label := Label.new()
