@@ -45,6 +45,10 @@ var _visual: Node2D
 var _body: Polygon2D
 var _face: Node2D
 var _contact_area: Area2D
+## M5-16 新模型的三层壳 / 绕飞的魂片 / 两条魂须
+var _mantles: Array[Polygon2D] = []
+var _shards: Array[Polygon2D] = []
+var _tendrils: Array[Line2D] = []
 
 func _ready() -> void:
 	add_to_group("damageable")
@@ -95,6 +99,42 @@ func _build_body() -> void:
 		Vector2(34, -14), Vector2(30, 3), Vector2(12, 12), Vector2(-12, 12),
 	])
 	_visual.add_child(core)
+
+	# M5-16（组长要求"重构建模"）：外面再裹一层"挤在一起的魂"。
+	# 三层半透明轮廓彼此错开、各转各的，看起来是很多团魂在同一个壳里拱，
+	# 而不是一个干净的果冻。全都画在主体后面（先加的就是后面），不挡脸。
+	for i in range(3):
+		var shell := Polygon2D.new()
+		shell.name = "Mantle%d" % i
+		shell.color = Color(0.46, 0.58, 0.78, 0.16 - float(i) * 0.03)
+		shell.polygon = _blob_polygon(52.0 - float(i) * 4.0, 40.0 - float(i) * 3.0, 14, i)
+		shell.position = Vector2(-4.0 + float(i) * 4.0, -18.0 + float(i) * 6.0)
+		_visual.add_child(shell)
+		_mantles.append(shell)
+
+	# 绕着它转的魂片：从整团魂里没化干净的碎块，一直绕着主体转
+	for i in range(5):
+		var shard := Polygon2D.new()
+		shard.name = "Shard%d" % i
+		shard.color = Color(0.84, 0.92, 1.0, 0.72)
+		var s := 5.0 + float(i % 2) * 2.0
+		shard.polygon = PackedVector2Array([
+			Vector2(0, -s), Vector2(s * 0.6, 0), Vector2(0, s), Vector2(-s * 0.6, 0),
+		])
+		_visual.add_child(shard)
+		_shards.append(shard)
+
+	# 两条从身体下沿拖出来的魂须：落地/下砸时甩起来，把"这是一团会流的东西"读出来
+	for side in [-1.0, 1.0]:
+		var tendril := Line2D.new()
+		tendril.name = "Tendril%s" % ("L" if side < 0.0 else "R")
+		tendril.width = 3.0
+		tendril.default_color = Color(0.60, 0.74, 0.92, 0.55)
+		tendril.points = PackedVector2Array([
+			Vector2(side * 22.0, 20.0), Vector2(side * 30.0, 30.0), Vector2(side * 26.0, 42.0),
+		])
+		_visual.add_child(tendril)
+		_tendrils.append(tendril)
 
 	# 人脸：两只斜挑的空洞眼窝 + 一张下撇的嘴
 	_face = Node2D.new()
@@ -326,7 +366,59 @@ func _update_visual() -> void:
 		_visual.scale = Vector2(0.88, 1.16)
 	# 空中时脸更明显地"浮"出来
 	if _face != null:
-		_face.modulate.a = 0.85 if _state == State.HOVER or _state == State.HOVER else 0.75
+		_face.modulate.a = 0.85 if _state == State.HOVER or _state == State.SLAM else 0.75
+	_update_soul_mass()
+
+## 那层"挤在一起的魂"（M5-16）：三层壳各自慢慢转、慢慢胀缩，错开相位；
+## 魂片绕着主体公转，下砸前会被吸得靠里、落地时炸开；
+## 两条魂须跟着身体上下甩，坠落越快甩得越开。
+func _update_soul_mass() -> void:
+	var t := _anim_time
+	for i in range(_mantles.size()):
+		var m := _mantles[i]
+		if m == null:
+			continue
+		var phase := float(i) * 1.7
+		m.rotation = sin(t * 0.9 + phase) * 0.10 + float(i) * 0.02
+		var k := 1.0 + sin(t * 1.5 + phase) * 0.05
+		m.scale = Vector2(k, 2.0 - k)
+	# 下砸前收、下砸时炸：靠一个 0..1 的"收紧度"推魂片的半径
+	var tight := 0.0
+	if _state == State.CROUCH:
+		tight = 0.55
+	elif _state == State.HOVER:
+		tight = 0.25
+	elif _state == State.SLAM:
+		tight = 1.0
+	var orbit_r := 62.0 - tight * 18.0
+	for i in range(_shards.size()):
+		var s := _shards[i]
+		if s == null:
+			continue
+		var a := t * (1.1 + float(i) * 0.06) + TAU * float(i) / float(maxf(float(_shards.size()), 1.0))
+		s.position = Vector2(cos(a) * orbit_r, sin(a) * orbit_r * 0.55 - 24.0)
+		s.rotation = a * 1.6
+		s.modulate.a = 0.45 + 0.35 * sin(t * 3.0 + float(i))
+	for i in range(_tendrils.size()):
+		var td := _tendrils[i]
+		if td == null:
+			continue
+		var side := -1.0 if i == 0 else 1.0
+		var swing := sin(t * 2.4 + float(i) * 1.2) * 0.35
+		td.points = PackedVector2Array([
+			Vector2(side * 20.0, 18.0),
+			Vector2(side * (28.0 + swing * 6.0), 30.0),
+			Vector2(side * (24.0 + swing * 10.0), 44.0 + swing * 6.0),
+		])
+
+## 一团软软的椭圆轮廓（给那三层壳用）：wobble 越大越不圆
+func _blob_polygon(rx: float, ry: float, steps: int, seed: int) -> PackedVector2Array:
+	var pts := PackedVector2Array()
+	for i in range(steps):
+		var a := TAU * float(i) / float(steps)
+		var w := 1.0 + sin(a * 3.0 + float(seed) * 2.1) * 0.10 + sin(a * 5.0 + float(seed)) * 0.05
+		pts.append(Vector2(cos(a) * rx * w, sin(a) * ry * w))
+	return pts
 
 func _on_contact(body: Node2D) -> void:
 	if _is_dead or _contact_cd > 0.0:

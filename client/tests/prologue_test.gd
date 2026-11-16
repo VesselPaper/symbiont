@@ -105,23 +105,70 @@ func _run() -> void:
 		await process_frame
 	_check(bool(level.get("_fused")), "贴到身影跟前没有触发融合")
 
-	# ⑥ 融合后坠落时“边掉边变身”：骑士剪影显出来、魂光褪掉（M4-28）
+	# ⑥ 坠落：M4-64 改成"灵魂一直原样往下掉 → 某个暗→亮的拍点上**直接**变成主角"，
+	# 不再按进度慢慢长。所以这里验的是"变身前是灵魂、变身后是完整角色"这条界线。
 	level.call("_begin_descent")
-	await create_timer(3.0).timeout
 	var knight := soul.get_node_or_null("Knight") as Node2D
-	_check(knight != null, "缺少玩家剪影 Knight")
-	if knight != null:
-		var ka: float = knight.modulate.a
-		var ha: float = (level.get("_soul_haze") as Node2D).modulate.a
-		var ca: float = (level.get("_soul_core") as Node2D).modulate.a
-		print("[prologue] 坠落 3.0s：骑士 alpha=%.2f 魂光 haze=%.2f core=%.2f" % [ka, ha, ca])
-		# M4-43：现在有"轮廓 → 真实角色"的交叉淡入，两者至少有一个可见
-		# M4-49：下落的只有灵魂本体；人形剪影保持隐身，交给教学关去"落进身体再起身"
-		_check(ka <= 0.05, "人形剪影不该在下落时出现（knight=%.2f）" % ka)
-		_check(ha > 0.1 or ca > 0.1, "灵魂本体没在画面上（haze=%.2f core=%.2f）" % [ha, ca])
-		_check(ha <= 0.75 and ca <= 0.75, "魂光没有褪（haze=%.2f core=%.2f）" % [ha, ca])
+	_check(knight != null, "缺少玩家身体 Knight")
+	if knight == null:
+		_finish()
+		return
+	# 必须就是教学关里那个角色的身体美术，不能是序章另画一份
+	_check(knight.scene_file_path == "res://scenes/player/knight_body.tscn",
+		"Knight 不是主角身体资源（%s）" % knight.scene_file_path)
+	# M4-61：美术换成第二版渲染图分层（盔 / 身 / 斗篷）。颜色没法再按"三通道接近"断言了，
+	# 改验"层和贴图都在"：谁把层改名或删掉，序章的变身就会漏一块，这里先炸。
+	var skull := knight.get_node_or_null("Head/Skull") as Sprite2D
+	_check(skull != null and skull.texture != null, "缺少头盔那一层贴图")
+	# M4-71：眼睛是单独一层，虚空里必须是灭的（组长：坠落时没有眼睛）
+	var eyes := knight.get_node_or_null("Head/Eyes") as CanvasItem
+	_check(eyes != null, "缺少眼睛那一层")
+	_check(eyes.modulate.a <= 0.01, "虚空里眼睛还亮着（alpha=%.2f）" % eyes.modulate.a)
+	var base := knight.get_node_or_null("Silhouette") as Sprite2D
+	_check(base != null and base.texture != null, "缺少身体那一层贴图")
+	var cloak_panel := knight.get_node_or_null("CloakTail/Panel") as Sprite2D
+	_check(cloak_panel != null and cloak_panel.texture != null, "缺少斗篷那一层贴图")
+
+	# 刚开掉的时候还是灵魂：主角不该显形（_grow 必须是 0，不是"慢慢涨上来"）
+	await process_frame
+	await process_frame
+	var grow0 := float(level.get("_grow"))
+	var cloak_a0: float = (knight.get_node("CloakTail") as CanvasItem).modulate.a
+	print("[prologue] 刚开掉：_grow=%.2f 斗篷=%.2f 变身=%s" % [
+		grow0, cloak_a0, str(level.get("_transformed"))])
+	_check(grow0 <= 0.01, "还没到拍点主角就已经长出来了（_grow=%.2f）" % grow0)
+	# 注意读的是部件（斗篷）的 alpha，不是 Knight 容器：容器一直是 1.0，
+	# 显不显形是由 _apply_growth 一个一个写在部件上的。
+	_check(cloak_a0 <= 0.05, "还没变身主角就显形了（斗篷 alpha=%.2f）" % cloak_a0)
+
+	# 等变身：不按绝对秒数断，轮询到 _transformed（资源加载会让时间漂）
+	var transformed := await _wait_transformed(level, 25.0)
+	_check(transformed, "25 秒内都没有在拍点上变身")
+	var full: float = float(level.get("_grow"))
+	var cloak_a: float = (knight.get_node("CloakTail") as CanvasItem).modulate.a
+	var eye_energy: float = (knight.get_node("EyeGlow") as PointLight2D).energy
+	print("[prologue] 变身：_grow=%.2f 斗篷=%.2f 眼灯=%.2f 缩放=%.2f 魂光 core=%.2f" % [
+		full, cloak_a, eye_energy, knight.scale.x, (level.get("_soul_core") as Node2D).modulate.a])
+	_check(full >= 0.99, "变身不是一次到位（_grow=%.2f）" % full)
+	_check(cloak_a > 0.95, "变身后斗篷没完全显出来（%.2f）" % cloak_a)
+	_check(eye_energy > 0.4, "眼睛没亮起来（眼灯 %.2f）" % eye_energy)
+	_check(float(level.get("_soul_fade")) <= 0.05, "魂体没褪干净（%.2f）" % float(level.get("_soul_fade")))
+	# M4-64：虚空里的主角是教学关的两倍大（这是组长点名要的；教学关里那份仍是 1.0）
+	_check(is_equal_approx(knight.scale.x, 2.0), "虚空里的主角不是两倍大小（%.2f）" % knight.scale.x)
 
 	_finish()
+
+## 轮询等变身；返回是否等到了。
+## 用 create_timer 而不是数 process_frame：无头模式下帧率不受限，
+## "1500 帧"可能只过了 2 秒游戏时间，固定帧数会随机翻车（之前就踩过）。
+func _wait_transformed(level: Node, timeout: float) -> bool:
+	var waited := 0.0
+	while waited < timeout:
+		await create_timer(0.25).timeout
+		waited += 0.25
+		if bool(level.get("_transformed")):
+			return true
+	return false
 
 func _finish() -> void:
 	print("[prologue] %s" % ("PASS" if not _failed else "FAIL"))

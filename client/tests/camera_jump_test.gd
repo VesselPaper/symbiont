@@ -53,10 +53,13 @@ func _process(delta: float) -> bool:
 		_end_screen_y = _screen_y()
 		print("[camera_jump] 镜头 y 行程 %.1f px（应接近 0），角色屏幕 y %.1f~%.1f，落地后 %.1f" % [
 			travel, _min_screen_y, _max_screen_y, _end_screen_y])
-		# 默认构图：720 高里角色在中线偏下（56px*1.714+360≈456），允许 40px 浮动
-		if travel < 2.0 and _min_screen_y > 120.0 and _max_screen_y < 660.0 \
-				and absf(_start_screen_y - 456.0) < 40.0 \
-				and absf(_end_screen_y - 456.0) < 24.0:
+		# 默认构图：720 高里角色在中线偏下（屏幕 y≈420），允许 40px 浮动。
+		# M4-62/M4-63 调完视野后：一次跳跃（3.7 个身位）在屏幕上跑 223px（原来 178px），
+		# 顶点仍在画面内（约 y≈197），安全带也盖得住（128 世界 px = 274 屏幕 px），
+		# 所以"镜头别抽"和"落地回正"两条规则照样成立。
+		if travel < 2.0 and _min_screen_y > 60.0 and _max_screen_y < 690.0 \
+				and absf(_start_screen_y - 420.0) < 40.0 \
+				and absf(_end_screen_y - 420.0) < 24.0:
 			print("[camera_jump] PASS")
 			quit(0)
 		else:

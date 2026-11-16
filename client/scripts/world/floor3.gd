@@ -1,4 +1,4 @@
-extends Node2D
+﻿extends Node2D
 ## 第三层 · 守门者之厅（M3-02）
 ##
 ## 路线：入口断梯 → 骑士像廊 → 上行台阶 → 守门者之厅。
@@ -30,7 +30,7 @@ const TEST_ARENA := "res://scenes/world/test_arena.tscn"
 const ABYSS_SCENE := "res://scenes/world/abyss.tscn"
 const FLOOR3_NAME := "第三层 · 守门者之厅"
 
-const VIEW_HEIGHT_IN_CHARACTERS := 15.0
+const VIEW_HEIGHT_IN_CHARACTERS := 12.0
 const PLAYER_CHARACTER_HEIGHT := 28.0
 const CAMERA_ZOOM := 720.0 / (VIEW_HEIGHT_IN_CHARACTERS * PLAYER_CHARACTER_HEIGHT)
 

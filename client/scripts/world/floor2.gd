@@ -1,4 +1,4 @@
-extends Node2D
+﻿extends Node2D
 ## 第二层 · 铸炉与圣坛（M3-01）
 ##
 ## 第一层向上走就是这里：左边是工程师的锅炉房，右边是异教徒的圣坛廊。
@@ -35,7 +35,7 @@ const FLOOR3_SCENE := "res://scenes/world/floor3.tscn"
 const FLOOR3_NAME := "第三层 · 守门者之厅"
 const GAME_HUD_SCENE := preload("res://scenes/ui/game_hud.tscn")
 
-const VIEW_HEIGHT_IN_CHARACTERS := 15.0
+const VIEW_HEIGHT_IN_CHARACTERS := 12.0
 const PLAYER_CHARACTER_HEIGHT := 28.0
 const CAMERA_ZOOM := 720.0 / (VIEW_HEIGHT_IN_CHARACTERS * PLAYER_CHARACTER_HEIGHT)
 

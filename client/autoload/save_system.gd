@@ -67,13 +67,19 @@ func _on_save_pull_failed(slot: int, reason: String) -> void:
 	EventBus.save_failed.emit(slot, "remote_" + reason)
 
 ## 新游戏用哪个槽：优先空槽，全满就覆盖最旧的一个，别把旧档直接盖掉
+## M5-06：单存档默认开（只用槽位 1），多存档可选。
+## 槽位数由 Settings.multi_save 决定：关的时候外面只看到 1 个槽，
+## 这样"选存档"这件事在默认设置下根本不存在，玩家不用挑。
+func slot_count() -> int:
+	return MAX_SLOTS if Settings.multi_save else 1
+
 func pick_new_slot() -> int:
-	for slot in range(MAX_SLOTS):
+	for slot in range(slot_count()):
 		if not has_save(slot):
 			return slot
 	var oldest := 0
 	var oldest_time := 0
-	for slot in range(MAX_SLOTS):
+	for slot in range(slot_count()):
 		var t := FileAccess.get_modified_time(_save_path(slot))
 		if oldest_time == 0 or t < oldest_time:
 			oldest_time = t
@@ -85,6 +91,39 @@ func _save_path(slot: int) -> String:
 
 func has_save(slot: int) -> bool:
 	return FileAccess.file_exists(_save_path(slot))
+
+## 只读主档、不碰备份、不打日志的小读取：给"显示名字/摘要"和"自动存档保留名字"用。
+## 正式读档还是走 _read_slot（那条路会回退 .bak 并告警）。
+func _peek(slot: int) -> Dictionary:
+	if not has_save(slot):
+		return {}
+	var f := FileAccess.open(_save_path(slot), FileAccess.READ)
+	if f == null:
+		return {}
+	var parsed = JSON.parse_string(f.get_as_text())
+	if parsed is Dictionary:
+		return parsed
+	return {}
+
+func _peek_name(slot: int) -> String:
+	return str(_peek(slot).get("name", ""))
+
+## 槽位显示名：优先用玩家起的名字，没起就用"存档 N"
+func slot_name(slot: int) -> String:
+	var given := _peek_name(slot).strip_edges()
+	if given != "":
+		return given
+	return "存档 %d" % (slot + 1)
+
+## 一行摘要（名字 + 时间），暂停菜单/主菜单都用它，不用各自拼字符串
+func slot_summary(slot: int) -> String:
+	if not has_save(slot):
+		return "空槽位"
+	var stamp := str(_peek(slot).get("saved_at", ""))
+	# 只留到分钟，秒对玩家没意义
+	if stamp.length() >= 16:
+		stamp = stamp.substr(0, 16)
+	return "%s  %s" % [slot_name(slot), stamp]
 
 ## 原子写：先写 .tmp，落盘成功再改名成正式档；旧档先转成 .bak。
 ## 直接覆盖写在断电/关页面时会留下半个 JSON，读档就废了。
@@ -121,13 +160,22 @@ func _read_slot(slot: int) -> Dictionary:
 			return parsed
 	return {}
 
-func save(slot: int) -> void:
+## 存一个存档名（玩家自己起的名）进档里，跟着档走 —— 不另开配置文件，
+## 换机器/发存档码的时候名字也在。
+func save(slot: int, display_name: String = "") -> void:
 	if slot < 0 or slot >= MAX_SLOTS:
 		EventBus.save_failed.emit(slot, "invalid_slot")
 		return
 	var data := _collect()
 	data["version"] = SAVE_VERSION
 	data["saved_at"] = Time.get_datetime_string_from_system()
+	if display_name.strip_edges() != "":
+		data["name"] = display_name.strip_edges()
+	else:
+		# 没起名就沿用这个槽位原来的名字，别因为这次自动存档把名字洗掉。
+		# 这里特意不走 _read_slot：那条路遇到坏档会打"回退备份"的告警，
+		# 自动存档每次路过都刷一条日志太吵；名字读不到就算了。
+		data["name"] = _peek_name(slot)
 	if not _write_atomic(_save_path(slot), JSON.stringify(data, "\t")):
 		push_error("SaveSystem: 无法写入存档 %s" % _save_path(slot))
 		EventBus.save_failed.emit(slot, "write_failed")

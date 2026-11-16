@@ -247,6 +247,10 @@ func _launch() -> void:
 	var player := _get_player()
 	var up := HOP_UP
 	var aim := float(_facing)
+	# M5-15（组长反馈「怪物遇悬崖不自动走过也不追对面玩家」）：
+	# 以前只有巡逻会探落点，追击时不管前面有没有地就朝玩家跳 —— 玩家站在悬崖对面，
+	# 史莱姆会一趟趟跳进坑里。现在追击也探：这一跳会落空就停在崖边原地弹，不往前送。
+	var stop_at_edge := false
 	if _is_chasing and player != null:
 		var dx := player.global_position.x - global_position.x
 		# 落点带误差，偶尔会跳偏一点，玩家就不会觉得被吸住
@@ -255,6 +259,12 @@ func _launch() -> void:
 			# 贴脸时改成小跳短扑，别整段大跳直接砸过去
 			up = HOP_UP * 0.55
 			aim = dx * 0.5
+		var chase_dir := int(signf(aim)) if absf(aim) > 1.0 else _facing
+		if not _can_hop_toward(chase_dir):
+			stop_at_edge = true
+			_facing = chase_dir
+			aim = 0.0
+			up = HOP_UP * 0.5
 	elif not _is_chasing:
 		# 巡逻方向前方没地面、或者跳过去会落空，先掉头再跳，别跳进坑里
 		if is_on_wall() or not _edge_check.is_colliding() or not _can_hop_toward(_facing):
@@ -262,11 +272,15 @@ func _launch() -> void:
 			_aim_edge_ray()
 		if not _can_hop_toward(_facing):
 			# 两边都是悬空的窄台：原地弹一下，不往前送
-			velocity = Vector2(0.0, -up)
-			_hop_phase = PHASE_AIR
-			_hop_air_time = 0.0
-			return
-		aim = float(_facing)
+			stop_at_edge = true
+			aim = 0.0
+			up = HOP_UP * 0.5
+	if stop_at_edge:
+		_update_facing_toward(global_position.x + float(_facing))
+		velocity = Vector2(0.0, -up)
+		_hop_phase = PHASE_AIR
+		_hop_air_time = 0.0
+		return
 	if absf(aim) < 4.0:
 		aim = float(_facing) * 4.0
 	_update_facing_toward(global_position.x + aim)
@@ -416,25 +430,33 @@ func _spawn_corpse() -> void:
 	var parent := get_parent()
 	if parent == null:
 		return
+	var point := _ground_point(-4.0)
+	# 死在没底的悬崖上：探不到地面，尸体就别生成（跟着掉下去消失，别浮在半空）
+	if not point.is_finite():
+		return
 	parent.add_child(corpse)
-	corpse.global_position = _ground_point(-4.0)
+	corpse.global_position = point
 
 func _spawn_limb_pickup() -> void:
 	var pickup := LIMB_PICKUP_SCENE.instantiate()
 	var parent := get_parent()
 	if parent == null:
 		return
-	parent.add_child(pickup)
 	var point := _ground_point(-6.0)
+	if not point.is_finite():
+		return
+	parent.add_child(pickup)
 	pickup.global_position = Vector2(point.x + 12.0, point.y)
 
 ## 从死亡点竖直向下探地（只探世界层 1，排除自己），返回落地点。
-## 探不到地面（掉进无底坑）时退回死亡位置，至少不会把东西扔到地图外。
+## M5-17（组长反馈"空中被打死时尸体和掉落物停在半空"）：
+## 探不到地面时返回 (INF, INF) 表示"下面是没底的悬崖"，调用方据此**不生成**掉落 ——
+## 以前退回死亡坐标，结果尸体和肢体就悬在半空不动。
 func _ground_point(y_offset: float) -> Vector2:
 	var from := global_position + Vector2(0.0, -10.0)
 	var query := PhysicsRayQueryParameters2D.create(from, from + Vector2(0.0, 1200.0), 1)
 	query.exclude = [get_rid()]
 	var hit := get_world_2d().direct_space_state.intersect_ray(query)
 	if hit.is_empty():
-		return global_position + Vector2(0.0, y_offset)
+		return Vector2(INF, INF)
 	return Vector2(global_position.x, float(hit["position"].y) + y_offset)

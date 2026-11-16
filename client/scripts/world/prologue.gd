@@ -52,9 +52,10 @@ var _soul_haze: Polygon2D
 var _soul_tendrils: Array[Line2D] = []
 var _soul_reflection: Polygon2D
 var _soul_glow: PointLight2D
-var _heart_core: Polygon2D
-var _heart_outline: Line2D
-var _heart_cloak: Polygon2D
+var _heart_core: Sprite2D
+## M4-54：黑影的"体"换成着色器画的烟（components/shadow_mass.gd），不再有折线外框
+var _shadow: Node2D
+var _heart_cloak: Node2D
 var _soul_label: Label
 var _heart_label: Label
 var _vignette: TextureRect
@@ -69,8 +70,13 @@ var _fog_layers: Array[Dictionary] = []
 var _depth_glows: Array[Dictionary] = []
 var _mist_columns: Array[Dictionary] = []
 var _far_shards: Array[Dictionary] = []
-## 黑火的火舌（M4-29）与黑幕挖洞参数
-var _heart_licks: Array[Dictionary] = []
+## 黑幕挖洞参数（M4-54 起黑火的火舌已并入烟体着色器，不再有单独的火舌节点）
+## 胸口那点紫的默认尺寸：贴图 256px，scale = 半径(px) / 128
+const CORE_BASE := Vector2(0.062, 0.070)
+const CAVITY_BASE := Vector2(0.19, 0.21)
+## 心跳脉冲的乘数：由 _fuse 的 tween 写，_update_heart 每帧读它来算最终尺寸。
+## 这么绕是因为 scale 只能有一个写者，否则脉冲会被逐帧覆盖（见 _update_heart 注释）
+var _core_pulse := 1.0
 
 var _time := 0.0
 var _beat_index := 0
@@ -81,21 +87,40 @@ var _descending := false
 const BEAT_START := 5.0
 const BEAT_END := 1.0
 const MIST_TIME := 10.0     # 黑雾钻进身体的过程
-const FORM_TIME := 6.0      # 灵魂几何变形到角色的时间
-const FULL_FALL_HOLD := 14.0 # 成形后继续全速下落的时长（成形 6 + 14 = 全程 20 秒）
+## M4-64（组长定的新节奏）：灵魂保持原样一直往下掉，掉够一段时间后，
+## 在某一次"暗 → 亮"的拍点上**直接**变成主角（不是慢慢长），然后继续全速下落。
+const DESCENT_TIME := 30.0       # 下坠总时长（原来 20 秒，组长要再加 10 秒）
+const TRANSFORM_AT := 8.0        # 掉这么久之后遇到的下一个"暗→亮"拍点就变身
+const VOID_BLACK_TIME := 3.0     # 结尾全黑 3 秒（鼓照打）
+## 虚空里长成的主角是教学关的两倍大（镜头没动，动的是角色自身缩放）
+const KNIGHT_VOID_SCALE := 2.0
 const TERMINAL_FALL_SPEED := 1500.0 # 演出用：比角色正常下落更快，才有坠落感
 const FALL_GRAVITY := 2550.0        # 与 player.gd 的 GRAVITY 一致
-const HOLD_DARK := 1.0
 const REVEAL_TIME := 2.0
-var _desc_phase := 0            # 0 静止 / 1 下落 / 2 停在暗拍 / 3 从玩家亮起
+var _desc_phase := 0            # 0 静止 / 1 下落 / 2 结尾全黑
 var _desc_t := 0.0
 var _form_t := 0.0
+## 已经变成主角了吗（M4-64 改成拍点上一瞬间切换，不再按进度生长）
+var _transformed := false
+## 变身那一拍按的黑屏（等下一拍"亮"才撤），这段时间不要按明暗拍写 alpha
+## 变身那一拍按的黑屏（等下一拍"亮"才撤），这段时间不要按明暗拍写 alpha
+var _transform_black := false
+## M4-66：虚空下坠时斗篷的两片布（序章没有 player.gd，布料得自己驱）
+var _k_cloak_tail: Node2D
+var _k_cloak_hem: Node2D
+var _k_cape: Node2D
+var _void_wind_t := 0.0
+## 结尾那一拍：等下一次鼓点到了才砸黑（组长要求"最后一下也要进鼓"）
+var _final_pending := false
+var _black_t := 0.0
 var _fall_vy := 0.0
 var _beat_accum := 0.0
 var _beat_interval := BEAT_START
 var _beat_flash := 0.0
 var _beat_dark := false
-var _desc_zoom_from := 1.0
+var _desc_zoom_from := 1.42
+## M4-64：镜头保持原样（1.42 → 0.80），否则灵魂会跟着一起变大。
+## "主角变大两倍"改成角色自己缩放（KNIGHT_VOID_SCALE），灵魂、光核、背景都不受影响。
 var _desc_zoom_to := 0.80
 ## 亮起阶段接管黑幕半径（-1 表示仍用呼吸值）
 var _dark_radius_override := -1.0
@@ -113,15 +138,33 @@ var _tilt := 0.0
 var _bob := 0.0
 var _note_tween: Tween
 var _heart_note_tween: Tween
-## M4-28：融合后要显出的“玩家正常样子”（先做好藏在灵魂里，坠落时淡入）
+## M4-55：坠落时长出来的"玩家正常样子"。直接实例化主角的身体美术
+## （scenes/player/knight_body.tscn，player.tscn 自己也用这一份），
+## 所以"灵魂长成的角色"和"教学关里操控的角色"永远是同一副，不会各画一份后漂移。
+const KNIGHT_SCENE := preload("res://scenes/player/knight_body.tscn")
+## 生长起点：小到一个点，读起来是"从核心里长出来"而不是"放大一张画"
+const GROW_SCALE_FROM := 0.16
+## 各部件依次成形的区间（0~1，对应 _grow）：身前斗篷 → 黑身 → 头盔 → 盔壳细节。
+## M4-64 起 _grow 只有 0 和 1 两个值（拍点上一瞬间变身），所以这张表实际只在
+## "0 → 1 那一下"被用一次；留着是因为以后若要恢复"慢慢长"，改一行调用就回来了。
+## 分先后是画面的全部看头：一起淡入就是"图层变亮了"，依次长出来才是"长成一个人"。
+## 眼睛不单独列：它是头盔贴图里的像素，末尾那一下"亮起来"交给 EyeGlow
+## （_apply_growth 里 0.82~0.98 那段）。
+## 路径必须和 knight_body.tscn 里的节点名一致（M4-61 换成第二版渲染图分层后重新接的）。
+const GROW_PARTS := [
+	["Cape", 0.00, 0.30], ["CloakTail", 0.04, 0.34], ["Silhouette", 0.10, 0.40],
+	["Head", 0.12, 0.42], ["Head/Skull", 0.16, 0.44],
+]
 var _knight: Node2D
-var _k_cloak: Polygon2D
-var _k_hood: Polygon2D
-var _k_face: Polygon2D
-var _k_eye: Polygon2D
-var _k_rim: Line2D
-var _k_leg_l: Polygon2D
-var _k_leg_r: Polygon2D
+## 部件缓存：路径 → 节点。每帧按 GROW_PARTS 的区间算 alpha，不再逐个 get_node
+var _k_parts: Dictionary = {}
+## 生长进度 0~1（_update_descent_pulse 写）与魂体让位系数 0~1（_update_soul 读）
+var _grow := 0.0
+var _soul_fade := 1.0
+## 身体自带的光与兜帽里的眼灯：都按生长进度点亮，让"长出来"看得见（M4-55）
+var _k_body_glow: PointLight2D
+var _k_eye_glow: PointLight2D
+var _k_eye_energy_base := 0.35
 var _shake_timer := 0.0
 var _shake_strength := 0.0
 
@@ -137,7 +180,9 @@ func _ready() -> void:
 		_can_move = true
 		_beat_index = BEATS.size()
 		_soul_glow.texture_scale = 2.9
-		_heart_outline.modulate.a = 0.9
+		# 二周目已经见过它了：一进场就显形，不用再走近才看清
+		if _shadow != null and is_instance_valid(_shadow):
+			_shadow.call("set_reveal", 1.0)
 		_whisper_soul("……又是这里。地板还是冷的。", 2.0)
 
 # ---------- 环境 ----------
@@ -171,40 +216,35 @@ func _build_void() -> void:
 		add_child(glow)
 		_depth_glows.append({"node": glow, "a": float(spec["a"]), "speed": float(spec["speed"]), "phase": float(spec["phase"])})
 
-	# 雾柱：竖着立起来的几缕烟，边缘全用顶点 alpha 化开。
-	# 横向雾带会画出水平线，竖着的不会 —— 这一层专门用来打散“地平线”的感觉。
+	# 雾柱：竖着立起来的几缕烟。
+	# M4-54：原来是四点多边形 + 顶点 alpha，竖直边是硬的，透光时能看出一道直边。
+	# 现在用径向渐变的椭圆拉成柱，透明度全交给贴图 —— 边缘自己化开，没有边线。
 	_mist_columns.clear()
 	for i in range(5):
-		var col := Polygon2D.new()
+		var col := Sprite2D.new()
 		col.z_index = -17
 		var x := 160.0 + float(i) * 240.0
 		var w := 90.0 + float(i % 3) * 40.0
-		var top := -120.0
-		var bottom := 820.0
-		col.polygon = PackedVector2Array([
-			Vector2(x - w * 0.5, top), Vector2(x + w * 0.5, top),
-			Vector2(x + w * 0.30, bottom), Vector2(x - w * 0.35, bottom),
-		])
-		var a := 0.055 + float(i % 3) * 0.018
-		col.vertex_colors = PackedColorArray([
-			Color(0.40, 0.50, 0.62, 0.0), Color(0.40, 0.50, 0.62, 0.0),
-			Color(0.34, 0.44, 0.56, a), Color(0.34, 0.44, 0.56, a),
-		])
+		col.texture = _radial_texture()
+		col.position = Vector2(x, 350.0)
+		col.scale = Vector2(w / 256.0, 940.0 / 256.0)
+		col.modulate = Color(0.34, 0.44, 0.56, 0.055 + float(i % 3) * 0.018)
 		add_child(col)
 		_mist_columns.append({"node": col, "phase": float(i) * 1.4, "speed": 0.6 + float(i % 3) * 0.25})
 
-	# 远景碎影：几块几乎看不见的暗形，慢慢左右偏一点，制造“远处还有东西”的错觉
+	# 远景碎影：远处几团几乎看不见的暗形，慢慢左右偏一点，制造"远处还有东西"的错觉。
+	# M4-54：同样换成柔边椭圆。原来那四个尖角多边形在黑底上就是一排黑纸片，
+	# 光圈照到时边缘一根直线，比不做还出戏。
 	_far_shards.clear()
 	for i in range(6):
-		var shard := Polygon2D.new()
+		var shard := Sprite2D.new()
 		shard.z_index = -18
 		var x := 120.0 + float(i) * 210.0
 		var h := 120.0 + float(i % 3) * 70.0
-		shard.color = Color(0.028, 0.034, 0.046, 0.85)
-		shard.polygon = PackedVector2Array([
-			Vector2(x, 760), Vector2(x + 26.0, 760 - h * 0.45),
-			Vector2(x + 12.0, 760 - h), Vector2(x - 18.0, 760 - h * 0.5),
-		])
+		shard.texture = _radial_texture()
+		shard.position = Vector2(x, 760.0 - h * 0.5)
+		shard.scale = Vector2(46.0 / 256.0, h / 256.0)
+		shard.modulate = Color(0.028, 0.034, 0.046, 0.62)
 		add_child(shard)
 		_far_shards.append({"node": shard, "phase": float(i) * 0.9, "x": x})
 
@@ -306,72 +346,70 @@ func _build_soul() -> void:
 	_soul_glow.position = Vector2(0, -4)
 	_soul.add_child(_soul_glow)
 
-	# 玩家正常样子：兜帽骑士的剪影。先藏起来（透明），等融合后往下坠时淡入，
-	# 让“灵魂变成人形”这件事是渐变出来的，而不是切场景时突然换了个角色。
-	_knight = Node2D.new()
+	# M4-55：玩家正常样子 = 主角的身体美术本体（knight_body.tscn），先缩成一个点、
+	# 部件全透明地藏在灵魂里，坠落时按 GROW_PARTS 依次长出来。
+	_knight = KNIGHT_SCENE.instantiate()
 	_knight.name = "Knight"
 	_knight.position = Vector2(0, -6)
-	_knight.scale = Vector2(0.62, 0.62)
-	_knight.modulate = Color(1, 1, 1, 0.0)
+	_knight.scale = Vector2.ONE * GROW_SCALE_FROM
 	_soul.add_child(_knight)
+	_k_parts.clear()
+	for entry in GROW_PARTS:
+		var path := str(entry[0])
+		var node := _knight.get_node_or_null(path) as CanvasItem
+		if node == null:
+			push_warning("prologue: 主角身体上找不到部件 %s，这一段会缺一块" % path)
+			continue
+		_k_parts[path] = node
+		var col := node.modulate
+		col.a = 0.0
+		node.modulate = col
+	# 生长表里没列到的部件也必须先藏起来：
+	# 列漏一个，那个部件就会从第一帧起一直挂在魂体上（M4-58 加鼻梁条时就漏过一次）。
+	# 灯和挥砍弧线不算：灯要靠 energy 控制，弧线本来 visible=false。
+	for child in _knight.get_children():
+		var ci := child as CanvasItem
+		if ci == null:
+			continue
+		if _k_parts.has(str(ci.name)) or str(ci.name) in ["EyeGlow", "SlashArc", "SlashDown"]:
+			continue
+		var col2 := ci.modulate
+		col2.a = 0.0
+		ci.modulate = col2
+	# 这时候还没拿到铁剑，而且角色手里本来就不挂剑（M4-56）：剑节点已经不存在了，
+	# 这里只保留"如果有剑就藏起来"的兼容分支，防止以后又把剑加回来时忘了藏。
+	var sword := _knight.get_node_or_null("ArmPivot/SwordPivot") as Node2D
+	if sword != null:
+		sword.visible = false
+	# M4-66：虚空下坠时斗篷要飘（组长：幅度和角度都要比教学关更大）。
+	# 这里把两片布的节点先拿到手，逐帧写角度 —— 序章里的角色是"展示用"的，
+	# 没有 player.gd 那套布料逻辑，所以只能由序章自己驱。
+	_k_cloak_tail = _knight.get_node_or_null("CloakTail") as Node2D
+	_k_cloak_hem = _knight.get_node_or_null("CloakTail/CloakHem") as Node2D
+	_k_cape = _knight.get_node_or_null("Cape") as Node2D
+	# M4-71：虚空里的人**没有眼睛**（组长定的）。眼睛是单独一层，
+	# 这里直接把它压成透明，一直压到切教学关为止 —— 那边是另一份玩家实例，默认就是亮的。
+	var eyes := _knight.get_node_or_null("Head/Eyes") as CanvasItem
+	if eyes != null:
+		eyes.modulate.a = 0.0
 
-	var cloak := Polygon2D.new()
-	cloak.color = Color(0.150, 0.164, 0.186, 1.0)
-	cloak.polygon = PackedVector2Array([
-		Vector2(-13, 22), Vector2(-16, 8), Vector2(-13, -6), Vector2(-9, -16),
-		Vector2(-4, -24), Vector2(0, -27), Vector2(4, -24), Vector2(9, -16),
-		Vector2(13, -6), Vector2(16, 8), Vector2(13, 22), Vector2(5, 25), Vector2(-5, 25),
-	])
-	_k_cloak = cloak
-	_knight.add_child(cloak)
 
-	var hood := Polygon2D.new()
-	hood.color = Color(0.100, 0.110, 0.128, 1.0)
-	hood.polygon = PackedVector2Array([
-		Vector2(-10, -14), Vector2(-7, -26), Vector2(0, -30),
-		Vector2(7, -26), Vector2(10, -14), Vector2(6, -8), Vector2(-6, -8),
-	])
-	_k_hood = hood
-	_knight.add_child(hood)
-
-	# 兜帽里是空的：一团比斗篷更深的黑，只有一点眼白
-	var face := Polygon2D.new()
-	face.color = Color(0.020, 0.024, 0.030, 1.0)
-	face.polygon = _ellipse(6.5, 8.0, 12)
-	face.position = Vector2(0, -17)
-	_k_face = face
-	_knight.add_child(face)
-
-	var eye := Polygon2D.new()
-	eye.color = Color(0.90, 0.94, 0.86, 0.95)
-	eye.polygon = _ellipse(1.8, 2.6, 10)
-	eye.position = Vector2(1.6, -18)
-	_k_eye = eye
-	_knight.add_child(eye)
-
-	var rim := Line2D.new()
-	rim.width = 1.2
-	rim.default_color = Color(0.42, 0.48, 0.54, 0.55)
-	rim.points = PackedVector2Array([
-		Vector2(-13, 22), Vector2(-16, 8), Vector2(-13, -6),
-		Vector2(-9, -16), Vector2(-4, -24), Vector2(0, -27),
-	])
-	_k_rim = rim
-	_knight.add_child(rim)
-
-	# 两条腿：灵魂阶段完全透明，变形最后一段才长出来，读完就是站立的角色
-	for side in [-1, 1]:
-		var leg := Polygon2D.new()
-		leg.color = Color(0.130, 0.142, 0.162, 0.0)
-		leg.polygon = PackedVector2Array([
-			Vector2(-2.6, 22), Vector2(2.6, 22), Vector2(2.2, 30), Vector2(-2.2, 30),
-		])
-		leg.position = Vector2(5.0 * float(side), 0)
-		_knight.add_child(leg)
-		if side < 0:
-			_k_leg_l = leg
-		else:
-			_k_leg_r = leg
+	# 身体自带一盏冷光：主角美术是深色的（0.03~0.2），在虚空里没有光照就是一团黑。
+	# 魂光褪下去以后，光要跟着身体走，否则"长出来"这件事根本看不见（M4-55）。
+	var body_glow := PointLight2D.new()
+	body_glow.name = "BodyGlow"
+	body_glow.texture = _radial_texture()
+	body_glow.texture_scale = 1.8
+	body_glow.color = Color(0.72, 0.82, 0.98)
+	body_glow.energy = 0.0
+	body_glow.position = Vector2(0, -6)
+	_knight.add_child(body_glow)
+	_k_body_glow = body_glow
+	# 兜帽里那只眼睛的光也跟着生长进度走：它一亮，人物才算"活了"
+	_k_eye_glow = _knight.get_node_or_null("EyeGlow") as PointLight2D
+	if _k_eye_glow != null:
+		_k_eye_energy_base = _k_eye_glow.energy
+		_k_eye_glow.energy = 0.0
 
 # ---------- 身影 ----------
 
@@ -382,78 +420,38 @@ func _build_heart() -> void:
 	_heart.z_index = 1
 	add_child(_heart)
 
-	# M4-29 组长：寄生体的黑影改成“黑色的火焰”。
-	# 轮廓照着一团往上舔的火：底宽、腰收、顶端分几股尖，边缘故意不对齐。
-	_heart_cloak = Polygon2D.new()
-	_heart_cloak.name = "Flame"
-	_heart_cloak.color = Color(0.006, 0.007, 0.010, 1.0)
-	_heart_cloak.polygon = PackedVector2Array([
-		Vector2(-34, 92), Vector2(-46, 54), Vector2(-30, 20), Vector2(-40, -18),
-		Vector2(-18, -52), Vector2(-24, -96), Vector2(0, -124), Vector2(10, -88),
-		Vector2(24, -104), Vector2(20, -60), Vector2(38, -26), Vector2(30, 18),
-		Vector2(44, 56), Vector2(30, 94), Vector2(0, 104),
-	])
-	_heart.add_child(_heart_cloak)
+	# M4-54 组长："黑影太幼稚了，改得真实一点、质量高一点"。
+	# 原版是 15 个顶点的折线剪影 + 4 个三角形火舌 + 2 个三角尖刺 + 一圈 Line2D 外框；
+	# 镜头推到 1.4~1.7 倍时每条边都有几十像素长，看到的就是一堆直线。
+	# 现在整团交给 components/shadow_mass.gd：密度逐像素算，边缘连续化到 0、
+	# 被噪声推着缓慢翻滚、朝灵魂那一侧有一道冷色背光 —— 用体本身把轮廓读出来。
+	_shadow = preload("res://components/shadow_mass.gd").new()
+	_shadow.name = "Body"
+	_heart.add_child(_shadow)
+	# 变量名沿用 _heart_cloak：_fuse 里按 modulate:a 淡出、_update_heart 里左右微摆，
+	# 这两件事对烟体一样成立，指过去即可，不必再动那两处。
+	_heart_cloak = _shadow
 
-	# 火舌：几条会飘的细长舌头，让“黑火”是会动的，而不是一块剪影
-	_heart_licks.clear()
-	for i in range(4):
-		var lick := Polygon2D.new()
-		lick.color = Color(0.010, 0.011, 0.016, 0.85)
-		lick.position = Vector2(-24.0 + float(i) * 16.0, -70.0 - float(i % 2) * 10.0)
-		lick.polygon = PackedVector2Array([
-			Vector2(-5, 6), Vector2(-2, -26 - float(i) * 8.0), Vector2(3, -10), Vector2(6, 6),
-		])
-		_heart.add_child(lick)
-		_heart_licks.append({"node": lick, "phase": float(i) * 1.3})
-
-	var hood := Polygon2D.new()
-	hood.color = Color(0.004, 0.005, 0.008, 1.0)
-	hood.polygon = PackedVector2Array([
-		Vector2(-16, -60), Vector2(0, -84), Vector2(16, -60), Vector2(11, -42), Vector2(-11, -42),
-	])
-	_heart.add_child(hood)
-
-	for side in [-1.0, 1.0]:
-		var spike := Polygon2D.new()
-		spike.color = Color(0.008, 0.010, 0.014, 1.0)
-		spike.polygon = PackedVector2Array([
-			Vector2(side * 30, -52), Vector2(side * 58, -66), Vector2(side * 40, -34),
-		])
-		_heart.add_child(spike)
-	for i in range(5):
-		var t := Line2D.new()
-		t.width = 2.0
-		t.default_color = Color(0.014, 0.017, 0.022, 0.95)
-		var bx := -26.0 + float(i) * 13.0
-		t.points = PackedVector2Array([
-			Vector2(bx, 70), Vector2(bx + 5.0, 92.0 + float(i % 2) * 9.0), Vector2(bx - 3.0, 108.0 + float(i % 3) * 8.0),
-		])
-		_heart.add_child(t)
-
-	_heart_outline = Line2D.new()
-	_heart_outline.name = "Outline"
-	_heart_outline.width = 1.6
-	_heart_outline.default_color = Color(0.40, 0.46, 0.56, 1.0)
-	_heart_outline.modulate = Color(1, 1, 1, 0.0)
-	# 轮廓要贴着黑火的形状走，否则会在火焰外面画出一个旧版斗篷的人形
-	_heart_outline.points = PackedVector2Array([
-		Vector2(-34, 92), Vector2(-46, 54), Vector2(-30, 20), Vector2(-40, -18),
-		Vector2(-18, -52), Vector2(-24, -96), Vector2(0, -124), Vector2(10, -88),
-		Vector2(24, -104), Vector2(20, -60), Vector2(38, -26), Vector2(44, 56),
-	])
-	_heart.add_child(_heart_outline)
-
-	var cavity := Polygon2D.new()
-	cavity.color = Color(0.030, 0.020, 0.036, 1.0)
-	cavity.polygon = _ellipse(19.0, 22.0, 18)
+	# 胸口那点紫：整团黑影里唯一"看得见的器官"，心跳和说话都落在它身上。
+	# M4-54：原来是两个多边形椭圆，贴到 1.7 倍镜头下就是一个硬边圆饼；
+	# 现在用径向渐变贴图（边缘自己化开），才像是"从烟里透出来的光"。
+	# 凹坑半径约 24px、核心约 8px（贴图 256px，scale = 半径/128）
+	var cavity := Sprite2D.new()
+	cavity.name = "Cavity"
+	cavity.texture = _radial_texture()
 	cavity.position = Vector2(0, -18)
+	cavity.scale = CAVITY_BASE
+	cavity.modulate = Color(0.020, 0.014, 0.026, 0.95)
 	_heart.add_child(cavity)
-	_heart_core = Polygon2D.new()
+	# M4-54：胸口那点紫改成 Sprite2D + 径向渐变，尺寸语义跟着变了：
+	# 贴图是 256px，scale = 半径(px)/128，所以 7.5px 的核心是 0.06 这一档。
+	# 这两个常量就是"默认大小"，动画只写乘数，不去动 scale 本身。
+	_heart_core = Sprite2D.new()
 	_heart_core.name = "Core"
-	_heart_core.color = Color(0.66, 0.50, 0.78, 0.62)
-	_heart_core.polygon = _ellipse(7.5, 8.5, 12)
+	_heart_core.texture = _radial_texture()
 	_heart_core.position = Vector2(0, -18)
+	_heart_core.scale = CORE_BASE
+	_heart_core.modulate = Color(0.66, 0.50, 0.78, 0.62)
 	_heart.add_child(_heart_core)
 
 # ---------- UI ----------
@@ -538,6 +536,7 @@ func _process(delta: float) -> void:
 	if _desc_phase == 0 and _fused:
 		_camera.position = _camera.position.lerp(_soul.global_position, 1.0 - exp(-4.0 * delta))
 	_update_descent_pulse(delta)
+	_update_void_cloth(delta)
 	_update_void()
 	_update_soul(delta)
 	_update_heart(delta)
@@ -620,7 +619,17 @@ func _update_soul(delta: float) -> void:
 	var breath := sin(_bob * 1.5) * 0.06
 	_soul_core.scale = Vector2(1.0 + breath, 1.0 - breath * 0.6)
 	_soul_haze.scale = Vector2(1.0 - breath * 0.5, 1.0 + breath * 0.8)
-	_soul_haze.modulate.a = 0.85 + sin(_bob * 1.1) * 0.15
+	# M4-55：魂体的透明度一律乘上 _soul_fade。生长一开始它就得让位给长出来的身体，
+	# 这里若直接写死 alpha，_apply_growth 算出来的让位会被这一行每帧盖掉。
+	_soul_haze.modulate.a = (0.85 + sin(_bob * 1.1) * 0.15) * _soul_fade
+	_soul_core.modulate.a = _soul_fade
+	if _soul_glow != null and is_instance_valid(_soul_glow):
+		_soul_glow.energy = (1.15 + sin(_bob * 1.4) * 0.12) * _soul_fade
+	for t in _soul_tendrils:
+		if t != null and is_instance_valid(t):
+			var col := t.modulate
+			col.a = _soul_fade
+			t.modulate = col
 	if not _descending:
 		_soul.position.y = SOUL_START.y + sin(_bob * 0.9) * 6.0
 	_tilt = lerpf(_tilt, _drift * TILT_PER_SPEED, 0.12)
@@ -643,22 +652,61 @@ func _update_heart(_delta: float) -> void:
 	if _heart == null or not is_instance_valid(_heart):
 		return
 	var beat := sin(_time * 1.85) * 0.5 + 0.5
-	_heart_core.scale = Vector2(0.9 + beat * 0.35, 0.9 + beat * 0.35)
-	_heart_core.modulate.a = 0.45 + beat * 0.35
-	if _soul != null and is_instance_valid(_soul) and not _fused:
+	# 胸口的紫：尺寸只由这里写（M4-54 踩过的坑 —— 换 Sprite2D 后 scale=1.9 不再是
+	# "1.9 倍"，而是 1.9×256px 的大白团；另外 _fuse 的心跳脉冲如果也去 tween scale，
+	# 就成了一个属性两个写者，脉冲会被这一行逐帧盖掉。改成写乘数 _core_pulse）
+	_heart_core.scale = Vector2(CORE_BASE.x, CORE_BASE.y) * (0.9 + beat * 0.35) * _core_pulse
+	_heart_core.modulate.a = (0.45 + beat * 0.35) * clampf(_core_pulse, 0.0, 1.6)
+	# 走近才显形：远的时候只剩一层很淡的黑（0.25），贴到跟前才压实。
+	# 显形靠烟体自己的密度，不再画外框 —— 一画外框就又变回"贴纸"。
+	if _shadow != null and is_instance_valid(_shadow) and _soul != null and is_instance_valid(_soul):
 		var dist := _soul.global_position.distance_to(_heart.global_position)
 		var reveal := clampf((REVEAL_DISTANCE - dist) / REVEAL_DISTANCE, 0.0, 1.0)
-		_heart_outline.modulate.a = reveal * 0.35 + beat * 0.05
-	_heart_cloak.position.x = sin(_time * 0.7) * 2.4
-	# 黑火：火舌各自飘、长度一起一伏，像在往上舔
-	for item in _heart_licks:
-		var lick := item["node"] as Polygon2D
-		if lick == null or not is_instance_valid(lick):
-			continue
-		var ph := _time * (1.6 + float(item["phase"]) * 0.3) + float(item["phase"])
-		lick.rotation = sin(ph) * 0.14
-		lick.scale = Vector2(1.0 + sin(ph * 0.7) * 0.18, 1.0 + sin(ph) * 0.22)
-	_heart.scale = Vector2(1.0 + sin(_time * 0.5) * 0.012, 1.0 + sin(_time * 0.5 + 1.2) * 0.012)
+		_shadow.call("set_reveal", 0.25 + reveal * 0.75 + beat * 0.03)
+		# 灵魂在哪一侧，背光就落在哪一侧（着色器要的是体的局部坐标）
+		_shadow.call("set_light_local", to_local(_soul.global_position) - _heart.position)
+	# 整团被气流推着左右晃，不是钉在地上一动不动的剪影
+	if _heart_cloak != null and is_instance_valid(_heart_cloak):
+		_heart_cloak.position.x = sin(_time * 0.7) * 3.2
+	_heart.scale = Vector2(1.0 + sin(_time * 0.5) * 0.012, 1.0 + sin(_time * 0.5 + 1.2) * 0.014)
+
+## 生长进度（0~1）：一次写完"身体到哪一步"和"魂体让了多少位"。
+## 只让这一个函数写 scale 与 alpha，_update_soul 只读 _soul_fade —— 一个属性一个写者，
+## 否则呼吸的逐帧赋值会把生长结果盖掉（黑影那边刚踩过同一个坑）。
+func _apply_growth(k: float) -> void:
+	_grow = clampf(k, 0.0, 1.0)
+	# 先慢后快再收：前半段在"攒形体"，后半段一口气站起来，末尾减速免得定格太硬
+	var e := _grow * _grow * (3.0 - 2.0 * _grow)
+	if _knight != null and is_instance_valid(_knight):
+		# M4-64：虚空里长成的角色是教学关的两倍大（镜头没动，灵魂也就没变大）
+		_knight.scale = Vector2.ONE * lerpf(GROW_SCALE_FROM, KNIGHT_VOID_SCALE, e)
+		for entry in GROW_PARTS:
+			var node: CanvasItem = _k_parts.get(str(entry[0]))
+			if node == null or not is_instance_valid(node):
+				continue
+			var from := float(entry[1])
+			var to := float(entry[2])
+			var a := clampf((_grow - from) / maxf(to - from, 0.001), 0.0, 1.0)
+			var col := node.modulate
+			if not is_equal_approx(col.a, a):
+				col.a = a
+				node.modulate = col
+	# 魂体让位：前半段就褪干净，别和刚长出来的身体抢画面。
+	# 1.6 而不是 2.4：褪得太快会出现"魂没了、身体才长了一半"的空档
+	_soul_fade = clampf(1.0 - _grow * 1.6, 0.0, 1.0)
+	# 光跟着身体走：魂光褪下去时，身体自己带的光接上来，否则深色美术在虚空里等于隐形
+	if _k_body_glow != null and is_instance_valid(_k_body_glow):
+		_k_body_glow.energy = 0.95 * e
+	if _k_eye_glow != null and is_instance_valid(_k_eye_glow):
+		var eye_a := clampf((_grow - 0.82) / 0.16, 0.0, 1.0)
+		_k_eye_glow.energy = _k_eye_energy_base * eye_a
+
+
+## 化雾进度（0~1）：从外缘往里被抽走。用 tween_method 推，是为了让"被抽干"
+## 有一个连续的过程，而不是到点整团消失。
+func _set_shadow_dissolve(v: float) -> void:
+	if _shadow != null and is_instance_valid(_shadow):
+		_shadow.call("set_dissolve", v)
 
 # ---------- 移动 / 触碰 ----------
 
@@ -714,25 +762,31 @@ func _fuse() -> void:
 	_shake(1.2, 9.0)
 	_whisper_heart("……你碰到我了。", 2.2)
 
-	# 心跳加速：越靠近越快、越亮
+	# 心跳加速：越靠近越快、越亮。
+	# M4-54：不再 tween _heart_core.scale —— 尺寸归 _update_heart 写，
+	# 这里只推乘数 _core_pulse，否则两处写同一个属性，脉冲会被逐帧盖掉。
 	var pulse_tw := create_tween()
 	pulse_tw.set_loops(6)
-	pulse_tw.tween_property(_heart_core, "scale", Vector2(1.9, 1.9), 0.24)
-	pulse_tw.parallel().tween_property(_heart_core, "modulate:a", 1.0, 0.24)
-	pulse_tw.tween_property(_heart_core, "scale", Vector2(1.2, 1.2), 0.24)
-	pulse_tw.parallel().tween_property(_heart_core, "modulate:a", 0.6, 0.24)
+	pulse_tw.tween_property(self, "_core_pulse", 1.45, 0.24)
+	pulse_tw.tween_property(self, "_core_pulse", 0.95, 0.24)
 
 	var start := _heart.position
 	var target := _soul.position + Vector2(0, -14)
 	var tw := create_tween()
 	tw.tween_interval(1.1)
 	tw.tween_callback(func() -> void: _whisper_heart("别急着明白。先把这只手接过去。", 2.2))
-	# M4-41：不再"扑过来三次、每次放大缩小"。本心在原地直接化成一整片黑雾，
-	# 由雾自己去收束成漏斗钻进胸口（视觉交给 mist_funnel）。
+	# M4-41：不再"扑过来三次、每次放大缩小"。本心在原地直接化成黑烟，
+	# 由烟自己收进胸口（视觉交给 components/shadow_mass.gd + dark_swarm.gd）。
 	tw.tween_callback(_heart_scatter)
-	# 黑雾钻进身体的过程放慢到 10 秒
-	tw.tween_property(_heart, "scale", Vector2(0.22, 0.22), MIST_TIME)
-	tw.parallel().tween_property(_heart, "position", target, MIST_TIME)
+	# 黑雾钻进身体的过程放慢到 10 秒。
+	# M4-54：不再把整团缩成一个点（那是"贴纸缩小"，不是被抽干），
+	# 改成外缘一路往里被抽走；位置仍然慢慢被拽向胸口，留下"被拖过去"的感觉。
+	tw.tween_method(_set_shadow_dissolve, 0.0, 1.0, MIST_TIME)
+	tw.parallel().tween_property(_heart, "scale", Vector2(0.62, 0.62), MIST_TIME)
+	# M4-54：前 3.6 秒就压到身上，之后停在那儿被慢慢抽干。
+	# 原本用满 10 秒挪过去，结果整段时间它都停在光圈外，玩家只看见几粒黑点，
+	# 根本看不见"有个东西在吃你"—— 这段演出真正要看的就是这一下。
+	tw.parallel().tween_property(_heart, "position", target, 3.6)
 	tw.parallel().tween_property(_heart_cloak, "modulate:a", 0.0, MIST_TIME)
 	tw.tween_callback(_after_fuse)
 
@@ -821,10 +875,11 @@ func _after_fuse() -> void:
 # 你一边往下坠，身上那层灰白的魂光一边褪掉、显出兜帽骑士的轮廓，
 # 最后带着速度砸进教学关（教学关那边 _drop_in 接住，落地扬尘）。
 
-## M4-39：附身之后是一镜到底的 60 秒下落演出。
-## 躯干从灵魂形长成主角模样，镜头始终把人放在画面中间并缓慢拉远，
-## 环境明暗跟着鼓点走（5s 一拍渐快到 1s 一拍），落地前停在"暗"的那一拍，
-## 静一秒后从玩家身上向外亮起，直接接教学关。
+## M4-39：附身之后是一镜到底的下落演出。
+## M4-64（组长定的新节奏）：灵魂保持原样一直往下掉；掉够 TRANSFORM_AT 之后，
+## 在某一次"暗 → 亮"的拍点上**直接**变成主角（不是慢慢长出来），然后继续全速下落；
+## 掉满 DESCENT_TIME 之后的**下一拍**把画面砸成全黑（"最后一下也进鼓"），
+## 全黑维持 VOID_BLACK_TIME 秒、鼓照打，再切教学关（那边一开始也靠鼓接住）。
 func _begin_descent() -> void:
 	if _descending:
 		return
@@ -834,9 +889,14 @@ func _begin_descent() -> void:
 	_desc_phase = 1
 	_desc_t = 0.0
 	_form_t = 0.0
+	_transformed = false
+	_transform_black = false
+	_final_pending = false
+	_black_t = 0.0
 	_fall_vy = 0.0
 	_cam_following = false
-	# 从当前 zoom 接着往下拉远：融合时推到了 1.42，直接复位到 1.0 会"跳一下"
+	# 镜头从融合时的位置接着拉远（1.42 → 0.80）。灵魂、光核、背景都保持原来的大小，
+	# "主角两倍大"由角色自己的 scale 负责 —— 这样灵魂不会被镜头一起放大（组长点名要的）。
 	_desc_zoom_from = _camera.zoom.x
 	_beat_accum = _beat_interval
 	_build_pulse_rect()
@@ -848,12 +908,9 @@ func _begin_descent() -> void:
 			if n != null and is_instance_valid(n):
 				n.visible = false
 
-	# 魂光褪掉，留下轮廓；真正长成角色由 _update_descent_pulse 里的交叉淡入完成
-	var tw := create_tween()
-	tw.set_parallel(true)
-	tw.tween_property(_soul_core, "modulate:a", 0.0, 2.0)
-	tw.tween_property(_soul_haze, "modulate:a", 0.0, 2.0)
-	tw.tween_property(_knight, "modulate:a", 0.0, 1.5)
+	# 魂光褪掉、身体长出来，都由 _apply_growth 按同一进度推进（不再各自 tween：
+	# 一个属性两个写者，表现就是"有时长出来、有时卡住"）
+	_apply_growth(0.0)
 
 
 
@@ -863,33 +920,29 @@ func _update_descent_pulse(delta: float) -> void:
 	if _desc_phase == 0:
 		return
 	_beat_flash = maxf(_beat_flash - delta * 3.2, 0.0)
-	if _desc_phase != 1:
+
+	# 结尾全黑那 3 秒：人不再往下掉，只有鼓还在打，打满就切场景。
+	# 鼓必须一直响到教学关接手为止（组长："鼓不要停，在教学关时停"）。
+	if _desc_phase == 2:
+		_black_t += delta
+		_tick_beat(delta, 1.0)
+		if _black_t >= VOID_BLACK_TIME:
+			_leave()
 		return
 
 	_form_t += delta
-	var total := FORM_TIME + FULL_FALL_HOLD
-	var k := clampf(_form_t / total, 0.0, 1.0)
 
 	# 物理下落：重力加速到终端速度
 	_fall_vy = minf(_fall_vy + FALL_GRAVITY * delta, TERMINAL_FALL_SPEED)
 	_soul.position.y += _fall_vy * delta
 
-	# M4-49：下落的只有"灵魂"本身（发光核 + 飘带），形体变化搬到教学关去做：
-	# 灵魂掉进躺着的主角身体 → 人起身。这里不再让斗篷长成角色。
-	_knight.modulate.a = 0.0
+	# 变身之前灵魂保持原样（_grow 一直是 0），变身后直接满格 —— 没有中间态
+	_apply_growth(1.0 if _transformed else 0.0)
 
-	# 鼓点：间隔收紧 + 音量渐强
-	# 线性收紧到 1 秒一拍，然后**保持 5 秒**不再变化
-	var ramp_span := maxf(total - 5.0, 0.1)
-	var ramp := clampf(_form_t / ramp_span, 0.0, 1.0)
-	_beat_interval = lerpf(BEAT_START, BEAT_END, ramp)
-	_beat_accum += delta
-	if _beat_accum >= _beat_interval:
-		_beat_accum = 0.0
-		# 响一次切换一次：明 ↔ 暗，而不是"闪一下再回来"
-		_beat_dark = not _beat_dark
-		_beat_flash = 1.0 if _beat_dark else 0.0
-		GameManager.play_sfx("drum", lerpf(-16.0, -2.0, k), 1.0)
+	# 鼓点：从 5s 一拍线性收紧到 1s 一拍，之后一直保持 1s 一拍
+	var ramp_span := maxf(DESCENT_TIME - 5.0, 0.1)
+	_beat_interval = lerpf(BEAT_START, BEAT_END, clampf(_form_t / ramp_span, 0.0, 1.0))
+	_tick_beat(delta, clampf(_form_t / DESCENT_TIME, 0.0, 1.0))
 
 	# 镜头：先平滑靠过去（避免一帧瞬移=闪现），再用"速度前馈 + 残差修正"紧跟。
 	# 只用 lerp 会恒定落后 v/rate（900px/s 时差 180px），人就被甩到画面上方。
@@ -898,7 +951,8 @@ func _update_descent_pulse(delta: float) -> void:
 	var err := _soul.global_position - _camera.position
 	_camera.position += err * (1.0 - exp(-12.0 * delta))
 	_camera.offset = Vector2.ZERO
-	_camera.zoom = Vector2.ONE * lerpf(_desc_zoom_from, _desc_zoom_to, k)
+	_camera.zoom = Vector2.ONE * lerpf(_desc_zoom_from, _desc_zoom_to,
+		clampf(_form_t / DESCENT_TIME, 0.0, 1.0))
 
 	# 背景：以镜头为中心循环滚动，落下多久都不会露底
 	if _descent_bg != null:
@@ -909,28 +963,91 @@ func _update_descent_pulse(delta: float) -> void:
 			var y := fposmod(float(it["y0"]) - _bg_scroll + 1400.0, span) - 1400.0
 			(it["node"] as Node2D).position.y = y
 
-	_dark_radius_override = 104.0 + 300.0 * k
-	if _pulse_rect != null:
+	_dark_radius_override = 104.0 + 300.0 * clampf(_form_t / DESCENT_TIME, 0.0, 1.0)
+	# 注意：_tick_beat 里可能已经把画面砸成全黑了（phase 翻成 2，或正在变身那一拍的黑屏），
+	# 这时候再按明暗拍写 alpha 会把它改回 0.62 —— 黑就"闪了一下"。
+	if _pulse_rect != null and _desc_phase == 1 and not _transform_black:
 		_pulse_rect.color.a = 0.62 if _beat_dark else 0.0
 
-	# 成形后再保持全速下落 3 秒，然后压黑交接
-	if _form_t >= total:
-		_desc_hold_dark()
+	# 掉满之后不立刻砸黑：等下一次鼓点（_tick_beat 里处理），这样"最后一下"是踩着鼓的
+	if _form_t >= DESCENT_TIME:
+		_final_pending = true
 
-## 收尾：整屏压黑，停一拍，直接切教学关
-## （教学关自己在黑暗里接住玩家，落 2 秒再亮起来）
-func _desc_hold_dark() -> void:
+## 虚空下坠时的斗篷（M4-66）：风是从下往上灌的，所以布不是"轻轻摆"，
+## 而是被整片掀起来、还在抖。组长要求幅度和角度都比教学关大一截，具体是：
+##   角度基线：上段 +0.85 rad、下摆 +1.25 rad（约 49°/72°，布几乎被吹平）
+##   抖动：上段 ±0.28、下摆 ±0.42（两块错开相位，不然像一块硬板）
+##   斜切：上段 ±0.12、下摆 ±0.26（布被风推着横向走）
+##   横移：下摆再整体往后错一点，读作"布被甩到身后"
+## 变身之前角色是隐形的，这段动画只在变身后才看得见，所以直接跟着 _transformed 走。
+func _update_void_cloth(delta: float) -> void:
+	if _knight == null or not is_instance_valid(_knight):
+		return
+	if _k_cloak_tail == null or _k_cloak_hem == null:
+		return
+	# 布在风里要有"自己的节奏"：频率和鼓点无关，否则每一下都像被鼓抽了一下
+	_void_wind_t += delta
+	var t := _void_wind_t
+	var fade := clampf(_grow, 0.0, 1.0)   # 没变身时布还是坏的，不用管
+	var swing_a := sin(t * 2.6) * 0.25 + sin(t * 4.3 + 1.1) * 0.08
+	var swing_b := sin(t * 3.1 - 0.9) * 0.22 + sin(t * 5.2 + 0.5) * 0.06
+	var gust_a := sin(t * 2.2 + 0.7) * 0.10
+	var gust_b := sin(t * 2.2 - 0.5) * 0.16
+	_k_cloak_tail.rotation = (0.85 + swing_a) * fade
+	_k_cloak_tail.skew = gust_a * fade
+	# 下摆现在是上段节点的**子节点**：上段转多少它就跟多少，这里只加"自己多甩一点"，
+	# 所以接缝处永远是连着的（组长要的"下面那节接在上面那节上"）。
+	_k_cloak_hem.rotation = (0.18 + swing_b) * fade
+	_k_cloak_hem.skew = gust_b * fade
+	# 身后那片斗篷也是布，跟着一起掀；幅度小一点，免得把黑影露缝
+	if _k_cape != null:
+		_k_cape.rotation = (0.75 + swing_b) * fade
+		_k_cape.skew = gust_b * 0.6
+
+## 鼓点推进：到点就换一次明暗、放一声鼓，并顺手办两件"必须卡在鼓点上"的事 ——
+## ① 变身为主角（在"暗 → 亮"的那一下，亮起来时人已经是骑士了）
+## ② 结尾砸黑（掉满 DESCENT_TIME 之后的第一拍）
+func _tick_beat(delta: float, k: float) -> void:
+	_beat_accum += delta
+	if _beat_accum < _beat_interval:
+		return
+	_beat_accum = 0.0
+	_beat_dark = not _beat_dark
+	_beat_flash = 1.0 if _beat_dark else 0.0
+	GameManager.play_sfx("drum", lerpf(-16.0, -2.0, k), 1.0)
+
+	# 变身那一拍：直接按成全黑，黑着的时候把灵魂换成主角；等下一拍"亮"的时候再撤黑，
+	# 所以人是"在全黑里换的"，亮起来那一下已经在画面里的是骑士。
+	# M4-65（组长原话：那一拍就是全屏直接按，然后亮的时候再出来）。
+	if not _transformed and _form_t >= TRANSFORM_AT and _beat_dark:
+		_transformed = true
+		_apply_growth(1.0)
+		_transform_black = true
+		if _pulse_rect != null:
+			_pulse_rect.color.a = 1.0
+	elif _transform_black and not _beat_dark:
+		# 下一拍"亮"：撤黑，画面里已经是换了人的骑士（黑着的这几拍完成了换人）
+		_transform_black = false
+		if _pulse_rect != null:
+			_pulse_rect.color.a = 0.0
+	if _desc_phase == 1 and _final_pending and _form_t >= DESCENT_TIME:
+		_desc_final_hit()
+
+## 结尾那一拍：直接砸成全黑（不是渐变），然后开始计时 3 秒。
+## 鼓不在这里停 —— 停鼓就等于"人还没进关，声音先没了"。
+func _desc_final_hit() -> void:
 	if _desc_phase != 1:
 		return
 	_desc_phase = 2
+	_black_t = 0.0
+	_final_pending = false
 	_beat_flash = 0.0
+	if _pulse_rect != null:
+		_pulse_rect.color.a = 1.0
 	_beat_accum = 0.0
-	var tw := create_tween()
-	tw.tween_property(_pulse_rect, "color:a", 1.0, 0.45)
-	tw.tween_interval(HOLD_DARK)
-	tw.tween_callback(_leave)
 
-## 从玩家向外亮：黑幕挖洞半径撑开，暗角褪到只剩一点，然后进教学关
+## （M4-64 起结尾不再"亮回来再切"，而是砸黑 → 鼓打满 3 秒 → 直接切教学关。
+## 这个函数留着给以后想恢复"从玩家向外亮"的版本用，目前没有调用点。）
 func _desc_reveal() -> void:
 	_desc_phase = 3
 	var tw := create_tween()

@@ -1,29 +1,41 @@
 extends Area2D
 ## 篝火（休息点）
 ##
-## 每张地图中段放一座：走累了在火边坐下，血回满。
-## 和祭坛不同，篝火不推进剧情、不消耗任何东西，纯补给点 ——
-## 玩家不用为了补血专门跑回起点。
+## 每张地图中段放一座：走累了在火边歇一会儿，回 1 颗心。
+## 和祭坛不同，篝火不推进剧情、不消耗任何东西 —— 玩家不用为了补血专门跑回起点。
 ##
 ## 视觉全部用代码画（石圈 + 柴堆 + 跳动火焰 + 火星 + 暖光），和场景里其它物件同一套画法。
 ## 交互：站进范围按 K 休息；对话/过场锁定输入时不响应。
+##
+## M5-02（组长反馈）：按 K 之后人不该被压缩/蹲下，要**原地不动**；一次只回 1 颗心；
+## 休息完这一堆火会自己慢慢熄掉（同一座火只能歇一次）。
 
 const FONT_PATH := "res://assets/fonts/NotoSansCJKsc-Regular.otf"
 const INTERACT_ACTION := "interact"
 const InteractionPrompt := preload("res://components/interaction_prompt.gd")
 
 const PROMPT_TEXT := "在火边休息（K）"
-const RESTED_TEXT := "生命已恢复"
+const RESTED_TEXT := "回了 1 颗心，火慢慢熄了"
+const DEAD_TEXT := "火已经熄了"
 const FEEDBACK_TIME := 1.6
+## 一次休息回几颗心（组长定：1 颗）
+const REST_HEAL := 1
+## 熄火用多久：慢慢暗下去，不是"啪"一下就没了
+const DIE_TIME := 4.0
 
 var _prompt: Label
 var _glow: PointLight2D
 var _flames: Array[Polygon2D] = []
 var _embers: CPUParticles2D
+var _logs: Node2D
 var _time := 0.0
 var _player_near := false
 var _feedback_timer := 0.0
 var _flare := 0.0
+## 火还剩多少（1 = 烧着，0 = 熄了）。休息一次从 1 掉到 0。
+var _fire_life := 1.0
+var _dying := false
+var _rested := false
 
 func _ready() -> void:
 	collision_layer = 0
@@ -178,11 +190,11 @@ func _process(delta: float) -> void:
 	_update_flames(delta)
 	if _glow != null:
 		var breathe := 1.0 + sin(_time * 3.1) * 0.06 + sin(_time * 7.7) * 0.03
-		_glow.energy = (1.15 + _flare * 0.9) * breathe
-	if _feedback_timer > 0.0:
+		_glow.energy = (1.15 + _flare * 0.9) * breathe * _fire_life
+	if _feedback_timer > 0.0 and not _dying:
 		_feedback_timer -= delta
 		if _feedback_timer <= 0.0 and _player_near:
-			_prompt.text = PROMPT_TEXT
+			_prompt.text = DEAD_TEXT if _rested else PROMPT_TEXT
 
 func _update_flames(delta: float) -> void:
 	for flame in _flames:
@@ -195,7 +207,8 @@ func _update_flames(delta: float) -> void:
 		var sway := sin(_time * speed + phase) * 3.2 + sin(_time * speed * 2.3 + phase) * 1.1
 		var lean := sin(_time * speed * 0.7 + phase) * 2.4
 		var grow := 1.0 + _flare * 0.55 + sin(_time * 5.0 + phase) * 0.04
-		flame.polygon = _flame_polygon(w, h * grow, sway, lean)
+		# 熄火时火舌直接按剩余"火命"缩放：火变小、变矮，最后剩一点蓝灰的余烬
+		flame.polygon = _flame_polygon(w * _fire_life, h * grow * _fire_life, sway, lean)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not _player_near:
@@ -207,28 +220,40 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if _player_input_locked():
 		return
+	if _rested:
+		return
 	_rest()
 
-## 休息：回满血 + 火焰窜一下 + 一行反馈
+## 休息：回 1 颗心 + 火焰窜一下（随即慢慢熄掉）+ 一行反馈。
+## M5-02：**不动角色**——组长要"原地不动"，所以这里不调 sit_rest（那套蹲坐放剑的表演已废弃）。
 func _rest() -> void:
-	var player := get_tree().get_first_node_in_group("player")
-	if player == null or not player.has_method("heal_full"):
+	if _rested:
 		return
-	var healed := int(player.call("heal_full"))
-	# 坐在火边：身体压低一会儿（玩家按方向键会立刻起身）
-	if player.has_method("sit_rest"):
-		player.call("sit_rest", 2.2)
+	var player := get_tree().get_first_node_in_group("player")
+	if player == null or not player.has_method("heal"):
+		return
+	var healed := int(player.call("heal", REST_HEAL))
 	_flare = 1.0
 	GameManager.play_sfx("heal", -2.0)
 	EventBus.log_event("campfire_rest", {"healed": healed})
-	_prompt.text = RESTED_TEXT if healed > 0 else "火光很暖。你歇了一会儿。"
+	_prompt.text = RESTED_TEXT if healed > 0 else DEAD_TEXT
 	_feedback_timer = FEEDBACK_TIME
+	# 这一堆火用完了：慢慢暗下去，火星也跟着停
+	_rested = true
+	_dying = true
+	var tw := create_tween()
+	tw.tween_method(func(v: float) -> void: _fire_life = v, _fire_life, 0.0, DIE_TIME) \
+		.set_trans(Tween.TRANS_SINE)
+	tw.tween_callback(func() -> void:
+		_dying = false
+		if _embers != null and is_instance_valid(_embers):
+			_embers.emitting = false)
 
 func _on_body_entered(body: Node2D) -> void:
 	if not body.is_in_group("player"):
 		return
 	_player_near = true
-	_prompt.text = PROMPT_TEXT
+	_prompt.text = DEAD_TEXT if _rested else PROMPT_TEXT
 	_prompt.visible = true
 
 func _on_body_exited(body: Node2D) -> void:

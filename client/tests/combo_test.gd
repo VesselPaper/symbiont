@@ -69,7 +69,7 @@ func _run() -> void:
 	await _press_attack()
 	_check(_step() == 0, "0.06s 内连按竟然跳了段（实际 %d）" % _step())
 	# 没重新起手的话，动作时钟是接着走的（>0.09）；重新起手会被清回 ~0.05
-	_check(absf(_timer() - 0.42) > 0.02, "0.06s 内连按把动作重新起手了（timer=%.2f）" % _timer())
+	_check(absf(_timer_left() - 0.42) > 0.02, "0.06s 内连按把动作重新起手了（剩余=%.2f）" % _timer_left())
 
 	print("[combo] %s" % ("PASS" if not _failed else "FAIL"))
 	quit(0 if not _failed else 1)
@@ -78,8 +78,15 @@ func _run() -> void:
 func _step() -> int:
 	return int(_player.get("_combo_step"))
 
-func _timer() -> float:
+## "还剩多少"——只有"有没有被重新起手"这类判断需要它（起手会把剩余时间顶回去）
+func _timer_left() -> float:
 	return float(_player.get("_attack_anim_timer"))
+
+## "这一段动作有多长"读 _attack_anim_total（起手时写死、不随时间衰减）。
+## 原来读 _attack_anim_timer 是"还剩多少"，而按一次键要跨 3 个物理帧才读得到，
+## 一帧 1/60 秒的衰减会把它吃掉，测试就随帧率飘（M5-07 在攻击入口加了输入闩之后翻的正是这个）。
+func _timer() -> float:
+	return float(_player.get("_attack_anim_total"))
 
 func _arc_radius() -> float:
 	var slash := _player.get_node_or_null("Body/SlashArc") as Line2D

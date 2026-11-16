@@ -24,6 +24,9 @@ var _visual: Node2D
 var _rope: Line2D
 var _handle: Polygon2D
 var _time := 0.0
+## M5-09（组长要求）：得先跟守钟人聊过才能拉绳。
+## 旗标由 watchman.gd 在对话开始时写；读档会恢复 flags，所以读过档不用再聊一遍。
+const TALKED_FLAG := "floor1_watchman_talked"
 
 func _ready() -> void:
 	# 显式开输入，别依赖节点默认状态；F6 直开场景时也要能收到 F3/K
@@ -92,6 +95,13 @@ func _process(delta: float) -> void:
 	# 钟绳只负责“拉钟”这一件事（M4-18 组长反馈：别把翻旁白的提示挂在绳子上）。
 	# 旁白在播时 K 归对话，绳子的提示就收起来，免得两处提示各说一句。
 	_prompt.visible = _in_range and not _rung and not DialogueLocator.is_playing(_dialogue)
+	# 还没跟守钟人说过话：提示改成"先去聊"，别让人以为是绳子坏了
+	if _prompt.visible:
+		_prompt.text = "K 拉钟绳" if _can_ring() else "先跟守钟人说话"
+
+## 能不能拉：默认要先聊过守钟人（组长定的顺序：先知道绳子的来历，再扯它）
+func _can_ring() -> bool:
+	return GameManager.has_flag(TALKED_FLAG) or _rung
 
 ## body_entered 在传送、读档、出生点重叠时偶尔会漏；每帧按玩家实际距离再兜一层，
 ## 保证“人站在钟下”就一定进范围。范围仍限制在钟体附近，不覆盖守钟人。
@@ -123,6 +133,9 @@ func _input(event: InputEvent) -> void:
 	if not key.is_action_pressed(INTERACT_ACTION):
 		return
 	if DialogueLocator.is_active(_dialogue):
+		return
+	# M5-09：没跟守钟人聊过，按 K 不拉绳（提示已经在 _process 里换成了"先跟守钟人说话"）
+	if not _can_ring():
 		return
 	if controller.has_method("ring_bell"):
 		GameManager.play_sfx("chain", -3.0)

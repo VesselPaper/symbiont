@@ -64,12 +64,10 @@ func _check_arena() -> void:
 func _check_floor1() -> void:
 	_check(_level.get_node_or_null("WeaponPickup") == null,
 		"第一层复活点不该再放一把地上的剑，和手持剑重复")
-	# 第一层祭坛调查点的“K 调查”也必须压在道具上
-	var inspect := _level.get_node_or_null("InspectPoints/AltarInspect")
-	var inspect_prompt: Label = inspect.get_node_or_null("Prompt") if inspect != null else null
-	_check(inspect_prompt != null, "第一层祭坛调查点缺少提示")
-	if inspect_prompt != null:
-		_check(int(inspect_prompt.z_index) >= 4, "调查提示被道具挡住 z=%d" % inspect_prompt.z_index)
+	# M5-08：第一层祭坛前面那个 K 调查点已经按组长要求删了，
+	# 这里改成反过来钉一句"别再挂回来"（两段提示叠在同一点玩家会懵）。
+	_check(_level.get_node_or_null("InspectPoints/AltarInspect") == null,
+		"第一层祭坛调查点又被加回来了（会和祭坛自己的 K 提示叠在一起）")
 	for path in ["Mechanisms/Watchman", "Mechanisms/BellMechanism"]:
 		var holder := _level.get_node_or_null(path)
 		var prompt: Label = holder.get_node_or_null("Prompt") if holder != null else null

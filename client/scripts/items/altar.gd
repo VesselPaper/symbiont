@@ -122,25 +122,29 @@ func try_restore() -> bool:
 	return true
 
 ## 献祭演出：肢体从玩家身上飞进石碗，紫雾/触须收拢，祭坛亮一下，再淡掉。
-## 逻辑在 record_sacrifice 时已经完成，动画只负责让玩家看见“交出去了什么”。
+## 逻辑在 record_sacrifice 时已经完成，动画只负责让玩家看见"交出去了什么"。
+##
+## M5-08（组长反馈「献祭后角色后方不应新增肢体」）：
+## 原来肢体是从**玩家身上**长出来再飞进碗里 —— 主角没有手臂，那一截东西贴在背上，
+## 读起来就成了"献祭长了个新肢体"。现在改成只演碗：肢体从碗口上方浮起、再被吸回碗里，
+## 角色身上什么都不出现。
 func _play_sacrifice_sequence() -> void:
 	_sequence_active = true
-	var player := get_tree().get_first_node_in_group("player") as Node2D
-	var start := Vector2(0, -50)
-	if player != null:
-		start = player.global_position - global_position + Vector2(0, -18)
 	var limb_script := load("res://scripts/items/limb_visual.gd")
 	var limb := Node2D.new()
 	limb.name = "OfferingLimb"
 	limb.set_script(limb_script)
-	limb.position = start
+	limb.position = Vector2(0, -86)
+	limb.scale = Vector2(0.72, 0.72)
 	limb.z_index = 2
+	limb.modulate.a = 0.0
 	_visual.add_child(limb)
 	var tw := create_tween()
 	tw.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
-	tw.tween_property(limb, "position", Vector2(0, -48), 0.55)
-	tw.parallel().tween_property(limb, "scale", Vector2(0.72, 0.72), 0.55)
-	tw.parallel().tween_property(limb, "rotation", TAU * 1.3, 0.55)
+	tw.tween_property(limb, "modulate:a", 0.85, 0.18)
+	tw.tween_property(limb, "position", Vector2(0, -48), 0.45)
+	tw.parallel().tween_property(limb, "scale", Vector2(0.42, 0.42), 0.45)
+	tw.parallel().tween_property(limb, "rotation", TAU * 1.3, 0.45)
 	tw.tween_property(limb, "modulate:a", 0.0, 0.30)
 	tw.tween_callback(limb.queue_free)
 	# 石碗上方的紫色触须：从碗口向外抓一下，再收回

@@ -234,7 +234,8 @@ func _on_remote_save_ready(_slot: int, _data: Dictionary) -> void:
 	_continue_button.visible = _latest_save_slot() >= 0
 
 func _latest_save_slot() -> int:
-	for slot in range(SaveSystem.MAX_SLOTS - 1, -1, -1):
+	# M5-06：单存档模式下只有一个槽，别再去扫 2/3 号（那里可能是上次开多存档留下的旧档）
+	for slot in range(SaveSystem.slot_count() - 1, -1, -1):
 		if SaveSystem.has_save(slot):
 			return slot
 	return -1

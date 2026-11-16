@@ -7,7 +7,10 @@ extends SceneTree
 
 const FLOOR1 := "res://scenes/world/floor1.tscn"
 const ARENA := "res://scenes/world/test_arena.tscn"
-const BASE_SCREEN_Y := 720.0 * 0.5 + 56.0 * (720.0 / 420.0)  # 456
+## 角色在屏幕上的基准位置：中线下方 60px，即 720 高的 58%（屏幕 y=420）。
+## M4-62 放大人物时把 camera_follow 的世界偏移从 56 收到 28；M4-63 又把视野拉到 12 个身位
+## （zoom 2.143），28×2.143 = 60 —— 屏幕上是"中间偏下"这条规则，所以这里写屏幕像素。
+const BASE_SCREEN_Y := 420.0
 
 var _phase := 0
 var _wait := 0

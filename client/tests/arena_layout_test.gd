@@ -146,9 +146,21 @@ func _check_hint_text_clear_of_gates() -> void:
 
 func _check_terrain() -> void:
 	var world_w: float = float(_stage["world_width"])
+	# M5-11：地面被悬崖切成两段（左岸到 chasm_left，右岸从 chasm_right 到地图尽头），
+	# 不能再按"一整条地面 = 地图宽"来判
 	var ground := _level.get_node("GroundLeft") as StaticBody2D
 	var ground_shape := (ground.get_node("CollisionShape2D") as CollisionShape2D).shape as RectangleShape2D
-	_check(absf(ground_shape.size.x - world_w) < 1.0, "地面宽 %.0f，地图宽 %.0f" % [ground_shape.size.x, world_w])
+	var chasm_left: float = float(_stage["chasm_left"])
+	var chasm_right: float = float(_stage["chasm_right"])
+	_check(absf(ground_shape.size.x - chasm_left) < 1.0,
+		"左岸宽 %.0f，应到悬崖边 %.0f" % [ground_shape.size.x, chasm_left])
+	var right_bank := _level.get_node_or_null("GroundRight") as StaticBody2D
+	_check(right_bank != null, "悬崖右岸不存在（跳过去没有落点）")
+	if right_bank != null:
+		var rb_shape := (right_bank.get_node("CollisionShape2D") as CollisionShape2D).shape as RectangleShape2D
+		_check(absf(rb_shape.size.x - (world_w - chasm_right)) < 1.0, "右岸宽 %.0f 不对" % rb_shape.size.x)
+		_check(absf(right_bank.position.x - (chasm_right + world_w) * 0.5) < 1.0, "右岸位置不对")
+	_check(_level.get_node_or_null("ChasmKillZone") != null, "悬崖底下没有判死区")
 	_check(absf(ground.position.y - (GROUND_TOP + 30.0)) < 1.0, "地面顶不是 %.0f" % GROUND_TOP)
 	var wall := _level.get_node("WallRight") as Node2D
 	_check(absf(wall.position.x - world_w) < 1.0, "右墙没有钉在地图尽头")
@@ -159,6 +171,9 @@ func _check_terrain() -> void:
 	# 所以单独盯一句：脚本必须在
 	_check(art.get_script() != null, "背景美术脚本没挂上，整段背景装饰会消失")
 	_check(absf(float(art.get("world_width")) - world_w) < 1.0, "背景没跟着地图加宽")
+	# 悬崖范围也要推给美术：不然石头/断柱会浮在空气里
+	_check(absf(float(art.get("gap_from")) - chasm_left) < 1.0, "美术层没拿到悬崖左边界")
+	_check(absf(float(art.get("gap_to")) - chasm_right) < 1.0, "美术层没拿到悬崖右边界")
 
 	# 三块平台的顶面和左右边界
 	_platform("JumpPlatform", _stage["ledge"])

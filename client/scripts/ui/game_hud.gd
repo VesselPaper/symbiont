@@ -11,6 +11,25 @@ const MAX_HEARTS := 5
 const HEART_SPACING := 22.0
 const HUD_POS := Vector2(24, 646)
 const TOAST_TIME := 1.8
+## 低血量阈值（M5-05 组长要求）：只剩这么多颗心时，屏幕四周开始冒黑雾 + 冒出"血量危险"
+const DANGER_HP := 1
+## 黑雾的呼吸频率/基础浓度：慢一点，才像"视线在变窄"，不像报警灯
+const DANGER_PULSE := 2.2
+const DANGER_BASE := 0.42
+const DANGER_SWING := 0.12
+
+## 边缘黑雾：只压四周、中间不动，血越少越往里收
+const DANGER_SHADER := """
+shader_type canvas_item;
+uniform float strength = 0.0;
+uniform vec4 mist : source_color = vec4(0.015, 0.012, 0.020, 1.0);
+void fragment() {
+	vec2 p = UV - vec2(0.5);
+	// 竖着收一点、横向再拉开：屏幕是宽的，纯圆形会让上下先黑
+	float d = length(p * vec2(1.25, 1.55)) * 1.35;
+	COLOR = vec4(mist.rgb, clamp(d - 0.35, 0.0, 1.0) * strength);
+}
+"""
 
 var _hearts: Array[Polygon2D] = []
 var _sacrifice_label: Label
@@ -18,6 +37,12 @@ var _toast_label: Label
 var _toast_timer := 0.0
 var _last_hp := -1
 var _player: Node
+var _danger_rect: ColorRect
+var _danger_mat: ShaderMaterial
+var _danger_label: Label
+var _danger_t := 0.0
+## 最近一次刷新读到的心数（黑雾按它判断"低血"）
+var _cur_hp := MAX_HEARTS
 
 func _ready() -> void:
 	layer = 1
@@ -30,6 +55,7 @@ func _ready() -> void:
 	refresh()
 
 func _build() -> void:
+	_build_danger()
 	var anchor := Node2D.new()
 	anchor.name = "HUDAnchor"
 	anchor.position = HUD_POS
@@ -90,12 +116,58 @@ func _build() -> void:
 
 func _process(delta: float) -> void:
 	refresh()
+	_update_danger(delta)
 	if _toast_timer > 0.0:
 		_toast_timer = maxf(_toast_timer - delta, 0.0)
 		if _toast_timer <= 0.0:
 			_toast_label.modulate.a = 0.0
 		elif _toast_timer < 0.45:
 			_toast_label.modulate.a = _toast_timer / 0.45
+
+## 低血量的黑雾和警告字。放在心数条下面一层（先 add，后画的东西盖在上面），
+## 这样血条本身永远看得清，被压黑的是画面。
+func _build_danger() -> void:
+	_danger_rect = ColorRect.new()
+	_danger_rect.name = "DangerMist"
+	_danger_rect.color = Color(1, 1, 1, 1)
+	_danger_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_danger_rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var sh := Shader.new()
+	sh.code = DANGER_SHADER
+	_danger_mat = ShaderMaterial.new()
+	_danger_mat.shader = sh
+	_danger_mat.set_shader_parameter("strength", 0.0)
+	_danger_rect.material = _danger_mat
+	add_child(_danger_rect)
+	_danger_label = Label.new()
+	_danger_label.name = "DangerLabel"
+	_danger_label.size = Vector2(220, 24)
+	_danger_label.position = Vector2(HUD_POS.x - 4, HUD_POS.y - 34)
+	_danger_label.add_theme_font_size_override("font_size", 14)
+	_danger_label.add_theme_color_override("font_color", Color(0.92, 0.28, 0.26, 0.95))
+	_danger_label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.9))
+	_danger_label.add_theme_constant_override("shadow_offset_x", 1)
+	_danger_label.add_theme_constant_override("shadow_offset_y", 1)
+	var font := load(FONT_PATH) as Font
+	if font != null:
+		_danger_label.add_theme_font_override("font", font)
+	_danger_label.text = "血量危险"
+	_danger_label.visible = false
+	add_child(_danger_label)
+
+## 每一帧只按"还剩几颗心"推两件事：黑雾浓度（带呼吸）和警告字闪不闪。
+## 满血时强度归零，画面完全不受影响。
+func _update_danger(delta: float) -> void:
+	if _danger_mat == null or _danger_label == null:
+		return
+	_danger_t += delta
+	var low := _cur_hp <= DANGER_HP
+	var strength := 0.0
+	if low:
+		strength = DANGER_BASE + sin(_danger_t * DANGER_PULSE) * DANGER_SWING
+	_danger_mat.set_shader_parameter("strength", maxf(strength, 0.0))
+	_danger_label.visible = low
+	_danger_label.modulate.a = 0.65 + sin(_danger_t * DANGER_PULSE) * 0.35 if low else 0.0
 
 func refresh() -> void:
 	if _sacrifice_label == null:
@@ -110,6 +182,7 @@ func refresh() -> void:
 		if raw != null:
 			max_hp = int(raw)
 	hp = clampi(hp, 0, max_hp)
+	_cur_hp = hp
 	if hp != _last_hp:
 		_last_hp = hp
 		for i in range(_hearts.size()):
