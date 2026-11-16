@@ -79,8 +79,8 @@ def head(slide, kicker, title, sub=""):
     text(slide, Inches(0.85), Inches(0.86), Inches(11.6), Inches(0.75),
          title, 27, WHITE, True)
     if sub:
-        text(slide, Inches(0.85), Inches(1.60), Inches(11.6), Inches(0.34),
-             sub, 12.5, MUTED)
+        text(slide, Inches(0.85), Inches(1.59), Inches(11.6), Inches(0.34),
+             sub, 13, RGBColor(0xC2, 0xCE, 0xD0))
     bar = slide.shapes.add_shape(1, Inches(0.85), Inches(1.50), Inches(0.62), Inches(0.035))
     bar.fill.solid()
     bar.fill.fore_color.rgb = CYAN
@@ -177,9 +177,7 @@ def s_cover(prs):
     text(slide, Inches(0.9), Inches(3.62), Inches(11.6), Inches(0.42),
          "以《共生之缚》的 Web 入口为例", 17, BONE)
     text(slide, Inches(0.9), Inches(5.55), Inches(11.0), Inches(1.1),
-         "这次讲的是成熟实现和实测数据，不是概念科普。\n"
-         "默认大家对反向代理和负载均衡已经有基本认识，所以直接从“成熟在哪里”开始。",
-         13, MUTED, line=1.55)
+         "", 13, MUTED, line=1.55)
     return slide
 
 
@@ -187,7 +185,7 @@ def s_cover(prs):
 def s_topology(prs):
     slide = blank(prs)
     head(slide, "现状", "我们的入口现在长这样",
-         "浏览器只接触两个端口，其余东西全在内网。")
+         "")
 
     y = Inches(2.34)
     boxes = [
@@ -309,7 +307,7 @@ def s_keepalive(prs):
          "否则 nginx 会退回短连接，keepalive 形同没写。",
          12, BONE, line=1.55)
     text(slide, Inches(0.85), Inches(6.55), Inches(11.6), Inches(0.6),
-         "第五步省的是握手开销，第六步省的是内存，两个都只在并发上来或包变大之后才看得出来。",
+         "",
          12.5, DIM, line=1.4)
     return slide
 
@@ -385,7 +383,7 @@ def s_zone(prs):
 def s_security(prs):
     slide = blank(prs)
     head(slide, "应用", "网关实际承担的职责",
-         "每一条后面那半句都是实测，不是设计意图。")
+         "")
 
     items = [
         ("传输加密", "TLS 在网关终止，同链路改走 443 之后中继只看到十六进制"),
@@ -470,7 +468,7 @@ def s_details(prs):
 def s_threshold(prs):
     slide = blank(prs)
     head(slide, "负载均衡", "容量和可用性不是同一件事",
-         "容量要等流量到位，可用性跟流量无关。")
+         "")
 
     text(slide, Inches(0.85), Inches(1.98), Inches(5.4), Inches(0.3), "容量", 13.5, CYAN, True)
     text(slide, Inches(0.85), Inches(2.38), Inches(5.4), Inches(1.1),
@@ -507,7 +505,7 @@ def s_threshold(prs):
 def s_algo(prs):
     slide = blank(prs)
     head(slide, "负载均衡", "算法取舍与无状态",
-         "值得展开的只有三种，其余课上讲过，这里不占版面。")
+         "")
 
     cards = [
         ("轮询", "后端同构、耗时相近时最简单", "有慢请求时会堆在固定几台上"),
@@ -572,7 +570,7 @@ def s_health(prs):
 def s_before_after(prs):
     slide = blank(prs)
     head(slide, "改造", "改造前后",
-         "七项配置，最后还有一行，那一行比任何一行配置都关键。")
+         "")
 
     rows = [
         ("对外端口", "8000、3306、8080", "80、443"),
@@ -659,7 +657,7 @@ def s_judgement(prs):
 def s_game_browser(prs):
     slide = blank(prs)
     head(slide, "实测", "先看一眼它真的在浏览器里跑",
-         "地址栏就是网关的 443 端口，证书是我们自己签的。")
+         "")
     w = Inches(10.4)
     h = Inches(5.41)
     slide.shapes.add_picture(str(ROOT / "img/game_browser_crop.png"),
@@ -701,7 +699,7 @@ def s_demo(prs):
         y += Inches(0.94)
 
     text(slide, Inches(0.85), Inches(6.68), Inches(11.6), Inches(0.5),
-         "演示环境提前起好栈，命令都先跑通一遍；真抽风就看录好的输出，不在台上等 Docker。",
+         "",
          11.5, DIM, line=1.4)
     return slide
 
