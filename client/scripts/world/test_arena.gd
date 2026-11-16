@@ -65,9 +65,11 @@ const STAGE := {
 	"pit_steps": [],
 	# 火堆：打完史莱姆再走 10 秒
 	# 悬崖：左岸到 19000，右岸从 20400 起
+	# 过河石台（M5-39）：各块之间留 90px，跳跃水平行程约 130px，够得着
 	"gallery": [
-		Rect2(19080, 607, 163, 26), Rect2(19380, 552, 150, 26),
-		Rect2(19700, 505, 138, 26), Rect2(20000, 565, 188, 26),
+		Rect2(19083, 607, 150, 26), Rect2(19316, 552, 150, 26),
+		Rect2(19549, 505, 150, 26), Rect2(19782, 565, 150, 26),
+		Rect2(20015, 530, 150, 26), Rect2(20248, 575, 150, 26),
 	],
 	"chasm_left": 19000.0,
 	"chasm_right": 20400.0,
@@ -157,6 +159,7 @@ func _ready() -> void:
 	_build_corridor_gallery()
 	_build_next_floor_door()
 	_build_tall_grass()
+	_build_foreground_occluders()
 	# 门前圣所装饰（供台、烛台、断柱、瓦砾、门楣旧布）
 	_build_door_shrine()
 	_build_tutorial_gates()
@@ -535,15 +538,15 @@ const TEXT_HEIGHT_ABOVE_SURFACE := 84.0
 ## 每一环的落脚面（x, 这一环的地面/台面顶 y）；文字由它算出来
 const STATION_SURFACES := [
 	Vector2(380, 659),    # MOVE：就写在出生点旁边（角色还不会按键，得先看见这句）
-	Vector2(4000, 571),   # JUMP：跳台顶
-	Vector2(6500, 571),   # WEAPON：跳台上（尸体和剑）
-	Vector2(9200, 571),   # ATTACK：跳台上（木桩甲）
+	Vector2(3400, 659),   # JUMP：跳台前面 3 秒（还是平地）
+	Vector2(5900, 571),   # WEAPON：铁剑前面 3 秒
+	Vector2(8600, 571),   # ATTACK：木桩前面 3 秒
 	# POGO：句子的左边是木桩乙、右边是下劈方台。方台从 440 一直堆到 571（和跳台面贴着），
 	# 所以"平台下方"其实是方块里面，字写那儿会被埋进石头 —— 写方块左边，人站在跳台上就能看见。
-	Vector2(11260, 571),
-	Vector2(14000, 659),  # COMBAT：战场
-	Vector2(14800, 659),  # PICKUP：肢体掉落处（祭坛上方只留献祭那一行）
-	Vector2(21500, 659),  # SACRIFICE：祭坛旁边（右岸地面，门在右边）
+	Vector2(10660, 571),
+	Vector2(13400, 659),  # COMBAT：史莱姆前面 3 秒
+	Vector2(14800, 659),  # PICKUP：肢体掉落处（离 combat 门够远，不压门）
+	Vector2(20900, 572),  # SACRIFICE：祭坛前面 3 秒（右岸台地）
 ]
 func station_anchors() -> Array[Vector2]:
 	var out: Array[Vector2] = []
@@ -663,8 +666,11 @@ func _build_hollow_steps() -> void:
 
 ## 祭坛后的可选阶梯（M4-07）：不参与教学门判定，走地面也能直达出口。
 func _build_corridor_gallery() -> void:
-	_build_slab_holder("CorridorGallery", STAGE["gallery"],
-		["GalleryStep1", "GalleryStep2", "GalleryStep3", "GalleryStep4"])
+	# M5-39：石台从 4 块加到 6 块（块数跟着 STAGE 表走，不再写死名字）
+	var names := []
+	for i in range((STAGE["gallery"] as Array).size()):
+		names.append("GalleryStep%d" % (i + 1))
+	_build_slab_holder("CorridorGallery", STAGE["gallery"], names)
 
 ## 浅坑台阶和长廊台阶是同一套画法（石台 + 顶面亮边），抽成一个函数，
 ## 免得两处各抄一份、以后改颜色只改一半。
@@ -722,28 +728,47 @@ func _build_slab_holder(holder_name: String, rects: Array, names: Array) -> void
 				Vector2(sx - 1.0, half.y - 2.0),
 			])
 			body.add_child(seam)
-		var moss := Polygon2D.new()
-		moss.color = Color(0.20, 0.28, 0.24, 0.55)
-		moss.polygon = PackedVector2Array([
-			Vector2(-half.x + 6.0, -half.y + 2.0), Vector2(-half.x + 26.0, -half.y + 2.0),
-			Vector2(-half.x + 20.0, -half.y + 6.0), Vector2(-half.x + 8.0, -half.y + 5.0),
-		])
-		body.add_child(moss)
-		# M5-25：再补两三条横缝（和主地面的"砌层"一个画法）。
-		# 台阶只有 26~52px 高，光靠竖缝还是一整块板；有横缝才看得出是叠起来的石头。
-		var course_y := -half.y + 12.0
-		var course_i := 0
-		while course_y < half.y - 6.0:
-			var course := Line2D.new()
-			course.width = 1.0
-			course.default_color = Color(0.055, 0.070, 0.080, 0.55)
-			var inset := 3.0 + float(course_i % 2) * 3.0
-			course.points = PackedVector2Array([
-				Vector2(-half.x + inset, course_y), Vector2(half.x - inset, course_y),
+			var moss := Polygon2D.new()
+			moss.color = Color(0.20, 0.28, 0.24, 0.55)
+			moss.polygon = PackedVector2Array([
+				Vector2(-half.x + 6.0, -half.y + 2.0), Vector2(-half.x + 26.0, -half.y + 2.0),
+				Vector2(-half.x + 20.0, -half.y + 6.0), Vector2(-half.x + 8.0, -half.y + 5.0),
 			])
-			body.add_child(course)
-			course_y += 14.0
-			course_i += 1
+			body.add_child(moss)
+			# M5-25：再补两三条横缝（和主地面的"砌层"一个画法）。
+			# 台阶只有 26~52px 高，光靠竖缝还是一整块板；有横缝才看得出是叠起来的石头。
+			var course_y := -half.y + 12.0
+			var course_i := 0
+			while course_y < half.y - 6.0:
+				var course := Line2D.new()
+				course.width = 1.0
+				course.default_color = Color(0.055, 0.070, 0.080, 0.55)
+				var inset := 3.0 + float(course_i % 2) * 3.0
+				course.points = PackedVector2Array([
+					Vector2(-half.x + inset, course_y), Vector2(half.x - inset, course_y),
+				])
+				body.add_child(course)
+				course_y += 14.0
+				course_i += 1
+			# M5-39：石台底下一串垂链 + 两块碎岩 —— 悬空的石头得有"吊着"的依据
+			var chain := Line2D.new()
+			chain.name = "SlabChain"
+			chain.width = 1.4
+			chain.default_color = Color(0.060, 0.070, 0.080, 0.75)
+			var cxx := -half.x + rect.size.x * 0.5
+			chain.points = PackedVector2Array([Vector2(cxx, half.y), Vector2(cxx + 3.0, half.y + 34.0)])
+			body.add_child(chain)
+		for k in range(2):
+			var chunk := Polygon2D.new()
+			chunk.name = "SlabChunk"
+			var tone := 0.120 + 0.02 * float(k)
+			chunk.color = Color(tone, tone * 1.05, tone * 1.1, 0.95)
+			var cx2 := -half.x + rect.size.x * (0.3 + 0.4 * float(k))
+			chunk.polygon = PackedVector2Array([
+				Vector2(cx2 - 9, half.y + 2), Vector2(cx2 + 7, half.y + 1),
+				Vector2(cx2 + 4, half.y + 12), Vector2(cx2 - 6, half.y + 14),
+			])
+			body.add_child(chunk)
 		holder.add_child(body)
 
 func _build_next_floor_door() -> void:
@@ -996,13 +1021,58 @@ func _ring_points(center: Vector2, radii: Vector2, steps: int) -> PackedVector2A
 ## 高草丛（M5-37）：一片一片种在地面和台面上，玩家走过去会被拨动。
 ## 每片草的 y 按它所在的地形给（跳台面 571，普通地面 659，右岸台地 572）。
 const GRASS_PATCHES := [
-	[300.0, 760.0, 659.0], [2100.0, 2900.0, 659.0],
+	[180.0, 900.0, 659.0], [1400.0, 1900.0, 659.0], [2100.0, 2900.0, 659.0],
 	[4000.0, 5000.0, 571.0], [6100.0, 7100.0, 571.0],
 	[8200.0, 9100.0, 571.0], [10200.0, 11000.0, 571.0],
 	[12300.0, 13200.0, 659.0], [15000.0, 16000.0, 659.0],
 	[17000.0, 18200.0, 659.0], [20500.0, 21100.0, 572.0],
 	[21300.0, 21900.0, 659.0],
 ]
+
+
+## 前景遮挡（M5-39）：压在角色**前面**的一层暗色剪影 —— 巨型草丛、石像的腿、大石头。
+## z_index = 3（玩家是 0），所以走过去时角色会被挡住一点；只放稀疏几处，
+## 颜色压得很暗（0.03 上下），读起来是"更近的一层"而不是"地图画错了"。
+func _build_foreground_occluders() -> void:
+	var layer := Node2D.new()
+	layer.name = "ForegroundOccluders"
+	layer.z_index = 3
+	add_child(layer)
+	var very_dark := Color(0.026, 0.032, 0.038, 0.92)
+	var dark2 := Color(0.038, 0.046, 0.052, 0.88)
+
+	# 巨型草丛：一根根很高的叶片，几乎铺满竖向
+	for cx in [1700.0, 7400.0, 12900.0, 18300.0]:
+		var clump := Node2D.new()
+		clump.name = "ForegroundGrass"
+		clump.position = Vector2(cx, 659.0)
+		layer.add_child(clump)
+		for k in range(9):
+			var blade := Line2D.new()
+			blade.width = float(4 + k % 3)
+			blade.default_color = very_dark
+			var bx := float(k - 4) * 9.0
+			var bh := 260.0 + float((k * 37) % 160)
+			blade.points = PackedVector2Array([
+				Vector2(bx, 0), Vector2(bx + bh * 0.06, -bh * 0.55), Vector2(bx + bh * 0.16, -bh),
+			])
+			clump.add_child(blade)
+
+	# 石像的腿 / 大石头：挡在角色前面，只露出下半截
+	for spec in [[4200.0, 520.0, 70.0], [9800.0, 460.0, 96.0], [15600.0, 600.0, 64.0]]:
+		var rock := Polygon2D.new()
+		rock.name = "ForegroundRock"
+		rock.color = dark2
+		var rx: float = spec[0]
+		var rh: float = spec[1]
+		var rw: float = spec[2]
+		rock.position = Vector2(rx, 659.0)
+		rock.polygon = PackedVector2Array([
+			Vector2(-rw, 0), Vector2(-rw * 0.9, -rh * 0.55),
+			Vector2(-rw * 0.35, -rh), Vector2(rw * 0.4, -rh * 0.92),
+			Vector2(rw, -rh * 0.4), Vector2(rw * 0.95, 0),
+		])
+		layer.add_child(rock)
 
 func _build_tall_grass() -> void:
 	for spec in GRASS_PATCHES:

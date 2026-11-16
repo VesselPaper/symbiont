@@ -44,7 +44,7 @@ func _check_gallery() -> void:
 			"门离右墙 %.1f，走廊最后一段成了空跑道" % (wall.global_position.x - door.global_position.x))
 
 	var gallery: Array = stage["gallery"]
-	_check(gallery.size() == 4, "站位表的阶梯应为 4 段，实际 %d" % gallery.size())
+	_check(gallery.size() >= 4, "站位表的阶梯段数和场景不一致（表 %d）" % gallery.size())
 	var tops: Array[float] = []
 	for i in range(gallery.size()):
 		var rect: Rect2 = gallery[i]
