@@ -402,17 +402,17 @@ def code_slide(path, title):
 
 def s_code_limit(prs):
     return code_slide("img/code_limit_crop.png",
-                      "限流以真实客户端地址为键，超出返回 429")(prs)
+                      "限流")(prs)
 
 
 def s_code_proxy(prs):
     return code_slide("img/code_proxy_crop.png",
-                      "反代负责连接复用、转发头与三层超时")(prs)
+                      "反代")(prs)
 
 
 def s_code_expose(prs):
     return code_slide("img/code_expose_crop.png",
-                      "编排上后端只 expose 不 publish")(prs)
+                      "端口")(prs)
 
 
 # ---------------------------------------------------------------- 9 两个细节
