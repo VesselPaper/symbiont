@@ -137,7 +137,7 @@ git push -u origin feature/你的任务
 
 ## 五、项目结构
 
-每个目录放什么、代码怎么分类、怎么写、怎么验，全部写在 [`项目结构与代码规范.md`](项目结构与代码规范.md)。这里只列一层：
+每个目录放什么、代码怎么分类、怎么写、怎么验，全部写在 [`AGENTS.md`](AGENTS.md)。这里只列一层：
 
 ```
 client/     Godot 4.7 工程（autoload/scenes/scripts/components/data/assets/tests）
