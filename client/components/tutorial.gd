@@ -40,7 +40,7 @@ const DONE_HINT_DURATION := 1.0
 ## 兜底锚点（M5-25）：这一环落脚面往上 3 个角色身高（28×3=84）。
 ## 场景在 _ready 里会调 set_step_anchors 覆盖这份——改布局改 test_arena 的 STATION_SURFACES。
 const STEP_ANCHORS: Array[Vector2] = [
-	Vector2(1420, 575),   # MOVE：平地 659 - 84
+	Vector2(380, 575),   # MOVE：平地 659 - 84
 	Vector2(4000, 487),  # JUMP：跳台顶 571 - 84
 	Vector2(6500, 487),  # WEAPON：同上（尸体+剑）
 	Vector2(9200, 487),  # ATTACK：同上（木桩甲）

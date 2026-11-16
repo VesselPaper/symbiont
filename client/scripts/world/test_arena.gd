@@ -57,7 +57,8 @@ const STAGE := {
 	"pogo_mark": Vector2(11500, 372),
 	"pogo_gate": Vector2(11840, 449),
 	# 战斗场景：史莱姆一直在这儿等着，走到能看见它的时候触发剧情
-	"slimes": [Vector2(14000, 646)],
+	# M5-37（组长："别每次都刷两只史莱姆"）：这里留空 —— 火焰剧情那只 CaveBeast 就是这一战的怪
+	"slimes": [],
 	"combat_mark": Vector2(14000, 590),
 	"combat_gate": Vector2(14340, 309),
 	# 浅坑两侧的台阶已撤（M5-30），这个键留着是因为 _build_hollow_steps 还在读
@@ -90,6 +91,7 @@ const DEBUG_SKIP_KEY := KEY_F2
 ## 教程进入"战斗"步骤时由 spawn_enemies() 生成（M1-08 修正），位置见 STAGE["slimes"]。
 const SLIME_SCENE := preload("res://scenes/entities/slime.tscn")
 const CAMPFIRE_SCENE := preload("res://scenes/world/campfire.tscn")
+const TALL_GRASS_SCRIPT := preload("res://components/tall_grass.gd")
 const TUTORIAL_GATE_SCENE := preload("res://scenes/world/tutorial_gate.tscn")
 const ORIGIN_RELIC_SCENE := preload("res://scenes/items/origin_relic.tscn")
 const ENDING_SCENE := preload("res://scenes/ui/ending_screen.tscn")
@@ -154,6 +156,7 @@ func _ready() -> void:
 	_build_hollow_steps()
 	_build_corridor_gallery()
 	_build_next_floor_door()
+	_build_tall_grass()
 	# 门前圣所装饰（供台、烛台、断柱、瓦砾、门楣旧布）
 	_build_door_shrine()
 	_build_tutorial_gates()
@@ -531,7 +534,7 @@ func _box_polygon(size: Vector2) -> PackedVector2Array:
 const TEXT_HEIGHT_ABOVE_SURFACE := 84.0
 ## 每一环的落脚面（x, 这一环的地面/台面顶 y）；文字由它算出来
 const STATION_SURFACES := [
-	Vector2(1420, 659),   # MOVE：平地
+	Vector2(380, 659),    # MOVE：就写在出生点旁边（角色还不会按键，得先看见这句）
 	Vector2(4000, 571),   # JUMP：跳台顶
 	Vector2(6500, 571),   # WEAPON：跳台上（尸体和剑）
 	Vector2(9200, 571),   # ATTACK：跳台上（木桩甲）
@@ -989,6 +992,26 @@ func _ring_points(center: Vector2, radii: Vector2, steps: int) -> PackedVector2A
 		var a := TAU * float(i) / float(steps)
 		pts.append(center + Vector2(cos(a) * radii.x, sin(a) * radii.y))
 	return pts
+
+## 高草丛（M5-37）：一片一片种在地面和台面上，玩家走过去会被拨动。
+## 每片草的 y 按它所在的地形给（跳台面 571，普通地面 659，右岸台地 572）。
+const GRASS_PATCHES := [
+	[300.0, 760.0, 659.0], [2100.0, 2900.0, 659.0],
+	[4000.0, 5000.0, 571.0], [6100.0, 7100.0, 571.0],
+	[8200.0, 9100.0, 571.0], [10200.0, 11000.0, 571.0],
+	[12300.0, 13200.0, 659.0], [15000.0, 16000.0, 659.0],
+	[17000.0, 18200.0, 659.0], [20500.0, 21100.0, 572.0],
+	[21300.0, 21900.0, 659.0],
+]
+
+func _build_tall_grass() -> void:
+	for spec in GRASS_PATCHES:
+		var grass := TALL_GRASS_SCRIPT.new()
+		grass.from_x = float(spec[0])
+		grass.to_x = float(spec[1])
+		grass.ground_y = float(spec[2])
+		grass.name = "TallGrass"
+		add_child(grass)
 
 func _build_door_shrine() -> void:
 	var shrine := Node2D.new()

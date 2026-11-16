@@ -60,6 +60,7 @@ func _build_all() -> void:
 	_build_far()
 	_build_mid()
 	_build_left_wall()
+	_build_grand_backdrop()
 	_build_wall_detail()
 	_build_under_ground()
 	_build_fog()
@@ -137,6 +138,133 @@ func _process(delta: float) -> void:
 ## 出生点在 x≈140，一开局画面最左边就是空的。这里在墙**外侧**补一整面岩壁：
 ## 从 x=-420 一直到贴着墙，轮廓做成锯齿状，分三层明暗，底部压暗、顶上有苔 ——
 ## 墙线从此变成"岩壁的内沿"，不是一根细线。
+
+## 巨型背景件（M5-37）：地牢里该有的"大东西" —— 石像、吊笼里的生物、铁链。
+## 都在背景层（比地形更暗、更远），只做剪影，不参与任何碰撞。
+func _build_grand_backdrop() -> void:
+	var root := Node2D.new()
+	root.name = "GrandBackdrop"
+	add_child(root)
+	var far := Color(0.062, 0.072, 0.082)
+	var far_lit := Color(0.092, 0.104, 0.116)
+
+	# ① 巨型石像：固定三座，位置写死（原来用随机步长的 while，实测会退化成死循环）
+	for spec in [[4600.0, 380.0, 82.0], [11800.0, 470.0, 96.0], [19200.0, 410.0, 88.0]]:
+		var statue := Node2D.new()
+		statue.name = "Colossus"
+		statue.position = Vector2(float(spec[0]), world_bottom + 40.0)
+		root.add_child(statue)
+		var h := float(spec[1])
+		var w := float(spec[2])
+		var body := Polygon2D.new()
+		body.color = far
+		body.polygon = PackedVector2Array([
+			Vector2(-w, 0), Vector2(w, 0), Vector2(w * 0.86, -h * 0.62),
+			Vector2(w * 0.6, -h * 0.78), Vector2(0, -h), Vector2(-w * 0.6, -h * 0.78),
+			Vector2(-w * 0.86, -h * 0.62),
+		])
+		statue.add_child(body)
+		var lit := Line2D.new()
+		lit.width = 2.0
+		lit.default_color = far_lit
+		lit.points = PackedVector2Array([
+			Vector2(-w * 0.6, -h * 0.78), Vector2(0, -h + 6.0), Vector2(w * 0.6, -h * 0.78),
+		])
+		statue.add_child(lit)
+		var base := Polygon2D.new()
+		base.color = far_lit
+		base.polygon = PackedVector2Array([
+			Vector2(-w * 1.15, 0), Vector2(w * 1.15, 0),
+			Vector2(w * 0.95, -26), Vector2(-w * 0.95, -26),
+		])
+		statue.add_child(base)
+
+	# ② 吊在半空的铁笼：固定六个
+	for i in range(6):
+		var cage := Node2D.new()
+		cage.name = "Cage"
+		var cx := 1600.0 + float(i) * 3600.0
+		var top_y := world_top + 60.0 + float(i % 3) * 40.0
+		cage.position = Vector2(cx, top_y)
+		root.add_child(cage)
+		var drop := 160.0 + float(i % 3) * 40.0
+		var chain := Line2D.new()
+		chain.width = 1.4
+		chain.default_color = Color(0.055, 0.062, 0.070, 0.9)
+		chain.points = PackedVector2Array([Vector2(0, -40.0), Vector2(0, drop)])
+		cage.add_child(chain)
+		var cw := 46.0
+		var ch := 62.0
+		for k in range(4):
+			var bar := Line2D.new()
+			bar.width = 2.0
+			bar.default_color = Color(0.075, 0.084, 0.094, 0.95)
+			var bx := -cw + float(k) * (cw * 2.0 / 3.0)
+			bar.points = PackedVector2Array([Vector2(bx, drop), Vector2(bx, drop + ch)])
+			cage.add_child(bar)
+		var frame := Line2D.new()
+		frame.width = 2.4
+		frame.default_color = Color(0.090, 0.100, 0.112, 0.95)
+		frame.points = PackedVector2Array([
+			Vector2(-cw, drop), Vector2(cw, drop), Vector2(cw, drop + 4.0), Vector2(-cw, drop + 4.0),
+		])
+		cage.add_child(frame)
+		var frame2 := Line2D.new()
+		frame2.width = 2.4
+		frame2.default_color = Color(0.090, 0.100, 0.112, 0.95)
+		frame2.points = PackedVector2Array([Vector2(-cw, drop + ch), Vector2(cw, drop + ch)])
+		cage.add_child(frame2)
+		var beast := Polygon2D.new()
+		beast.color = Color(0.030, 0.036, 0.042, 0.95)
+		beast.polygon = _blob_points(0.0, drop + ch - 16.0, 14.0, 20.0)
+		cage.add_child(beast)
+
+	# ③ 地面白骨：固定十四处，避过悬崖
+	var bone_positions := [700.0, 2300.0, 5200.0, 6900.0, 8600.0, 10400.0, 12600.0,
+		15200.0, 16800.0, 18400.0, 20600.0, 21100.0, 21600.0, 22000.0]
+	for bx_pos in bone_positions:
+		var bx: float = bx_pos
+		if _over_gap(bx):
+			continue
+		var pile := Node2D.new()
+		pile.name = "BonePile"
+		pile.position = Vector2(bx, 659.0)
+		root.add_child(pile)
+		var tone := Color(0.230, 0.226, 0.212, 0.75)
+		var skull := Polygon2D.new()
+		skull.color = tone
+		skull.polygon = PackedVector2Array([
+			Vector2(-7, 0), Vector2(-6, -8), Vector2(0, -11), Vector2(6, -8),
+			Vector2(7, 0), Vector2(3, 1), Vector2(-3, 1),
+		])
+		pile.add_child(skull)
+		var eye := Polygon2D.new()
+		eye.color = Color(0.052, 0.058, 0.062, 0.9)
+		eye.polygon = PackedVector2Array([Vector2(-4, -6), Vector2(-1, -6), Vector2(-1, -3), Vector2(-4, -3)])
+		pile.add_child(eye)
+		var eye2 := Polygon2D.new()
+		eye2.color = Color(0.052, 0.058, 0.062, 0.9)
+		eye2.polygon = PackedVector2Array([Vector2(1, -6), Vector2(4, -6), Vector2(4, -3), Vector2(1, -3)])
+		pile.add_child(eye2)
+		for k in range(3):
+			var bone := Line2D.new()
+			bone.width = 2.0
+			bone.default_color = tone
+			var off := float(k) * 9.0 - 9.0
+			bone.points = PackedVector2Array([
+				Vector2(off, 6.0), Vector2(off + 6.0 + float(k), 7.0),
+			])
+			pile.add_child(bone)
+
+## 一团圆钝的软组织剪影（笼里的东西用）
+func _blob_points(cx: float, cy: float, rx: float, ry: float) -> PackedVector2Array:
+	var pts := PackedVector2Array()
+	for i in range(10):
+		var a := TAU * float(i) / 10.0
+		var wob := 1.0 + sin(float(i) * 1.7) * 0.16
+		pts.append(Vector2(cx + cos(a) * rx * wob, cy + sin(a) * ry * wob))
+	return pts
+
 func _build_left_wall() -> void:
 	var wall := Node2D.new()
 	wall.name = "LeftWallArt"
@@ -422,7 +550,7 @@ func _build_surface_detail() -> void:
 				_add_grass_tuft(holder, x)
 			else:
 				_add_pebbles(holder, x)
-		x += _rng.randf_range(34.0, 78.0)
+		x += _rng.randf_range(52.0, 110.0)
 
 ## 一撮草：3~5 根细叶，从地面往上冒 7~13px，根部压暗
 func _add_grass_tuft(parent: Node2D, x: float) -> void:
@@ -723,7 +851,7 @@ func _build_terrain_material() -> void:
 			seam.default_color = Color(0.052, 0.062, 0.070, 0.42)
 			seam.points = PackedVector2Array([Vector2(span.x + 2.0, y + 0.5), Vector2(span.y - 2.0, y + 0.5)])
 			root.add_child(seam)
-		y += 12.0
+		y += 24.0
 		row += 1
 
 	# ② 石块：按世界网格铺，只在落进地形里的位置画，跨越边界也不断。
@@ -761,8 +889,8 @@ func _build_terrain_material() -> void:
 					Vector2(cx + w * 0.5 - 1.0, cy + skew + dent),
 				])
 				root.add_child(lit)
-			stones_y += _rng.randf_range(11.0, 17.0)
-		gx += _rng.randf_range(44.0, 92.0)
+			stones_y += _rng.randf_range(16.0, 24.0)
+		gx += _rng.randf_range(72.0, 128.0)
 
 	# ③ 竖缝：稀疏几条，穿过平台和地面，让两块地形读成一整面石壁
 	var jx := 40.0
@@ -782,7 +910,7 @@ func _build_terrain_material() -> void:
 				Vector2(jx - jitter, span2.y - _rng.randf_range(4.0, 16.0)),
 			])
 			root.add_child(joint)
-		jx += _rng.randf_range(120.0, 260.0)
+		jx += _rng.randf_range(200.0, 400.0)
 
 	# ④ 顶面亮边：按**整个地形轮廓**画一条连续线（M5-28 二次修）。
 	# 原来是一块地形画一条 —— 下劈方台坐在跳台顶面上的时候，跳台那条亮边正好从方台屁股底下穿过去，
