@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """把需求分析文档 md 转成 Word(docx)，嵌入图片。样式：正文宋体、标题黑体、全黑白无装饰。
-用法: python tools/md_to_docx.py <input.md> <output.docx>
+用法: python tools/report/md_to_docx.py <input.md> <output.docx>
 """
 import re
 import sys

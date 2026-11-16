@@ -3,7 +3,7 @@
 为什么不用合成振荡器：加法合成的正弦堆叠听感就是“电子嗡嗡”，无论怎么调参数都
 不像真乐器。这里直接读真实录音，按音高重采样，用包络收尾。
 
-依赖 ffmpeg（在 PATH 里）；素材由 tools/fetch_audio_samples.ps1 下载。
+依赖 ffmpeg（在 PATH 里）；素材由 tools/audio/fetch_audio_samples.ps1 下载。
 """
 
 import array
@@ -14,9 +14,9 @@ import subprocess
 import tempfile
 import wave
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SAMPLE_DIR = os.path.join(ROOT, "tools", "audio_samples")
-FUND_CACHE = os.path.join(ROOT, "tools", "audio_fundamentals.json")
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+SAMPLE_DIR = os.path.join(ROOT, "tools", "audio", "audio_samples")
+FUND_CACHE = os.path.join(ROOT, "tools", "audio", "audio_fundamentals.json")
 RATE = 44100
 
 _cache = {}
@@ -50,7 +50,7 @@ def load(key: str) -> list[float]:
         if os.path.isfile(path):
             break
     else:
-        raise FileNotFoundError(f"缺少素材 {key}，先跑 tools/fetch_audio_samples.ps1")
+        raise FileNotFoundError(f"缺少素材 {key}，先跑 tools/audio/fetch_audio_samples.ps1")
     buf = _decode(path)
     _cache[key] = buf
     return buf
@@ -112,7 +112,7 @@ def fundamentals() -> dict:
 
 
 def base_freq(key: str) -> float:
-    """素材的音高。以 tools/audio_fundamentals.json 为准；表里没有才现场测。"""
+    """素材的音高。以 tools/audio/audio_fundamentals.json 为准；表里没有才现场测。"""
     table = fundamentals()
     if key in table:
         return float(table[key]["hz"])

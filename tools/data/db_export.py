@@ -6,8 +6,8 @@
     <table>/<table>_index.json 索引（id -> 常用字段，便于 UI/调试）
 
 用法:
-    python tools/build_game_data.py   # 先构建 .db（如已存在可跳过）
-    python tools/db_export.py
+    python tools/data/build_game_data.py   # 先构建 .db（如已存在可跳过）
+    python tools/data/db_export.py
 """
 from __future__ import annotations
 
@@ -16,7 +16,8 @@ import json
 import sqlite3
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
+## 脚本在 tools/data/ 下，仓库根要在上跳三层（M5-23 把 tools 拆成 data/audio/report）
+ROOT = Path(__file__).resolve().parent.parent.parent
 DEFAULT_DB = ROOT / "database" / "game_data" / "game_data.db"
 DEFAULT_DATA_DIR = ROOT / "client" / "data"
 
@@ -76,7 +77,7 @@ def export_all(db_path: Path | str | None = None, data_dir: Path | str | None = 
     data_dir = Path(data_dir) if data_dir else DEFAULT_DATA_DIR
     if not db_path.exists():
         raise FileNotFoundError(
-            f"未找到 {db_path}，请先运行: python tools/build_game_data.py"
+            f"未找到 {db_path}，请先运行: python tools/data/build_game_data.py"
         )
 
     conn = sqlite3.connect(db_path)

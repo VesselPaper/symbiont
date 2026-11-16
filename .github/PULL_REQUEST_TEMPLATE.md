@@ -15,7 +15,7 @@
 
 ## 验收（全过才能合并）
 
-- [ ] 数据管道：`python tools/build_game_data.py` + `python tools/db_export.py` 无报错
+- [ ] 数据管道：`python tools/data/build_game_data.py` + `python tools/data/db_export.py` 无报错
 - [ ] 测试：`pytest tools/tests server` 全绿
 - [ ] 客户端冒烟：`godot --headless --path client --script res://tests/smoke_test.gd` 输出 `[smoke] PASS`
 - [ ] CI 绿

@@ -9,7 +9,7 @@ import sys
 import tempfile
 import wave
 
-SRC = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "tools", "audio_samples")
+SRC = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "tools", "audio", "audio_samples")
 
 
 def decode(path, rate=44100):

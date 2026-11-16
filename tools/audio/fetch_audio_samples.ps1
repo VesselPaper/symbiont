@@ -1,11 +1,11 @@
 ﻿# 拉取音频素材的原始文件（录音库）。
 #
 # 为什么单独一个脚本：素材有 10MB 量级，不能塞进仓库；但来源和许可必须可追溯，
-# 所以清单放在 tools/audio_sources.json，这个脚本只负责按清单下载到 tools/audio_samples/。
+# 所以清单放在 tools/audio/audio_sources.json，这个脚本只负责按清单下载到 tools/audio/audio_samples/。
 #
 # 用法：
-#   pwsh -File tools/fetch_audio_samples.ps1          # 缺什么补什么
-#   pwsh -File tools/fetch_audio_samples.ps1 -Force   # 全部重下
+#   pwsh -File tools/audio/fetch_audio_samples.ps1          # 缺什么补什么
+#   pwsh -File tools/audio/fetch_audio_samples.ps1 -Force   # 全部重下
 
 param(
     [switch]$Force
@@ -16,7 +16,7 @@ $ProgressPreference = 'SilentlyContinue'
 
 $root = Split-Path -Parent $PSScriptRoot
 $manifestPath = Join-Path $PSScriptRoot 'audio_sources.json'
-$outDir = Join-Path $root 'tools/audio_samples'
+$outDir = Join-Path $root 'tools/audio/audio_samples'
 New-Item -ItemType Directory -Force -Path $outDir | Out-Null
 
 $manifest = Get-Content $manifestPath -Raw -Encoding UTF8 | ConvertFrom-Json

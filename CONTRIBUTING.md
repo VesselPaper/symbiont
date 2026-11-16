@@ -23,8 +23,8 @@ git checkout -b feature/你的任务            # 例：feature/m1-01-player-mov
 
 ```bash
 # 1) 数据管道（改了 database/ 或 tools/ 才需要）
-python tools/build_game_data.py
-python tools/db_export.py
+python tools/data/build_game_data.py
+python tools/data/db_export.py
 
 # 2) 测试
 pytest tools/tests server

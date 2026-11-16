@@ -6,8 +6,8 @@ thump + 噪声瞬态合成一记"咚"，按秒数控制衰减，导入后直接�
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "tools"))
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "tools" / "audio"))
 
 import audio_synth as A  # noqa: E402
 

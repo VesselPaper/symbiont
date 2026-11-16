@@ -2,8 +2,8 @@
 """从 database/game_data/*.sql 构建 SQLite 游戏内容库 game_data.db。
 
 用法:
-    python tools/build_game_data.py
-    python tools/build_game_data.py --out path/to/game_data.db
+    python tools/data/build_game_data.py
+    python tools/data/build_game_data.py --out path/to/game_data.db
 """
 from __future__ import annotations
 
@@ -11,7 +11,8 @@ import argparse
 import sqlite3
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
+## 脚本在 tools/data/ 下，仓库根要在上跳三层（M5-23 把 tools 拆成 data/audio/report）
+ROOT = Path(__file__).resolve().parent.parent.parent
 DEFAULT_DB = ROOT / "database" / "game_data" / "game_data.db"
 
 

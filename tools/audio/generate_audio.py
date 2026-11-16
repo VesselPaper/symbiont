@@ -5,10 +5,10 @@
 
 M4-15 起分工变了：
 - 这个脚本只管合成音效；
-- BGM、一次性音乐层、环境音改由 tools/generate_music.py 用真实录音渲染
+- BGM、一次性音乐层、环境音改由 tools/audio/generate_music.py 用真实录音渲染
   （合成器做不出真乐器音色，之前整套 BGM 听起来是“电子嗡嗡”）；
 - 其中八条音效（挥砍、下劈、脚步、落地、受击、怪物、钟、拾取）改由
-  tools/import_sfx.py 从录音库切，这里跳过，避免把真录音又覆盖回合成音。
+  tools/audio/import_sfx.py 从录音库切，这里跳过，避免把真录音又覆盖回合成音。
 
 旧的合成版 BGM 还留着，加 --legacy-music 才会跑，仅用于对照。
 """
@@ -26,13 +26,13 @@ from audio_synth import (
     wind_bed, write_wav,
 )
 
-OUT = Path(__file__).resolve().parents[1] / "client" / "assets" / "audio"
+OUT = Path(__file__).resolve().parents[2] / "client" / "assets" / "audio"
 OUT.mkdir(parents=True, exist_ok=True)
 SFX_ONLY = "--sfx-only" in sys.argv
 BGM_ONLY = "--bgm-only" in sys.argv
 MUSIC_LEGACY = "--legacy-music" in sys.argv
 
-# 这八条由 tools/import_sfx.py 出（六条从录音库剪、两条现场拼），
+# 这八条由 tools/audio/import_sfx.py 出（六条从录音库剪、两条现场拼），
 # 合成器不要再生成，否则重跑会把它们覆盖回电子音。
 CUSTOM_SFX = {"swing", "jump", "double_jump", "pogo", "step", "land", "hit",
               "slime_voice", "bell", "pickup", "ui", "ui_hover", "pause",
@@ -801,7 +801,7 @@ SFX_TABLE = [
 # --sfx-only 只重跑音效，--bgm-only 只重跑曲子；避免每次调一层都等全部
 if not BGM_ONLY:
     for name, duration, fn in SFX_TABLE:
-        # 这几条由 tools/import_sfx.py 从录音库切，重跑合成会把真录音覆盖掉
+        # 这几条由 tools/audio/import_sfx.py 从录音库切，重跑合成会把真录音覆盖掉
         if name in CUSTOM_SFX:
             continue
         make_sfx(name, duration, fn)

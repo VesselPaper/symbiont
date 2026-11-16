@@ -1,8 +1,8 @@
-﻿"""音频体检：时长、峰值、RMS、频谱重心、循环接缝，不替代人耳试听。
+"""音频体检：时长、峰值、RMS、频谱重心、循环接缝，不替代人耳试听。
 
 用法：
-  python tools/audio_audit.py            # 打印全部摘要
-  python tools/audio_audit.py --sheet    # 另出 tmp/audio_sheet.png 频谱图
+  python tools/audio/audio_audit.py            # 打印全部摘要
+  python tools/audio/audio_audit.py --sheet    # 另出 tmp/audio_sheet.png 频谱图
 """
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image, ImageDraw
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 AUDIO = ROOT / "client" / "assets" / "audio"
 
 

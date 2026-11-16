@@ -4,12 +4,12 @@
 再怎么调参数也不会像真乐器。这里改成采样真实录音（VSCO 2 CE 的弦乐 / 竖琴 /
 管钟 / 定音鼓，Meta 的钢琴和环境录音），乐谱仍是原来那份，只换音色。
 
-素材不进仓库：tools/fetch_audio_samples.ps1 负责下载，tools/audio_fundamentals.json
-记录每个素材的音高，tools/audio_samples.py 负责按音高触发。
+素材不进仓库：tools/audio/fetch_audio_samples.ps1 负责下载，tools/audio/audio_fundamentals.json
+记录每个素材的音高，tools/audio/audio_samples.py 负责按音高触发。
 
 44100Hz 而不是 22050：真实录音的细节在 11kHz 以上，沿用旧采样率会把“空气感”砍掉。
 
-运行：python tools/generate_music.py [--stems]
+运行：python tools/audio/generate_music.py [--stems]
 输出：client/assets/audio/*.wav（44100Hz / 单声道 / PCM16）
 """
 
@@ -24,7 +24,7 @@ from scipy.signal import lfilter
 
 import audio_samples as smp
 
-OUT = Path(__file__).resolve().parents[1] / "client" / "assets" / "audio"
+OUT = Path(__file__).resolve().parents[2] / "client" / "assets" / "audio"
 OUT.mkdir(parents=True, exist_ok=True)
 RATE = 44100
 DEBUG_STEMS = "--stems" in sys.argv

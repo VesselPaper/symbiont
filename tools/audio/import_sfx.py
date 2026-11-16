@@ -3,10 +3,10 @@
 为什么单独一个脚本：合成器写不出真实质感，这两批素材来自 Meta Oculus Audio Pack
 和 VSCO 2 CE（CC0 / CC BY 4.0）。这里只做裁切、淡入淡出、峰值归一，不改音色。
 
-依赖 ffmpeg（在 PATH 里）。原始素材由 tools/fetch_audio_samples.ps1 下到
-tools/audio_samples/，不进仓库。
+依赖 ffmpeg（在 PATH 里）。原始素材由 tools/audio/fetch_audio_samples.ps1 下到
+tools/audio/audio_samples/，不进仓库。
 
-用法：python tools/import_sfx.py
+用法：python tools/audio/import_sfx.py
 """
 
 import array
@@ -23,8 +23,8 @@ from scipy.signal import lfilter
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import audio_samples as smp
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SRC = os.path.join(ROOT, "tools", "audio_samples")
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+SRC = os.path.join(ROOT, "tools", "audio", "audio_samples")
 OUT = os.path.join(ROOT, "client", "assets", "audio")
 RATE = 44100
 
@@ -313,7 +313,7 @@ def build_limb_pickup() -> np.ndarray:
 
 
 # 每条：源文件前缀、裁切起点（秒）、保留长度（秒）、淡出长度（秒）、目标峰值。
-# 起点看 tools/audio_envelope.py 打出来的能量包络定，不靠顺耳瞎猜。
+# 起点看 tools/audio/audio_envelope.py 打出来的能量包络定，不靠顺耳瞎猜。
 # 带 "build" 的两条不是裁素材，而是现场拼出来（原因见各自函数注释）。
 SFX_TABLE = [
     # sword 文件前 0.3s 是挥动，后面是静音
@@ -352,7 +352,7 @@ def find_source(prefix: str) -> str:
         path = os.path.join(SRC, prefix + ext)
         if os.path.isfile(path):
             return path
-    raise FileNotFoundError(f"缺少素材 {prefix}，先跑 tools/fetch_audio_samples.ps1")
+    raise FileNotFoundError(f"缺少素材 {prefix}，先跑 tools/audio/fetch_audio_samples.ps1")
 
 
 def decode(path: str):

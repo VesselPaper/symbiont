@@ -10,8 +10,8 @@ if (-not (Test-Path $Python)) { $Python = "python" }
 
 Write-Host "==> 数据管道"
 Push-Location $Root
-& $Python tools\build_game_data.py
-& $Python tools\db_export.py
+& $Python tools\data\build_game_data.py
+& $Python tools\data\db_export.py
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 & $Python -m pytest tools\tests -q
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

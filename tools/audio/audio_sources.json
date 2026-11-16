@@ -1,5 +1,5 @@
 {
-  "note": "音频素材清单。只记录来源和许可，音频本身不提交仓库（见 .gitignore 的 tools/audio_samples/）。改这里之后跑 tools/fetch_audio_samples.ps1 重新拉。",
+  "note": "音频素材清单。只记录来源和许可，音频本身不提交仓库（见 .gitignore 的 tools/audio/audio_samples/）。改这里之后跑 tools/audio/fetch_audio_samples.ps1 重新拉。",
   "attribution": {
     "meta_oculus": "\"Oculus Audio Pack 01\" by Oculus VR, LLC, licensed under CC BY 4.0. Files renamed to the UCS naming convention; OGG previews transcoded from the original WAVs.",
     "meta_instruments": "Meta Piano by Meta Creative Audio team, CC0 1.0 Universal.",

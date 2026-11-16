@@ -56,7 +56,7 @@ def floor(x: np.ndarray, rate: int, seconds: float = 0.35) -> float:
 
 def report(path_str: str) -> None:
     if path_str.startswith("@"):
-        # @素材名：直接查 tools/audio_samples 里的原始录音，不经过任何处理
+        # @素材名：直接查 tools/audio/audio_samples 里的原始录音，不经过任何处理
         import audio_samples as smp
 
         key = path_str[1:]

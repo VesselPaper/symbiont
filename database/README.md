@@ -14,7 +14,7 @@
 ## 数据流
 
 **游戏内容库**（静态，数据驱动）：
-`game_data/*.sql` → `tools/build_game_data.py` → `game_data.db` → `tools/db_export.py` → `client/data/*.json` → Godot `DataDB` 运行时读取。
+`game_data/*.sql` → `tools/data/build_game_data.py` → `game_data.db` → `tools/data/db_export.py` → `client/data/*.json` → Godot `DataDB` 运行时读取。
 
 **服务器**（动态）：FastAPI（`server/`）操作 MySQL，schema 与 `server/app/models.py` 保持一致；Docker 首次启动会自动执行 `schema.sql` + `seed.sql`（见 `deploy/docker-compose.yml`）。
 
@@ -22,8 +22,8 @@
 
 ```powershell
 # 重建游戏内容库并导出
-python tools/build_game_data.py
-python tools/db_export.py
+python tools/data/build_game_data.py
+python tools/data/db_export.py
 
 # 初始化 MySQL（本地）
 mysql -u root -p < database/schema.sql

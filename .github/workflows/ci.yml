@@ -24,8 +24,8 @@ jobs:
         run: pip install pytest
       - name: 构建并导出游戏数据
         run: |
-          python tools/build_game_data.py
-          python tools/db_export.py
+          python tools/data/build_game_data.py
+          python tools/data/db_export.py
       - name: 数据管道测试
         run: |
           python -m pytest tools/tests -v
