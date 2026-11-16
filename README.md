@@ -151,6 +151,6 @@ webadmin/   （stretch）管理看板
 
 ## 六、致谢（第三方资产）
 
-- [Kenney](https://kenney.nl) —— `kenney_tiny-dungeon`、`kenney_fantasy-ui-borders`（CC0，见 `client/assets/CREDITS.md`）
 - [Noto Sans CJK](https://github.com/googlefonts/noto-cjk)（SIL OFL，中文字体）
+- 早期规划用过 [Kenney](https://kenney.nl) 的 CC0 素材，实际没接进游戏，2026-11-16 已从仓库删掉（详见 `client/assets/CREDITS.md`）
 - [Godot Engine](https://godotengine.org)（MIT）
