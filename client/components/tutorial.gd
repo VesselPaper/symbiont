@@ -46,7 +46,7 @@ const STEP_ANCHORS: Array[Vector2] = [
 	Vector2(2700, 487),  # ATTACK：同上（木桩甲）
 	Vector2(3160, 487),  # POGO：方台左边（写方块里会被埋），台面往上 84
 	Vector2(4100, 575),  # COMBAT：浅坑底 659 - 84
-	Vector2(5040, 458),  # PICKUP：祭坛台 572 - 84 - 30（和 SAC 那行错开）
+	Vector2(5580, 575),  # PICKUP：肢体掉落处 659 - 84（祭坛上方只留献祭那一行）
 	Vector2(5040, 488),  # SACRIFICE：同上
 ]
 
