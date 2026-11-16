@@ -335,14 +335,10 @@ def s_stream(prs):
          "占用的只是一块转发缓冲区，和文件大小无关。",
          12, WHITE, line=1.5)
 
-    text(slide, Inches(0.85), Inches(4.95), Inches(11.6), Inches(1.2),
+    text(slide, Inches(0.85), Inches(4.45), Inches(11.6), Inches(1.2),
          "所以这个包里最重要的不是 96 MB 这个数，而是它过去的时候网关内存没有变化。"
          "如果网关先缓冲整个响应，这个包会把容器内存顶到上限，玩家看到的是首屏一直转圈。",
          14, WHITE, line=1.55)
-    text(slide, Inches(0.85), Inches(6.15), Inches(11.6), Inches(0.9),
-         "验证方法：curl 把 pck 拉一遍到 /dev/null，同时 docker stats 盯网关容器的内存曲线，"
-         "包在过、内存不涨。",
-         12, MUTED, line=1.5)
     return slide
 
 
