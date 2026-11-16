@@ -543,14 +543,21 @@ const STATION_SURFACES := [
 	# 所以"平台下方"其实是方块里面，字写那儿会被埋进石头 —— 写方块左边，人站在跳台上就能看见。
 	Vector2(3160, 571),
 	Vector2(4100, 659),   # COMBAT：浅坑底
-	Vector2(5040, 572),   # PICKUP：祭坛台
+	Vector2(5040, 572),   # PICKUP：祭坛台（下面 PICKUP_TEXT_LIFT 会把它再抬高 30）
 	Vector2(5040, 572),   # SACRIFICE：祭坛台
 ]
+## PICKUP 和 SACRIFICE 是同一个祭坛、同一个落脚面，按统一规则算出来会**完全重合**。
+## 而刻字做完会留在原地变暗，于是两行字就叠在一起（组长 M5-32 看到的就是这个）。
+## 让 PICKUP 那行再往上 30px，两行就是上下两行路标，各自读得清。
+const PICKUP_TEXT_LIFT := 30.0
+const PICKUP_STEP := 6
+
 func station_anchors() -> Array[Vector2]:
 	var out: Array[Vector2] = []
 	for i in range(STATION_SURFACES.size()):
 		var spec: Vector2 = STATION_SURFACES[i]
-		out.append(Vector2(spec.x, spec.y - TEXT_HEIGHT_ABOVE_SURFACE))
+		var lift := TEXT_HEIGHT_ABOVE_SURFACE + (PICKUP_TEXT_LIFT if i == PICKUP_STEP else 0.0)
+		out.append(Vector2(spec.x, spec.y - lift))
 	return out
 
 ## 位置判定①：玩家是否已横向走到某个站位（MOVE 环用）

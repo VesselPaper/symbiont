@@ -46,6 +46,13 @@ func _check_anchors() -> void:
 	if anchors.size() != NAMES.size():
 		_fail("锚点应为 %d 个，实际 %d 个" % [NAMES.size(), anchors.size()])
 		return
+	# M5-32（组长"祭坛上方两行字叠在一起"）：PICKUP 和 SACRIFICE 是同一个祭坛、同一个落脚面，
+	# 不特意错开就会完全重合；刻字做完还留在原地变暗，所以这两行必须上下分开 ≥26px。
+	var pickup_y: float = (anchors[6] as Vector2).y
+	var sacrifice_y: float = (anchors[7] as Vector2).y
+	if absf(pickup_y - sacrifice_y) < 26.0:
+		_fail("拾取和献祭两行刻字只差 %.0fpx，会叠在一起" % absf(pickup_y - sacrifice_y))
+
 	var space := _level.get_world_2d().direct_space_state
 	for i in range(anchors.size()):
 		var pos: Vector2 = anchors[i]
@@ -80,9 +87,11 @@ func _check_anchors() -> void:
 			_fail("%s 锚点下方 120px 内没有地面" % NAMES[i])
 		elif lift < MIN_TEXT_LIFT:
 			_fail("%s 锚点离地只有 %.0fpx（要 ≥%.0f，不然文字贴着石墙）" % [NAMES[i], lift, MIN_TEXT_LIFT])
-		elif absf(lift - TEXT_HEIGHT) > 2.0:
-			# 八环都一样：文字中心离落脚面正好 3 个角色身高（POGO 也一样，只是挪到方块左边）
-			_fail("%s 文字离地 %.0fpx，应正好 %.0fpx（3 个角色身高）" % [NAMES[i], lift, TEXT_HEIGHT])
+		else:
+			# 八环都是「落脚面往上 3 个角色身高」；PICKUP 那行为了不和 SACRIFICE 叠在一起，再多抬 30px
+			var want := TEXT_HEIGHT + (30.0 if NAMES[i] == "PICKUP" else 0.0)
+			if absf(lift - want) > 2.0:
+				_fail("%s 文字离地 %.0fpx，应正好 %.0fpx" % [NAMES[i], lift, want])
 
 ## 二、位置判定：站在台上通过、站在台边/空中不通过；走过线通过、没到不通过
 func _check_position_checks() -> void:
