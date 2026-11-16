@@ -64,9 +64,10 @@ func _process(_delta: float) -> bool:
 		root.add_child(_level)
 		_player = _level.get_node("Player") as CharacterBody2D
 		_camera = _level.get_node("Camera2D") as Camera2D
-		# 祭坛在站位表里会挪（M4-19 拉宽了教学关），站位取自场景里的祭坛节点
-		var altar := _level.get_node("Altar") as Node2D
-		_player.global_position = Vector2(altar.global_position.x, 559)
+		# M5-33：祭坛搬到门口去了（地面层），"祭坛高台"改成祭坛厅那级台子（STAGE.altar_hall）
+		var stage: Dictionary = _level.get("STAGE")
+		var hall: Rect2 = stage["altar_hall"]
+		_player.global_position = Vector2(hall.get_center().x, 559)
 		_phase = 6
 		_wait = 0
 		return false

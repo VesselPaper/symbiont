@@ -192,8 +192,6 @@ var _dust: CPUParticles2D       # 落地扬尘
 var _spark: CPUParticles2D      # 命中火花
 var _impact_ring: Line2D        # 命中扩散环
 var _impact_tween: Tween
-var _corruption: Node2D          # 献祭后在背上长出的寄生组织
-var _corruption_count := 0
 var _faction := ""               # 第二层阵营：engineer / heretic
 var _faction_visual: Node2D      # 阵营外观：工程师蒸汽靴 / 祭司污化腿
 var _slash_glow: Line2D         # 横砍外层柔光
@@ -255,13 +253,10 @@ func _ready() -> void:
 	_slash_down.points = _make_arc(Vector2.ZERO, SLASH_DOWN_RADIUS, 9.0, 0.15, 2.95, 10)
 	_build_slash_layers()
 	_build_fx()
-	_build_corruption()
 	# 献祭后会长出寄生组织；先连信号，再按当前献祭数恢复（读档/重生不丢）
-	EventBus.sacrifice_done.connect(_on_sacrifice_done)
+	# M5-33：献祭后在背上长肢体那套视觉已删（组长要求去掉），不再订阅 sacrifice_done
 	var gm := get_node_or_null("/root/GameManager")
 	if gm != null and int(gm.get("sacrifice_count")) > 0:
-		_show_corruption(int(gm.get("sacrifice_count")))
-	if gm != null:
 		var saved_faction := str(gm.get("faction"))
 		if saved_faction == "engineer" or saved_faction == "heretic":
 			apply_faction(saved_faction)
@@ -824,43 +819,6 @@ func _update_cloth(delta: float, body_x: float, flare: float) -> void:
 
 ## 献祭后果：不是加数值，而是让寄生体真的在背上长出来。
 ## 第一次在肩后出现一小簇紫色菌丝/触须，第二次再向外爬一圈；只改外观。
-func _build_corruption() -> void:
-	_corruption = Node2D.new()
-	_corruption.name = "Corruption"
-	# 肢体和角色必须在同一个图层：原来的 z=-1 会被背景盖住，而角色本身没事。
-	# 改成 0 + show_behind_parent：仍然画在身体后面，但不再掉到背景下面。
-	_corruption.z_index = 0
-	_corruption.show_behind_parent = true
-	_corruption.visible = false
-	_body.add_child(_corruption)
-	# 背侧的三根短触须：从披风后面钻出来，不挡脸
-	for i in range(3):
-		var tendril := Line2D.new()
-		tendril.width = 2.0 - i * 0.35
-		tendril.default_color = Color(0.36, 0.16, 0.44, 0.86)
-		tendril.points = PackedVector2Array([
-			Vector2(-2 + i * 3, -14),
-			Vector2(-15 - i * 5, -9 - i * 4),
-			Vector2(-24 - i * 6, -18 - i * 6),
-			Vector2(-20 - i * 7, -27 - i * 5),
-		])
-		_corruption.add_child(tendril)
-	var bulb := Polygon2D.new()
-	bulb.color = Color(0.46, 0.20, 0.54, 0.92)
-	bulb.position = Vector2(-16, -15)
-	bulb.polygon = PackedVector2Array([
-		Vector2(-5, 0), Vector2(-1, -6), Vector2(5, -4),
-		Vector2(6, 3), Vector2(1, 6), Vector2(-4, 4),
-	])
-	_corruption.add_child(bulb)
-	var eye := Polygon2D.new()
-	eye.color = Color(0.88, 0.92, 0.70, 0.9)
-	eye.position = Vector2(-16, -15)
-	eye.polygon = PackedVector2Array([
-		Vector2(-2, -1), Vector2(1, -2), Vector2(2, 1), Vector2(-1, 2),
-	])
-	_corruption.add_child(eye)
-
 ## 第二层阵营外观：工程师给蒸汽靴和背罐，异教徒给污化腿。
 ## M3-01 只做身份可见，不在这里改跳跃数值——能力分叉留给下一张卡。
 func apply_faction(faction: String) -> void:
@@ -946,20 +904,6 @@ func _build_tainted_leg() -> void:
 		Vector2(-2, -1), Vector2(1, -2), Vector2(2, 1), Vector2(-1, 2),
 	])
 	_faction_visual.add_child(knee_eye)
-
-func _on_sacrifice_done(_sacrifice_id: String, total_count: int) -> void:
-	_show_corruption(total_count)
-
-func _show_corruption(count: int) -> void:
-	if _corruption == null:
-		return
-	_corruption_count = count
-	_corruption.visible = true
-	# 第二道馈赠让寄生组织再向外扩一圈，仍不改碰撞/数值
-	_corruption.scale = Vector2(1.0 + minf(count - 1, 3) * 0.12, 1.0 + minf(count - 1, 3) * 0.08)
-	var tw := create_tween()
-	tw.tween_property(_corruption, "modulate", Color(1.0, 0.72, 1.0, 1.0), 0.18)
-	tw.tween_property(_corruption, "modulate", Color(1, 1, 1, 1.0), 0.45)
 
 ## 打击火花：命中点炸一小簇冷白点，补足"打到了"的反馈（不加任何判定）
 func _spawn_hit_spark(pos: Vector2, strength: float = 3.6, duration: float = 0.12) -> void:

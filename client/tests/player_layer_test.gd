@@ -42,15 +42,14 @@ func _process(_delta: float) -> bool:
 		_player.global_position = Vector2(0, -70)
 		_player.set("has_weapon", true)
 		_player.call("apply_faction", "heretic")
-		_player.call("_build_corruption")
+		# M5-33：献祭后长寄生组织那套视觉已删，这里不再构造它
 		return false
 	if _frame == 40:
 		var body := _player.get_node("Body") as Node2D
 		var limbs := {
-			"Corruption": _player.get("_corruption"),
 			"FactionVisual": _player.get("_faction_visual"),
 		}
-		for key: String in ["Corruption", "FactionVisual"]:
+		for key: String in ["FactionVisual"]:
 			var node: Node = limbs[key]
 			if node == null:
 				_check(false, "%s 没生成" % key)

@@ -35,7 +35,7 @@ const PLAYER_HALF_HEIGHT := 13.0   # 玩家碰撞盒 14×26，中心到脚底 13
 ## 拓扑不变、间距与跑动距离同步变长，约多出 1.2 km 的横向路程）。
 const SPREAD := 1.25
 const STAGE := {
-	"world_width": 7150.0,
+	"world_width": 7400.0,
 	"spawn": Vector2(100, 647),
 	# 移动环：走完这段才算学会走路（判定点）
 	"move_mark": Vector2(780, 585),
@@ -67,10 +67,10 @@ const STAGE := {
 	"combat_gate": Vector2(4400, 309),
 	# 祭坛台（顶 572）＋ 祭坛
 	"altar_hall": Rect2(4700, 572, 675, 90),
-	"altar": Vector2(5040, 570),
+	"altar": Vector2(6950, 659),
 	"pickup_mark": Vector2(5040, 498),
 	# 献祭那行字要抬到祭坛提示（HintLabel 在 519）上面去：两句原来只差 21px，叠在一起看不清
-	"sacrifice_mark": Vector2(5040, 466),
+	"sacrifice_mark": Vector2(6950, 659),
 	# 祭坛之后：长廊台阶是可选路线，层门在地图最右。
 	# 蒸汽靴宝箱已移到第二层工程师处（剧情上靴子由工程师交付），教学关不再放箱子。
 	"gallery": [
@@ -81,7 +81,7 @@ const STAGE := {
 	# 四块石台就是过河的路，掉进中间会死；右岸刚好接住"第一层"门。
 	"chasm_left": 5850.0,
 	"chasm_right": 6890.0,
-	"door": Vector2(7000, 659),
+	"door": Vector2(7300, 659),
 }
 
 ## 物理门：每环一个，只有做完前面那一环才开。高度按玩家跳跃高度留死角：
@@ -544,7 +544,7 @@ const STATION_SURFACES := [
 	Vector2(3160, 571),
 	Vector2(4100, 659),   # COMBAT：浅坑底
 	Vector2(5580, 659),   # PICKUP：写在肢体掉落处的地面上（祭坛上方只留献祭那一行）
-	Vector2(5040, 572),   # SACRIFICE：祭坛台
+	Vector2(6950, 659),   # SACRIFICE：祭坛旁边（右岸地面，门在右边）
 ]
 func station_anchors() -> Array[Vector2]:
 	var out: Array[Vector2] = []

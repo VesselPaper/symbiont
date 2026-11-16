@@ -60,9 +60,8 @@ func _run_checks() -> void:
 	_check(int(gm.get("sacrifice_count")) == 1, "献祭计数没有 +1")
 	_check(bool(altar.get("_sequence_active")), "献祭演出没有启动")
 	_check(altar.get_node_or_null("Visual/OfferingLimb") != null, "祭坛缺少飞入的肢体模型")
-	var corruption := player.get_node_or_null("Body/Corruption") as Node2D
-	_check(corruption != null, "玩家缺少寄生组织节点")
-	if corruption != null:
-		_check(corruption.visible, "献祭后玩家寄生组织没有显示")
+	# M5-33（组长要求删掉这个设定）：献祭后玩家身上**不该**再长出寄生组织
+	_check(player.get_node_or_null("Body/Corruption") == null,
+		"献祭后玩家身上又长东西了（Body/Corruption 应该已经删掉）")
 	# 层间转场：教学关已经有一段黑场，floor1 也有淡入（节点存在即算）
 	_check(_arena.get_node_or_null("FloorTransition/Fade") != null, "缺少教学关黑场")
