@@ -545,7 +545,8 @@ func _dress_terrain() -> void:
 		if body_name.begins_with("Wall"):
 			_add_wall_rim(body, body_name)
 			continue
-		_add_top_rim(body, col)
+		# M5-28：顶面亮边不再按块画（那样方台底下会多出一道亮纹），
+		# 改由 `_build_terrain_material()` 沿整条地形轮廓画一条连续的。
 		_add_seams_and_moss(body, col)
 		# M5-28（组长反馈"矩形地面拼上去一眼看出接缝，高台和平地材质不一样"）：
 		# 地面断面的石块/砌层不再按"每块地形自己"画，改成 `_build_terrain_material()`
@@ -666,6 +667,64 @@ func _build_terrain_material() -> void:
 			root.add_child(joint)
 		jx += _rng.randf_range(120.0, 260.0)
 
+	# ④ 顶面亮边：按**整个地形轮廓**画一条连续线（M5-28 二次修）。
+	# 原来是一块地形画一条 —— 下劈方台坐在跳台顶面上的时候，跳台那条亮边正好从方台屁股底下穿过去，
+	# 看着就是"平台底下有一道亮纹、再往下一刀切平"（组长指的就是这个）。
+	# 现在只沿"每个横坐标最上面那层地形"画，方台底下那段自然没有线。
+	_add_terrain_rim(root, rects)
+
+## 每个 x 上，地形最上面那层的 y（没有地形返回 INF）
+func _top_at(rects: Array[Rect2], x: float) -> float:
+	var best := 1.0e9
+	for r in rects:
+		if x >= r.position.x and x <= r.end.x:
+			best = minf(best, r.position.y)
+	return best
+
+## 顶面亮边 + 亮边下的暗影，沿整条轮廓（按断开的段分开画，悬崖那段自然断开）
+func _add_terrain_rim(root: Node2D, rects: Array[Rect2]) -> void:
+	var left := 1.0e9
+	var right := -1.0e9
+	for r in rects:
+		left = minf(left, r.position.x)
+		right = maxf(right, r.end.x)
+	var segments: Array[PackedVector2Array] = []
+	var cur := PackedVector2Array()
+	var prev_y := 1.0e9
+	var x := left
+	while x <= right + 0.1:
+		var y := _top_at(rects, x)
+		if y > 1.0e8 or (cur.size() >= 1 and absf(y - prev_y) > 4.0):
+			# 没有地形，或者这里是个竖直落差（平台侧面）：断开，
+			# 亮边只画在"能站人的水平顶面"上，侧面不留一道亮竖线
+			if cur.size() >= 2:
+				segments.append(cur)
+			cur = PackedVector2Array()
+			prev_y = 1.0e9
+			x += 2.0
+			continue
+		cur.append(Vector2(x, y + 1.0))
+		prev_y = y
+		x += 2.0
+	if cur.size() >= 2:
+		segments.append(cur)
+	for seg in segments:
+		var rim := Line2D.new()
+		rim.name = "TerrainRim"
+		rim.width = 2.0
+		rim.default_color = Color(0.335, 0.358, 0.362, 0.92)
+		rim.points = seg
+		root.add_child(rim)
+		var shade := Line2D.new()
+		shade.name = "TerrainRimShade"
+		shade.width = 2.0
+		shade.default_color = Color(0.040, 0.050, 0.058, 0.60)
+		var shifted := PackedVector2Array()
+		for p in seg:
+			shifted.append(p + Vector2(0.0, 3.5))
+		shade.points = shifted
+		root.add_child(shade)
+
 ## 地形矩形（世界坐标）：地面、平台、台阶都算
 func _terrain_rects() -> Array[Rect2]:
 	var out: Array[Rect2] = []
@@ -733,35 +792,9 @@ func _inside_terrain(rects: Array[Rect2], p: Vector2) -> bool:
 			return true
 	return false
 
-		# M5-25（组长反馈"坑两边灰色矩形、有个多出来的一点没有碰撞体积"）：
-		# `_add_edge_chunks` 会在碰撞盒边缘**多画出去几像素**的碎石和垂根 ——
-		# 那是纯装饰、没有碰撞，走过去看着像悬空的灰块。不画了，地形边缘就是碰撞边缘。
-
-func _add_top_rim(body: StaticBody2D, col: CollisionShape2D) -> void:
-	var shape := col.shape as RectangleShape2D
-	if shape == null:
-		return
-	var half_w := shape.size.x * 0.5
-	var top_y := col.position.y - shape.size.y * 0.5
-	var rim := Line2D.new()
-	rim.name = "TopRim"
-	rim.width = 2.0
-	rim.default_color = RIM_COLOR
-	rim.points = PackedVector2Array([
-		Vector2(col.position.x - half_w, top_y + 1.0),
-		Vector2(col.position.x + half_w, top_y + 1.0),
-	])
-	body.add_child(rim)
-	# 顶面下面压一条暗线，让平台有厚度
-	var under := Line2D.new()
-	under.name = "TopShade"
-	under.width = 2.0
-	under.default_color = Color(0.04, 0.05, 0.06, 0.8)
-	under.points = PackedVector2Array([
-		Vector2(col.position.x - half_w + 2.0, top_y + 3.0),
-		Vector2(col.position.x + half_w - 2.0, top_y + 3.0),
-	])
-	body.add_child(under)
+	# M5-25（组长反馈"坑两边灰色矩形、有个多出来的一点没有碰撞体积"）：
+	# `_add_edge_chunks` 会在碰撞盒边缘**多画出去几像素**的碎石和垂根 ——
+	# 那是纯装饰、没有碰撞，走过去看着像悬空的灰块。不画了，地形边缘就是碰撞边缘。
 
 func _add_seams_and_moss(body: StaticBody2D, col: CollisionShape2D) -> void:
 	var shape := col.shape as RectangleShape2D
