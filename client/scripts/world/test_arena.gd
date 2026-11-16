@@ -160,6 +160,8 @@ func _ready() -> void:
 	_build_hollow_steps()
 	_build_corridor_gallery()
 	_build_next_floor_door()
+	# 门前圣所装饰（供台、烛台、断柱、瓦砾、门楣旧布）
+	_build_door_shrine()
 	_build_tutorial_gates()
 	# M5-28：屏幕前景先撤掉。组长说前景不该一直跟着镜头，真正的视差前景要单独做，
 	# 这轮先不做（原来的固定版在提交 2ee07b9 里，想要可以捡回来）。
@@ -755,45 +757,171 @@ func _build_next_floor_door() -> void:
 	_door_root.z_index = -1
 	add_child(_door_root)
 
-	# 门后的光：教程没完成时很暗，完成后调亮
+	# 门后透出来的光：没开门时是一层很暗的冷光，开关门会调它
 	_door_glow = Sprite2D.new()
 	_door_glow.texture = _radial_texture()
 	_door_glow.modulate = Color(0.35, 0.80, 0.82, 0.06)
-	_door_glow.scale = Vector2(1.3, 1.3)
-	_door_glow.position = Vector2(0, -86)
+	_door_glow.scale = Vector2(1.6, 1.6)
+	_door_glow.position = Vector2(0, -80)
 	_door_root.add_child(_door_glow)
 
-	var post_color := Color(0.130, 0.150, 0.160)
-	for dx in [-48.0, 48.0]:
+	# ---------- 门体（M5-34 重做：原来就是两根竖条 + 一块横板） ----------
+	var stone := Color(0.128, 0.148, 0.158)
+	var stone_lit := Color(0.176, 0.200, 0.212)
+	var stone_dark := Color(0.086, 0.100, 0.110)
+	var glow_edge := Color(0.34, 0.52, 0.53, 0.55)
+
+	# ① 门洞内壁：比门框暗一档，让门"有厚度"而不是贴在背景上
+	var cavity := Polygon2D.new()
+	cavity.color = Color(0.045, 0.056, 0.064)
+	cavity.polygon = PackedVector2Array([
+		Vector2(-52, -158), Vector2(52, -158), Vector2(52, -2), Vector2(-52, -2),
+	])
+	_door_root.add_child(cavity)
+
+	# ② 立柱：柱身 + 柱头 + 柱础，三件套才像石柱
+	for dx in [-56.0, 56.0]:
+		var side := 1.0 if dx > 0.0 else -1.0
 		var post := Polygon2D.new()
-		post.color = post_color
+		post.color = stone
 		post.polygon = PackedVector2Array([
-			Vector2(dx - 14, -178), Vector2(dx + 14, -178), Vector2(dx + 14, 0), Vector2(dx - 14, 0),
+			Vector2(dx - 20, -166), Vector2(dx + 20, -166),
+			Vector2(dx + 18, -4), Vector2(dx - 18, -4),
 		])
 		_door_root.add_child(post)
-		# 门框内侧一圈冷色轮廓光，不然柱子跟平背景一个亮度，看不出是门
+		# 柱身上一道受光边
+		var lit := Line2D.new()
+		lit.width = 2.0
+		lit.default_color = stone_lit
+		lit.points = PackedVector2Array([
+			Vector2(dx - side * 15.0, -160), Vector2(dx - side * 16.0, -10),
+		])
+		_door_root.add_child(lit)
+		# 柱头：比柱身宽一圈，两级挑檐
+		var capital := Polygon2D.new()
+		capital.color = stone_lit
+		capital.polygon = PackedVector2Array([
+			Vector2(dx - 28, -176), Vector2(dx + 28, -176),
+			Vector2(dx + 24, -166), Vector2(dx - 24, -166),
+		])
+		_door_root.add_child(capital)
+		var capital2 := Polygon2D.new()
+		capital2.color = stone
+		capital2.polygon = PackedVector2Array([
+			Vector2(dx - 25, -166), Vector2(dx + 25, -166),
+			Vector2(dx + 21, -158), Vector2(dx - 21, -158),
+		])
+		_door_root.add_child(capital2)
+		# 柱础
+		var base := Polygon2D.new()
+		base.color = stone_dark
+		base.polygon = PackedVector2Array([
+			Vector2(dx - 26, -8), Vector2(dx + 26, -8),
+			Vector2(dx + 24, 0), Vector2(dx - 24, 0),
+		])
+		_door_root.add_child(base)
+		# 门框内侧一圈冷色轮廓光
 		var rim := Line2D.new()
 		rim.width = 2.0
-		rim.default_color = Color(0.34, 0.52, 0.53, 0.55)
+		rim.default_color = glow_edge
 		rim.points = PackedVector2Array([
-			Vector2(dx + (14.0 if dx > 0 else -14.0), -172),
-			Vector2(dx + (14.0 if dx > 0 else -14.0), -6),
+			Vector2(dx - side * 20.0, -158), Vector2(dx - side * 18.0, -6),
 		])
 		_door_root.add_child(rim)
+
+	# ③ 门楣：两层（檐 + 梁），中间压一条浮雕线
 	var lintel := Polygon2D.new()
-	lintel.color = Color(0.160, 0.180, 0.190)
+	lintel.color = stone_lit
 	lintel.polygon = PackedVector2Array([
-		Vector2(-76, -196), Vector2(76, -196), Vector2(72, -166), Vector2(-72, -166),
+		Vector2(-86, -186), Vector2(86, -186), Vector2(80, -172), Vector2(-80, -172),
 	])
 	_door_root.add_child(lintel)
+	var beam := Polygon2D.new()
+	beam.color = stone
+	beam.polygon = PackedVector2Array([
+		Vector2(-80, -172), Vector2(80, -172), Vector2(76, -156), Vector2(-76, -156),
+	])
+	_door_root.add_child(beam)
+	var frieze := Line2D.new()
+	frieze.width = 2.0
+	frieze.default_color = Color(0.26, 0.34, 0.36, 0.7)
+	frieze.points = PackedVector2Array([
+		Vector2(-72, -164), Vector2(72, -164),
+	])
+	_door_root.add_child(frieze)
+	# 门楣上方的山花：一个浅浅的三角，把门"顶"起来
+	var pediment := Polygon2D.new()
+	pediment.color = stone_dark
+	pediment.polygon = PackedVector2Array([
+		Vector2(-86, -186), Vector2(86, -186), Vector2(0, -205),
+	])
+	_door_root.add_child(pediment)
+	var pediment_lit := Line2D.new()
+	pediment_lit.width = 1.6
+	pediment_lit.default_color = Color(0.30, 0.40, 0.42, 0.65)
+	pediment_lit.points = PackedVector2Array([
+		Vector2(-78, -187), Vector2(0, -201), Vector2(78, -187),
+	])
+	_door_root.add_child(pediment_lit)
 
-	# 门槛：把门和地面接上，别让柱子浮着
+	# ④ 两扇门板：半开，往里收，带门钉和横档
+	for side in [-1.0, 1.0]:
+		var leaf := Polygon2D.new()
+		leaf.color = Color(0.070, 0.082, 0.092)
+		leaf.polygon = PackedVector2Array([
+			Vector2(side * 4.0, -152), Vector2(side * 46.0, -147),
+			Vector2(side * 46.0, -8), Vector2(side * 4.0, -12),
+		])
+		_door_root.add_child(leaf)
+		# 横档两道
+		for bar_y in [-124.0, -74.0]:
+			var bar := Line2D.new()
+			bar.width = 2.0
+			bar.default_color = Color(0.150, 0.170, 0.180, 0.85)
+			bar.points = PackedVector2Array([
+				Vector2(side * 8.0, bar_y), Vector2(side * 42.0, bar_y + 2.0),
+			])
+			_door_root.add_child(bar)
+		# 门钉三颗
+		for stud in [-136.0, -104.0, -58.0]:
+			var dot := Polygon2D.new()
+			dot.color = Color(0.230, 0.270, 0.280, 0.9)
+			dot.polygon = PackedVector2Array([
+				Vector2(side * 26.0 - 2.0, stud), Vector2(side * 26.0 + 2.0, stud),
+				Vector2(side * 26.0 + 2.0, stud + 4.0), Vector2(side * 26.0 - 2.0, stud + 4.0),
+			])
+			_door_root.add_child(dot)
+
+	# ⑤ 门槛两级：贴着地面，别让柱子浮着
 	var sill := Polygon2D.new()
 	sill.color = Color(0.190, 0.210, 0.215)
 	sill.polygon = PackedVector2Array([
-		Vector2(-64, -10), Vector2(64, -10), Vector2(64, 0), Vector2(-64, 0),
+		Vector2(-74, -8), Vector2(74, -8), Vector2(74, 0), Vector2(-74, 0),
 	])
 	_door_root.add_child(sill)
+	var sill2 := Polygon2D.new()
+	sill2.color = Color(0.150, 0.168, 0.176)
+	sill2.polygon = PackedVector2Array([
+		Vector2(-88, 0), Vector2(88, 0), Vector2(84, 7), Vector2(-84, 7),
+	])
+	_door_root.add_child(sill2)
+
+	# ⑥ 门侧墙垛：贴在两边的短墙，把门"嵌"进墙里
+	for side in [-1.0, 1.0]:
+		var pier := Polygon2D.new()
+		pier.color = stone_dark
+		pier.polygon = PackedVector2Array([
+			Vector2(side * 76, -180), Vector2(side * 96, -180),
+			Vector2(side * 96, 0), Vector2(side * 76, 0),
+		])
+		_door_root.add_child(pier)
+		var pier_lit := Line2D.new()
+		pier_lit.width = 1.4
+		pier_lit.default_color = Color(0.24, 0.32, 0.34, 0.5)
+		pier_lit.points = PackedVector2Array([
+			Vector2(side * 77, -176), Vector2(side * 77, -4),
+		])
+		_door_root.add_child(pier_lit)
 
 	# 门缝：整个门的"开关"就看这条线的亮度
 	_door_seam = Line2D.new()
@@ -809,7 +937,7 @@ func _build_next_floor_door() -> void:
 	# 门牌和提示单独抬到 z=40（世界层里最高），门框该在后面还在后面。
 	var label := Label.new()
 	label.text = "第一层"
-	label.position = Vector2(-40, -226)
+	label.position = Vector2(-40, -192)
 	label.size = Vector2(80, 24)
 	label.z_index = 40
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -850,13 +978,187 @@ func _build_next_floor_door() -> void:
 	# 改用统一的 InteractionPrompt（和火堆/钟绳/守钟人同一套字体描边阴影），
 	# 层级也抬到 40：门框在后面，提示永远在人能看到的最上层。
 	_door_prompt = InteractionPrompt.create(
-		_door_root, "进入第一层（K）", Vector2(-80, -246), Vector2(160, 24),
+		_door_root, "进入第一层（K）", Vector2(-80, -214), Vector2(160, 24),
 		12, Color(0.78, 0.96, 0.92, 0.98), 2, 40
 	)
 	_door_prompt.name = "DoorPrompt"
 	_door_prompt.visible = false
 
 ## 提示只在"门开了 + 人站在门口"时显示；其余时候藏起来，别在教程前半段就吊着人
+## 门前圣所（M5-34）：祭坛搬到门口之后，这块空地要有东西衬。
+## 供台、烛台、断柱、瓦砾、门楣旧布 —— 都画在 z=-1，和门框同层，不挡人也不参与碰撞。
+
+## 一个椭圆的多边形顶点（门前圣所的烛光晕用；arena_art 里那个 _ellipse 是它的私有函数）
+func _ring_points(center: Vector2, radii: Vector2, steps: int) -> PackedVector2Array:
+	var pts := PackedVector2Array()
+	for i in range(steps):
+		var a := TAU * float(i) / float(steps)
+		pts.append(center + Vector2(cos(a) * radii.x, sin(a) * radii.y))
+	return pts
+
+func _build_door_shrine() -> void:
+	var shrine := Node2D.new()
+	shrine.name = "DoorShrine"
+	shrine.z_index = -1
+	add_child(shrine)
+	var altar_x: float = (STAGE["altar"] as Vector2).x
+	var door_x: float = (STAGE["door"] as Vector2).x
+	var ground := 659.0
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 20261116
+
+	var stone := Color(0.132, 0.150, 0.160)
+	var stone_lit := Color(0.196, 0.216, 0.226)
+	var stone_dark := Color(0.078, 0.092, 0.102)
+
+	# ① 供台：祭坛左边一张矮石台，台上一只香灰碗
+	var table := Node2D.new()
+	table.name = "OfferingTable"
+	table.position = Vector2(altar_x - 92.0, ground)
+	shrine.add_child(table)
+	var slab := Polygon2D.new()
+	slab.color = stone_lit
+	slab.polygon = PackedVector2Array([
+		Vector2(-34, -30), Vector2(34, -30), Vector2(30, -22), Vector2(-30, -22),
+	])
+	table.add_child(slab)
+	for lx in [-18.0, 16.0]:
+		var leg := Polygon2D.new()
+		leg.color = stone
+		leg.polygon = PackedVector2Array([
+			Vector2(lx - 5, lx * 0.0 - 22), Vector2(lx + 5, -22),
+			Vector2(lx + 7, 0), Vector2(lx - 3, 0),
+		])
+		table.add_child(leg)
+	var bowl := Polygon2D.new()
+	bowl.color = Color(0.100, 0.112, 0.120)
+	bowl.polygon = PackedVector2Array([
+		Vector2(-13, -33), Vector2(13, -33), Vector2(9, -26), Vector2(-9, -26),
+	])
+	table.add_child(bowl)
+	var ash := Polygon2D.new()
+	ash.color = Color(0.230, 0.226, 0.220, 0.85)
+	ash.polygon = PackedVector2Array([
+		Vector2(-9, -32), Vector2(9, -32), Vector2(5, -29), Vector2(-5, -29),
+	])
+	table.add_child(ash)
+
+	# ② 烛台三座：高低不一，火焰是一小块暖色 + 一圈很淡的光晕
+	for spec in [
+		{"dx": -56.0, "h": 44.0}, {"dx": -130.0, "h": 30.0}, {"dx": 62.0, "h": 38.0},
+	]:
+		var holder := Node2D.new()
+		holder.name = "Candle"
+		holder.position = Vector2(altar_x + float(spec["dx"]), ground)
+		shrine.add_child(holder)
+		var h := float(spec["h"])
+		var stand := Polygon2D.new()
+		stand.color = stone
+		stand.polygon = PackedVector2Array([
+			Vector2(-7, 0), Vector2(7, 0), Vector2(5, -4), Vector2(-5, -4),
+		])
+		holder.add_child(stand)
+		var pole := Line2D.new()
+		pole.width = 2.0
+		pole.default_color = stone_lit
+		pole.points = PackedVector2Array([Vector2(0, -4), Vector2(0, -h)])
+		holder.add_child(pole)
+		var cup := Polygon2D.new()
+		cup.color = Color(0.150, 0.138, 0.122)
+		cup.polygon = PackedVector2Array([
+			Vector2(-5, -h), Vector2(5, -h), Vector2(3, -h - 6), Vector2(-3, -h - 6),
+		])
+		holder.add_child(cup)
+		var flame := Polygon2D.new()
+		flame.color = Color(1.0, 0.78, 0.42, 0.9)
+		flame.polygon = PackedVector2Array([
+			Vector2(0, -h - 16), Vector2(3, -h - 8), Vector2(0, -h - 5), Vector2(-3, -h - 8),
+		])
+		holder.add_child(flame)
+		var halo := Polygon2D.new()
+		halo.color = Color(1.0, 0.70, 0.34, 0.10)
+		halo.polygon = _ring_points(Vector2(0, -h - 9), Vector2(11, 14), 12)
+		holder.add_child(halo)
+
+	# ③ 断柱两根：一高一矮，柱口不平，柱身带裂缝
+	for spec in [
+		{"dx": -170.0, "h": 96.0, "w": 16.0},
+		{"dx": 190.0, "h": 58.0, "w": 14.0},
+	]:
+		var dx := float(spec["dx"])
+		var ph := float(spec["h"])
+		var pw := float(spec["w"])
+		var col2 := Node2D.new()
+		col2.name = "BrokenPillar"
+		col2.position = Vector2(altar_x + dx, ground)
+		shrine.add_child(col2)
+		var body := Polygon2D.new()
+		body.color = stone
+		body.polygon = PackedVector2Array([
+			Vector2(-pw, -ph), Vector2(pw, -ph + 6.0), Vector2(pw, 0), Vector2(-pw, 0),
+		])
+		col2.add_child(body)
+		var lit := Line2D.new()
+		lit.width = 1.6
+		lit.default_color = stone_lit
+		lit.points = PackedVector2Array([Vector2(-pw + 3.0, -ph + 4.0), Vector2(-pw + 3.0, -3.0)])
+		col2.add_child(lit)
+		var cap := Polygon2D.new()
+		cap.color = stone_lit
+		cap.polygon = PackedVector2Array([
+			Vector2(-pw, -ph), Vector2(pw, -ph + 6.0), Vector2(pw - 3.0, -ph + 2.0), Vector2(-pw + 2.0, -ph - 4.0),
+		])
+		col2.add_child(cap)
+		var crack := Line2D.new()
+		crack.width = 1.0
+		crack.default_color = Color(0.040, 0.050, 0.058, 0.7)
+		crack.points = PackedVector2Array([
+			Vector2(-2.0, -ph + 10.0), Vector2(2.0, -ph * 0.6), Vector2(-1.0, -6.0),
+		])
+		col2.add_child(crack)
+
+	# ④ 地面瓦砾：祭坛和门之间撒一圈碎石
+	var rubble_x := altar_x + 70.0
+	while rubble_x < door_x - 70.0:
+		var pile := Node2D.new()
+		pile.name = "Rubble"
+		pile.position = Vector2(rubble_x, ground)
+		shrine.add_child(pile)
+		for k in range(int(rng.randf_range(2.0, 5.0))):
+			var bit := Polygon2D.new()
+			var tone := rng.randf_range(0.110, 0.180)
+			bit.color = Color(tone, tone * 1.05, tone * 1.10, 0.95)
+			var bw := rng.randf_range(3.0, 9.0)
+			var bh := rng.randf_range(2.0, 4.0)
+			var bx := rng.randf_range(-18.0, 18.0)
+			bit.polygon = PackedVector2Array([
+				Vector2(bx - bw, 0), Vector2(bx - bw * 0.3, -bh),
+				Vector2(bx + bw, -bh * 0.7), Vector2(bx + bw * 0.7, 0),
+			])
+			pile.add_child(bit)
+		rubble_x += rng.randf_range(26.0, 64.0)
+
+	# ⑤ 门楣两侧垂下来的旧布幔
+	for side in [-1.0, 1.0]:
+		var cloth := Node2D.new()
+		cloth.name = "DoorBanner"
+		cloth.position = Vector2(door_x + side * 104.0, ground - 196.0)
+		shrine.add_child(cloth)
+		var banner := Polygon2D.new()
+		banner.color = Color(0.150, 0.115, 0.100, 0.85)
+		banner.polygon = PackedVector2Array([
+			Vector2(-13, 0), Vector2(13, 0), Vector2(11, 62), Vector2(4, 74),
+			Vector2(-3, 64), Vector2(-11, 56),
+		])
+		cloth.add_child(banner)
+		var banner_edge := Line2D.new()
+		banner_edge.width = 1.2
+		banner_edge.default_color = Color(0.26, 0.20, 0.17, 0.7)
+		banner_edge.points = PackedVector2Array([
+			Vector2(-13, 2), Vector2(-10, 56), Vector2(-3, 62),
+		])
+		cloth.add_child(banner_edge)
+
 func _update_door_prompt() -> void:
 	if _door_prompt == null or not is_instance_valid(_door_prompt):
 		return
