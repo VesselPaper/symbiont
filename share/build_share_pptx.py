@@ -254,29 +254,25 @@ def s_why(prs):
 def s_seven_steps(prs):
     slide = blank(prs)
     head(slide, "原理", "一次请求穿过网关要经过七步",
-         "看懂这七步，成熟与否就看出来了。")
+         "写一个能转发的脚本，一百多行就够了。差距在第五步、第六步和超时体系上。")
 
-    rows = [
-        ("步骤", "做什么", "我们的配置"),
-        ("接连接", "接受 TCP 连接，建立 TLS 会话", "listen 8443 ssl，TLSv1.2 与 1.3"),
-        ("解析报文", "解析方法、路径、Host、请求头", "七层代理才有这一步，四层看不到"),
-        ("决定路由", "按路径或主机名选处理方式", "根路径走静态，/api/ 走上游"),
-        ("改写头部", "补上游需要的来源信息", "X-Real-IP、X-Forwarded-For、X-Forwarded-Proto"),
-        ("建上游连接", "从地址池挑一台并连接", "upstream 加 least_conn 加 keepalive"),
-        ("转发与回传", "边收边转，不等响应结束", "默认流式，适合几十 MB 的 wasm 和 pck"),
-        ("收尾", "记耗时，处理超时与断连", "access_log，connect 5s / read 30s"),
+    steps = [
+        ("1", "接连接", "接受 TCP 连接，建立 TLS 会话", "listen 8443 ssl，TLSv1.2 与 1.3"),
+        ("2", "解析报文", "方法、路径、Host、请求头", "七层代理才有这一步，四层看不到"),
+        ("3", "决定路由", "按路径或主机名选处理方式", "根路径走静态，/api/ 走上游"),
+        ("4", "改写头部", "补上游需要的来源信息", "X-Real-IP、X-Forwarded-For、X-Forwarded-Proto"),
+        ("5", "建上游连接", "从地址池挑一台并连接", "upstream 加 least_conn 加 keepalive"),
+        ("6", "转发与回传", "边收边转，不等响应结束", "默认流式，适合几十 MB 的 wasm 和 pck"),
+        ("7", "收尾", "记耗时，处理超时与断连", "access_log，connect 5s / read 30s"),
     ]
-    table(slide,
-          Inches(0.85), Inches(2.12), Inches(11.6),
-          [Inches(1.95), Inches(4.35), Inches(5.3)],
-          None, rows, size=11.5, row_h=Inches(0.44))
-
-    text(slide, Inches(0.85), Inches(5.85), Inches(11.6), Inches(1.1),
-         "写一个能转发的脚本，一百多行就能跑。工业级实现和它的差距集中在第五步、第六步，"
-         "以及超时体系上，不在语法上。",
-         14, BONE, line=1.5)
+    y = 2.04
+    for num, name, desc, cfg in steps:
+        text(slide, Inches(0.85), Inches(y), Inches(0.5), Inches(0.32), num, 16, CYAN, True)
+        text(slide, Inches(1.4), Inches(y + 0.03), Inches(1.9), Inches(0.3), name, 13, WHITE, True)
+        text(slide, Inches(3.3), Inches(y + 0.05), Inches(4.3), Inches(0.3), desc, 11.5, MUTED)
+        text(slide, Inches(7.8), Inches(y + 0.06), Inches(4.6), Inches(0.3), cfg, 10.5, DIM, font=MONO)
+        y += 0.64
     return slide
-
 
 # ---------------------------------------------------------------- 5 连接复用
 def s_keepalive(prs):
@@ -389,25 +385,26 @@ def s_zone(prs):
 def s_security(prs):
     slide = blank(prs)
     head(slide, "应用", "网关实际承担的职责",
-         "最后一列是实测证据，不是设计意图。")
+         "每一条后面那半句都是实测，不是设计意图。")
 
-    rows = [
-        ("职责", "机制", "实测"),
-        ("传输加密", "TLS 在网关终止，后端之间走内网明文", "同链路改走 443 后只能看到十六进制"),
-        ("藏住源站", "后端与数据库用 expose，不用 ports", "docker port 查两台，输出为空"),
-        ("收敛指纹", "server_tokens off", "网关只报 nginx 且不带版本号"),
-        ("限流", "每 IP 每秒 8 个，突发 20，并发 20", "40 并发里 21 个 200，19 个 429"),
-        ("防大包", "请求体上限 4 MB", "超出返回 413"),
-        ("防慢连接", "请求头与请求体超时 15 秒", "半开连接被断开"),
-        ("真实来源", "覆盖并追加转发头", "探针能读到最左一个地址"),
-        ("少泄漏信息", "nosniff、X-Frame-Options、Referrer-Policy", "三项都出现在响应头里"),
+    items = [
+        ("传输加密", "TLS 在网关终止，同链路改走 443 之后中继只看到十六进制"),
+        ("藏住源站", "后端与数据库改 expose，docker port 查过去输出为空"),
+        ("收敛指纹", "server_tokens off，网关只报 nginx 且不带版本"),
+        ("限流", "每秒八个、突发二十，四十个并发里二十一个通过"),
+        ("防大包", "请求体上限四兆，超出直接 413"),
+        ("防慢连接", "头部与正文各十五秒，半开连接会被断开"),
+        ("提供真实来源", "覆盖写入转发头，后端能读到最左一个地址"),
+        ("少泄漏信息", "nosniff、X-Frame-Options、Referrer-Policy，三项都在"),
     ]
-    table(slide,
-          Inches(0.85), Inches(2.0), Inches(11.6),
-          [Inches(1.85), Inches(4.55), Inches(5.2)],
-          None, rows, size=11, row_h=Inches(0.5))
+    for i, (name, evidence) in enumerate(items):
+        col = i // 4
+        row = i % 4
+        x = 0.85 + col * 6.1
+        y = 2.12 + row * 1.2
+        text(slide, Inches(x), Inches(y), Inches(5.4), Inches(0.3), name, 13.5, CYAN, True)
+        text(slide, Inches(x), Inches(y + 0.4), Inches(5.4), Inches(0.6), evidence, 11, WHITE, line=1.45)
     return slide
-
 
 # ---------------------------------------------------------------- 8.5 代码
 def code_slide(path, title, sub):
@@ -472,69 +469,73 @@ def s_details(prs):
 # ---------------------------------------------------------------- 10 两个门槛
 def s_threshold(prs):
     slide = blank(prs)
-    head(slide, "负载均衡", "容量和可用性不是同一件事")
+    head(slide, "负载均衡", "容量和可用性不是同一件事",
+         "容量要等流量到位，可用性跟流量无关。")
 
-    text(slide, Inches(0.85), Inches(1.95), Inches(5.5), Inches(0.34),
-         "容量", 14, CYAN, True)
-    text(slide, Inches(0.85), Inches(2.36), Inches(5.5), Inches(2.0),
-         "单台算不过来才需要横向扩展。这件事要等流量到位才会出现。"
-         "判断方法也不靠感觉：压测画出请求量和延迟的关系，找到曲率突变的拐点，"
-         "并发长期超过拐点六成左右，再考虑加机器。",
-         12, WHITE, line=1.55)
+    text(slide, Inches(0.85), Inches(1.98), Inches(5.4), Inches(0.3), "容量", 13.5, CYAN, True)
+    text(slide, Inches(0.85), Inches(2.38), Inches(5.4), Inches(1.1),
+         "单台算不过来才需要扩。压测把请求量和延迟画出来，找曲率突变的拐点，"
+         "并发长期超过拐点六成左右再考虑加机器。", 11.5, WHITE, line=1.5)
 
-    text(slide, Inches(6.75), Inches(1.95), Inches(5.6), Inches(0.34),
-         "可用性", 14, CYAN, True)
-    text(slide, Inches(6.75), Inches(2.36), Inches(5.6), Inches(2.0),
-         "不能因为一台机器故障就停止服务，这跟流量无关。"
-         "哪怕一天只有三个用户，只要服务不允许中断，就该有第二台。"
-         "这两件事的台阶完全不同，混在一起谈就会得出“我们现在不需要，所以不用做”的错误结论。",
-         12, WHITE, line=1.55)
+    text(slide, Inches(6.75), Inches(1.98), Inches(5.6), Inches(0.3), "可用性", 13.5, CYAN, True)
+    text(slide, Inches(6.75), Inches(2.38), Inches(5.6), Inches(1.1),
+         "不能因为一台故障就停。这件事跟流量无关，哪怕一天只有三个用户，"
+         "只要服务不允许中断，就该有第二台。", 11.5, WHITE, line=1.5)
 
-    rows = [
-        ("台阶", "什么时候往上走", "会引入什么新问题"),
-        ("单机跑通", "初始状态", "无"),
-        ("单机优化", "延迟随并发上升但资源没用满", "优化有上限，改动可能影响正确性"),
-        ("多副本加代理", "单机资源打满，或服务不许中断", "会话保持、日志分散、配置一致性"),
-        ("多代理加外层均衡", "代理本身成了单点", "多一层转发，链路更难排查"),
+    rungs = [
+        ("单机跑通", "初始状态", ""),
+        ("单机优化", "延迟随并发上升，资源没用满", "优化有上限，改动可能影响正确性"),
+        ("多副本加代理", "单机打满，或服务不许中断", "会话保持、日志分散、配置一致性"),
+        ("多代理加外层均衡", "代理自己成了单点", "多一层转发，链路更难排查"),
     ]
-    table(slide, Inches(0.85), Inches(4.62), Inches(11.6),
-          [Inches(2.45), Inches(4.5), Inches(4.65)],
-          None, rows, size=11, row_h=Inches(0.42))
+    y = 4.0
+    for i, (name, when, cost) in enumerate(rungs):
+        x = 0.85 + i * 0.5
+        bar = slide.shapes.add_shape(1, Inches(x), Inches(y + 0.12), Inches(0.22), Inches(0.05))
+        bar.fill.solid()
+        bar.fill.fore_color.rgb = CYAN if i == 2 else DIM
+        bar.line.fill.background()
+        bar.shadow.inherit = False
+        text(slide, Inches(x + 0.4), Inches(y), Inches(2.2), Inches(0.3), name, 12.5, WHITE, True)
+        text(slide, Inches(x + 2.7), Inches(y + 0.02), Inches(4.0), Inches(0.3), when, 11, MUTED)
+        if cost:
+            text(slide, Inches(x + 6.9), Inches(y + 0.02), Inches(4.6), Inches(0.3), cost, 10.5, DIM)
+        y += 0.68
     return slide
-
 
 # ---------------------------------------------------------------- 11 算法
 def s_algo(prs):
     slide = blank(prs)
-    head(slide, "负载均衡", "算法取舍与无状态")
+    head(slide, "负载均衡", "算法取舍与无状态",
+         "值得展开的只有三种，其余课上讲过，这里不占版面。")
 
-    rows = [
-        ("算法", "怎么分", "适合", "什么时候失效"),
-        ("轮询", "依次轮流", "后端同构、耗时相近", "有慢请求时堆积到某些节点"),
-        ("加权轮询", "按权重", "机器配置不同", "权重靠人估，流量一变要重调"),
-        ("最少连接", "给当前连接最少的一台", "请求耗时差异大", "长连接场景下计数失真"),
-        ("IP 哈希", "按地址取模", "需要会话保持", "用户分布不均时会倾斜"),
-        ("一致性哈希", "按哈希环分配", "缓存类、节点增减要稳定", "实现复杂，节点少时均衡一般"),
+    cards = [
+        ("轮询", "后端同构、耗时相近时最简单", "有慢请求时会堆在固定几台上"),
+        ("最少连接", "按当前连接数挑一台，抗慢请求", "长连接场景下计数会失真"),
+        ("IP 哈希", "需要会话保持时用", "用户分布不均会倾斜"),
     ]
-    table(slide, Inches(0.85), Inches(1.98), Inches(11.6),
-          [Inches(1.95), Inches(3.3), Inches(3.35), Inches(3.0)],
-          None, rows, size=11, row_h=Inches(0.46))
+    x = 0.85
+    for name, fit, fail in cards:
+        box = card(slide, Inches(x), Inches(2.0), Inches(3.6), Inches(2.2))
+        text(slide, Inches(x + 0.28), Inches(2.2), Inches(3.0), Inches(0.32), name, 15, BONE, True)
+        text(slide, Inches(x + 0.28), Inches(2.68), Inches(3.05), Inches(0.6), fit, 11, WHITE, line=1.45)
+        text(slide, Inches(x + 0.28), Inches(3.45), Inches(3.05), Inches(0.6), fail, 11, RED, line=1.45)
+        x += 4.0
 
-    text(slide, Inches(0.85), Inches(4.82), Inches(5.5), Inches(0.34),
-         "我们选 least_conn 的理由", 14, CYAN, True)
-    text(slide, Inches(0.85), Inches(5.22), Inches(5.5), Inches(1.5),
-         "健康检查和探测请求耗时接近，但真实业务里存档上传和排行榜查询差别很大。"
+    text(slide, Inches(0.85), Inches(4.62), Inches(5.5), Inches(0.3),
+         "我们选最少连接", 13.5, CYAN, True)
+    text(slide, Inches(0.85), Inches(5.02), Inches(5.5), Inches(1.5),
+         "健康检查和探测请求耗时接近，但真实业务里存档上传和排行榜查询差很多。"
          "最少连接比轮询更抗慢请求，也不像加权轮询那样依赖人工估权重。",
-         12, WHITE, line=1.5)
+         11.5, WHITE, line=1.55)
 
-    text(slide, Inches(6.75), Inches(4.82), Inches(5.6), Inches(0.34),
-         "为什么我们不需要会话保持", 14, CYAN, True)
-    text(slide, Inches(6.75), Inches(5.22), Inches(5.6), Inches(1.5),
+    text(slide, Inches(6.75), Inches(4.62), Inches(5.6), Inches(0.3),
+         "为什么不需要会话保持", 13.5, CYAN, True)
+    text(slide, Inches(6.75), Inches(5.02), Inches(5.6), Inches(1.5),
          "后端是无状态 REST，账号、存档、排行榜都在 MySQL 里，任何一台都能处理任何请求。"
-         "这是加副本不用改代码的前提，也让粘性会话那套问题根本不会出现。",
-         12, WHITE, line=1.5)
+         "这是加副本不用改代码的前提，粘性会话那套问题也就不会出现。",
+         11.5, WHITE, line=1.55)
     return slide
-
 
 # ---------------------------------------------------------------- 12 健康检查
 def s_health(prs):
@@ -570,55 +571,59 @@ def s_health(prs):
 # ---------------------------------------------------------------- 13 前后对照
 def s_before_after(prs):
     slide = blank(prs)
-    head(slide, "改造", "改造前后")
+    head(slide, "改造", "改造前后",
+         "七项配置，最后还有一行，那一行比任何一行配置都关键。")
 
     rows = [
-        ("项", "改造前", "改造后"),
         ("对外端口", "8000、3306、8080", "80、443"),
         ("传输", "明文 HTTP", "80 跳 443，TLS 1.2 与 1.3"),
         ("后端数量", "1", "3，least_conn 调度"),
-        ("故障处理", "无", "max_fails 摘除，重试下一台"),
-        ("限流", "无", "8 r/s，burst 20，超出 429"),
-        ("版本指纹", "没有安全响应头，docs 直接可访问", "server_tokens off，只报 nginx 不带版本"),
-        ("请求体上限", "无", "4 MB"),
-        ("缓存策略", "无", "入口页不缓存，带哈希资源长缓存 30 天"),
+        ("故障处理", "没有", "max_fails 摘除，重试下一台"),
+        ("限流", "没有", "每秒八个，超出发 429"),
+        ("版本指纹", "没有安全头，docs 敞开", "只报 nginx，不带版本"),
+        ("请求体上限", "没有", "4 MB"),
     ]
-    table(slide, Inches(0.85), Inches(2.02), Inches(11.6),
-          [Inches(2.15), Inches(4.4), Inches(5.05)],
-          None, rows, size=11.5, row_h=Inches(0.47))
+    y = 2.02
+    for label, before, after in rows:
+        text(slide, Inches(0.85), Inches(y + 0.03), Inches(2.1), Inches(0.3), label, 11.5, MUTED)
+        text(slide, Inches(3.0), Inches(y), Inches(3.4), Inches(0.34), before, 12, DIM)
+        arrow = slide.shapes.add_shape(1, Inches(6.5), Inches(y + 0.15), Inches(0.42), Inches(0.035))
+        arrow.fill.solid()
+        arrow.fill.fore_color.rgb = RGBColor(0x35, 0x4A, 0x4D)
+        arrow.line.fill.background()
+        arrow.shadow.inherit = False
+        text(slide, Inches(7.1), Inches(y), Inches(5.2), Inches(0.34), after, 12.5, BONE)
+        y += 0.66
 
-    text(slide, Inches(0.85), Inches(6.4), Inches(11.6), Inches(0.5),
-         "改动最大的其实是一行：数据库与后端从 ports 改成 expose。",
-         13, BONE, line=1.4)
+    text(slide, Inches(0.85), Inches(6.86), Inches(11.6), Inches(0.34),
+         "最后还有一行：数据库与后端从 ports 改成 expose。源站不出内网，前面所有策略才成立。",
+         11.5, WHITE, line=1.4)
     return slide
-
 
 # ---------------------------------------------------------------- 14 实测
 def s_measure(prs):
     slide = blank(prs)
     head(slide, "实测", "本机实测结果",
-         "环境：Windows 11，Docker 29.7.2，nginx 1.31.8，FastAPI 0.115.14，MySQL 8.4.13。")
+         "Windows 11，Docker 29.7.2，nginx 1.31.8，FastAPI 0.115.14，MySQL 8.4.13。")
 
-    rows = [
-        ("场景", "做法", "结果"),
-        ("分流", "依次请求 12 次", "三台各 4 次，成功率 100%"),
-        ("限流", "40 个请求并发", "21 个 200，19 个 429"),
-        ("故障转移", "停掉一台后请求 9 次", "9 次全部成功，落到剩下两台"),
-        ("故障代价", "同上", "最慢一次 5020 ms"),
-        ("自愈", "重启那台，等 10 秒", "请求再次均匀，三台各 4 次"),
-        ("明文对照", "经中继访问明文端口", "中继打印出完整请求行、头和 JSON"),
-        ("密文对照", "经中继访问 443", "只能打印十六进制"),
-        ("源站隐藏", "docker port 查后端与数据库", "输出为空"),
+    big(slide, Inches(0.85), Inches(1.98), Inches(2.9), "4 / 4 / 4", "次　三台分到的请求", "12 次依次请求，全部成功")
+    big(slide, Inches(4.05), Inches(1.98), Inches(2.9), "21 / 19", "个　200 与 429", "40 并发，超出直接被拒")
+    big(slide, Inches(7.25), Inches(1.98), Inches(2.7), "5007", "ms　最慢一次", "停一台后九次仍全成功", RED)
+    big(slide, Inches(10.15), Inches(1.98), Inches(2.3), "10", "秒　自愈", "重启后重新均匀", MUTED)
+
+    lines = [
+        "限流那个二十一不是巧合：每秒八个加突发二十，一瞬间最多放过二十一个。",
+        "明文对照，中继打印出完整请求行、请求头和 JSON。",
+        "密文对照，同一段链路走 443，只剩十六进制。",
+        "源站隐藏，docker port 查后端与数据库，两条都空。",
+        "分流与自愈看的是命中次数，不看成功率，可用是默认。",
     ]
-    table(slide, Inches(0.85), Inches(2.18), Inches(11.6),
-          [Inches(1.85), Inches(4.35), Inches(5.4)],
-          None, rows, size=11.5, row_h=Inches(0.44))
-
-    text(slide, Inches(0.85), Inches(6.3), Inches(11.6), Inches(0.6),
-         "21 这个数不是巧合：8 r/s 加突发 20，一瞬间最多放过 21 个，其余直接拒绝。它可以用来验证配置到底生效没有。",
-         12, MUTED, line=1.4)
+    y = 3.6
+    for line in lines:
+        text(slide, Inches(0.85), Inches(y), Inches(11.6), Inches(0.3), line, 11.5,
+             MUTED if line.startswith("限流") else WHITE, line=1.4)
+        y += 0.5
     return slide
-
 
 # ---------------------------------------------------------------- 15 判断
 def s_judgement(prs):
