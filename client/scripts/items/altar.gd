@@ -36,6 +36,10 @@ var _player_in_range := false
 var _feedback_timer := 0.0
 var _anim_time := 0.0
 var _sequence_active := false
+## M5-22（组长反馈"祭坛上方的文字只留一行"）：教学关里教程自己会在祭坛上方刻一句目标，
+## 祭坛再挂一行自己的"献上肢体（K）"，两句叠在一起。教学关把这行关掉，只留教程那一句；
+## 别的楼层没有教程，祭坛这行照常显示（它是唯一的机制提示）。
+var _hint_enabled := true
 
 func _ready() -> void:
 	body_entered.connect(_on_body_entered)
@@ -89,6 +93,14 @@ func _keycode_is_r(key: InputEventKey) -> bool:
 func set_refuse_allowed(enabled: bool) -> void:
 	allow_refuse = enabled
 	_update_hint()
+
+## 教学关用：关掉祭坛自己那行提示，只留教程刻在上面的目标句（免得两句叠在一起）
+func set_hint_enabled(enabled: bool) -> void:
+	_hint_enabled = enabled
+	if not enabled:
+		_hide_hint()
+	else:
+		_update_hint()
 
 ## 拒绝也需要手里有肢体；没有时给一行反馈，避免 R 像坏键。
 func show_no_limb() -> void:
@@ -323,13 +335,15 @@ func _player_input_locked() -> bool:
 	return bool(player.get("_input_locked"))
 
 func _show_feedback(text: String) -> void:
+	# 反馈（"你手上没有肢体""献祭已成"）是按键之后的一次性回应，和"关掉常驻提示"无关：
+	# 教学关里常驻那行被关掉，玩家按 R/K 仍然要知道发生了什么。
 	_hint_label.text = text
 	_hint_label.visible = true
 	_feedback_timer = FEEDBACK_DURATION
 
 ## 基准提示：玩家在范围内显示"按 K 献祭"，离开隐藏
 func _update_hint() -> void:
-	if not _player_in_range:
+	if not _player_in_range or not _hint_enabled:
 		_hide_hint()
 		return
 	if GameManager.has_flag("true_he_relic"):

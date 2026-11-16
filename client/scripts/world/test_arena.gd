@@ -181,6 +181,8 @@ func _ready() -> void:
 	if _altar != null and _altar.has_signal("refuse_requested"):
 		_altar.connect("refuse_requested", Callable(self, "_on_refuse_requested"))
 		_altar.call("set_refuse_allowed", not _true_he_mode)
+		# M5-22：教学关里祭坛上方只留教程那一行，祭坛自己的"献上肢体（K）"关掉
+		_altar.call("set_hint_enabled", false)
 	var loaded_player := get_node_or_null("Player") as Node2D
 	if loaded_player != null:
 		SaveSystem.apply_pending_player(loaded_player)
@@ -329,16 +331,23 @@ func _void_arrival(land_pos: Vector2) -> void:
 	cam.set_physics_process(true)
 
 ## 开场黑幕：整屏压黑，只在角色周围留一圈看得见（和序章虚空里一样）。
-## 用 shader 算"离角色多远"而不是拿贴图叠 —— 洞心要每帧跟着人走，
-## 贴图方案得每帧挪位置、还会和缩放打架。
+##
+## M5-21（组长反馈"蒙版还是在左下角、还不动"）：原来洞心是拿 FRAGCOORD 算距离的。
+## FRAGCOORD 是**渲染目标**的像素坐标，窗口一放大（比如 1920×1080）它就变成 1.5 倍，
+## 而传进去的 center_px 还是 1280×720 这套逻辑坐标 —— 两套坐标系打架，
+## 圈就跑到画面另一头，而且怎么跟着人走都不在脸上。
+## 现在只用 UV（不管渲染目标多大，它永远是盖住整块屏幕的 0~1），
+## 距离按"UV 差 × 视口逻辑尺寸"还原成像素，坐标系只有一个，窗口多大都对得上。
 const INTRO_SHADER := """
 shader_type canvas_item;
+uniform vec2 view_px = vec2(1280.0, 720.0);
 uniform vec2 center_px = vec2(640.0, 360.0);
-uniform float hole_px = 108.0;
-uniform float soft_px = 96.0;
+uniform float hole_px = 132.0;
+uniform float soft_px = 110.0;
 uniform vec4 dark : source_color = vec4(0.012, 0.016, 0.020, 1.0);
 void fragment() {
-	float d = distance(FRAGCOORD.xy, center_px);
+	vec2 d_px = (UV - center_px / view_px) * view_px;
+	float d = length(d_px);
 	float a = clamp((d - hole_px) / soft_px, 0.0, 1.0);
 	COLOR = vec4(dark.rgb, dark.a * a);
 }
@@ -358,11 +367,11 @@ func _build_intro_blackout() -> void:
 	var sh := Shader.new()
 	sh.code = INTRO_SHADER
 	mat.shader = sh
-	# 半径显式写一遍：shader 里那组默认值只是兜底，改常量得真的生效
+	# 半径和视口尺寸显式写一遍：shader 里那组默认值只是兜底，改常量得真的生效
 	mat.set_shader_parameter("hole_px", INTRO_HOLE_PX)
 	mat.set_shader_parameter("soft_px", INTRO_HOLE_SOFT)
-	mat.set_shader_parameter("center_px", Vector2(get_viewport_rect().size.x * 0.5,
-		get_viewport_rect().size.y * 0.5))
+	mat.set_shader_parameter("view_px", Vector2(get_viewport_rect().size))
+	mat.set_shader_parameter("center_px", _intro_screen_center())
 	rect.material = mat
 	layer.add_child(rect)
 	_intro_blackout = rect
@@ -537,6 +546,8 @@ func player_on_platform(rect_key: String, player: Node) -> bool:
 ## 亮圈看起来比人慢一点点（像在拖）。两个回合同写同一个值，最后一次生效就行。
 func _physics_process(_delta: float) -> void:
 	if _intro_blackout != null and is_instance_valid(_intro_blackout) and _intro_shader != null:
+		# 窗口/视口尺寸也可能变（玩家拉窗口、全屏），每帧对齐一次，别让圈子按旧尺寸算
+		_intro_shader.set_shader_parameter("view_px", Vector2(get_viewport_rect().size))
 		_intro_shader.set_shader_parameter("center_px", _intro_screen_center())
 		_update_intro_spot()
 
@@ -738,13 +749,17 @@ func _build_next_floor_door() -> void:
 	_door_root.add_child(_door_seam)
 
 	# 门牌：中文字体必须显式加载，否则方块
+	# M5-22（组长反馈"大门这边还没有抬头，一直在后排"）：门框本身是 z=-1（人要挡门），
+	# 但它下面的门牌跟着一起退到了地形后面，被地面亮边和道具压住、一直"抬不起头"。
+	# 门牌和提示单独抬到 z=40（世界层里最高），门框该在后面还在后面。
 	var label := Label.new()
 	label.text = "第一层"
 	label.position = Vector2(-40, -226)
 	label.size = Vector2(80, 24)
+	label.z_index = 40
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label.add_theme_font_size_override("font_size", 16)
-	label.add_theme_color_override("font_color", Color(0.50, 0.72, 0.74, 0.75))
+	label.add_theme_font_size_override("font_size", 12)
+	label.add_theme_color_override("font_color", Color(0.56, 0.80, 0.82, 0.85))
 	var font := load("res://assets/fonts/NotoSansCJKsc-Regular.otf") as Font
 	if font != null:
 		label.add_theme_font_override("font", font)
@@ -775,19 +790,16 @@ func _build_next_floor_door() -> void:
 		_update_door_prompt())
 	_door_root.add_child(area)
 
-	# 门上的提示："进入第一层（K）"，只有门开了且人站在门口才亮
-	_door_prompt = Label.new()
+	# 门上的提示："进入第一层（K）"，只有门开了且人站在门口才亮。
+	# M5-22（组长要求"可以打开就提示按 K 开门，和正常交互提示一样"）：
+	# 改用统一的 InteractionPrompt（和火堆/钟绳/守钟人同一套字体描边阴影），
+	# 层级也抬到 40：门框在后面，提示永远在人能看到的最上层。
+	_door_prompt = InteractionPrompt.create(
+		_door_root, "进入第一层（K）", Vector2(-80, -246), Vector2(160, 24),
+		12, Color(0.78, 0.96, 0.92, 0.98), 2, 40
+	)
 	_door_prompt.name = "DoorPrompt"
-	_door_prompt.position = Vector2(-70, -262)
-	_door_prompt.size = Vector2(140, 26)
-	_door_prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_door_prompt.add_theme_font_size_override("font_size", 14)
-	var prompt_font := load("res://assets/fonts/NotoSansCJKsc-Regular.otf") as Font
-	if prompt_font != null:
-		_door_prompt.add_theme_font_override("font", prompt_font)
-	_door_prompt.add_theme_color_override("font_color", Color(0.62, 0.92, 0.90, 0.95))
 	_door_prompt.visible = false
-	_door_root.add_child(_door_prompt)
 
 ## 提示只在"门开了 + 人站在门口"时显示；其余时候藏起来，别在教程前半段就吊着人
 func _update_door_prompt() -> void:
@@ -837,7 +849,10 @@ func _build_hud() -> void:
 func _build_campfire() -> void:
 	var fire := CAMPFIRE_SCENE.instantiate()
 	fire.name = "Campfire"
-	fire.position = Vector2(4650, 659)
+	# M5-22（组长反馈"火堆往前移，剧情受伤、剧情过了之后才遇到火堆"）：
+	# 原来火在 4650、剧情触发点在它后面，等于先看见火、后挨打，教学顺序是反的。
+	# 现在火挪到 4820（剧情和战斗之后），玩家是带着伤口走到火边的，才有"该回血了"的动机。
+	fire.position = Vector2(CAMPFIRE_X, 659)
 	add_child(fire)
 
 # ---------- 火堆前那一战（M5-18） ----------
@@ -849,12 +864,16 @@ func _build_campfire() -> void:
 ## 掉血必须是确定发生的一次，不能看玩家闪不闪得开。
 ## 怪物就用史莱姆（同一套跳扑 AI），只是血加厚，算"稍简单的小 boss"：
 ## 它不会一招秒人，也不会放弹幕，代价是它就在悬崖边上 —— 打急了会被自己撞下去。
-const BEAST_TRIGGER := Vector2(4790, 620)
-const BEAST_SPAWN := Vector2(4930, 646)
+const BEAST_TRIGGER := Vector2(4520, 620)
+const BEAST_SPAWN := Vector2(4700, 646)
+## 篝火位置：必须在剧情和战斗之后（见 _build_campfire 的注释）
+const CAMPFIRE_X := 4820.0
 const BEAST_HP := 14
 const BEAST_BITE_DELAY := 0.45
 const BEAST_DIALOGUE := "tutorial_beast"
 const CAMPFIRE_HINT := "血掉了。回火边歇一下（K）"
+## 层门提示也用统一组件：和火堆/钟绳/守钟人长一个样（白字、黑描边、居中）
+const InteractionPrompt := preload("res://components/interaction_prompt.gd")
 
 var _beast: Node2D
 var _beast_started := false
@@ -928,7 +947,7 @@ func _on_beast_gone() -> void:
 	var label := Label.new()
 	label.name = "CampfireHint"
 	label.text = CAMPFIRE_HINT
-	label.position = Vector2(4650 - 160.0, 520.0)
+	label.position = Vector2(CAMPFIRE_X - 160.0, 520.0)
 	label.size = Vector2(320, 24)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.add_theme_font_size_override("font_size", 14)

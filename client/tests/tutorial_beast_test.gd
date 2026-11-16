@@ -11,8 +11,8 @@ extends SceneTree
 ##   ④ 回火边按 K 休息，回 1 颗心 —— 正好把刚才掉的那颗补回来。
 
 const ARENA := "res://scenes/world/test_arena.tscn"
-const TRIGGER := Vector2(4790, 640)
-const CAMPFIRE := Vector2(4650, 659)
+const TRIGGER := Vector2(4520, 640)
+const CAMPFIRE := Vector2(4820, 659)
 
 var _failed := false
 

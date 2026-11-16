@@ -32,7 +32,11 @@ func _run() -> void:
 		_check(hud.z_index >= 4 and hud.z_index <= 8, "目标文字层级不对，会被道具挡住: z=%d" % hud.z_index)
 		var consts: Dictionary = hud.get_script().get_script_constant_map()
 		var offset: Vector2 = consts.get("TEXT_OFFSET", Vector2.ZERO)
-		_check(offset.y <= -80.0, "目标文字离锚点太近，会压住地形: %s" % offset)
+		# M5-22（组长反馈"提示文字往下边一点、缩小到一半"）：偏移从 -88 收到 -56，
+		# 字号 20 → 10。这里改成钉"比锚点高、但别高太多"这个区间
+		_check(offset.y <= -40.0 and offset.y >= -70.0, "目标文字离锚点的高度不对: %s" % offset)
+		var font_size := int(consts.get("FONT_SIZE", 20))
+		_check(font_size <= 10, "目标文字字号没缩到一半（%d）" % font_size)
 		var flash := hud.get_node_or_null("Label") as Label
 		_check(flash != null, "缺少临时提示 Label")
 		_check(player != null, "缺少玩家")
@@ -51,10 +55,10 @@ func _check_objectives_stay(hud: Node2D, player: Node2D) -> void:
 	_check(label0 != null, "第一句没有自己的 Label 节点")
 	_check(hud.visible, "刻了目标文字后 HUD 还不可见")
 	var pos0 := label0.global_position if label0 != null else Vector2.ZERO
-	var want := Vector2(406, 585) + Vector2(0, -88)
-	# Label 原点是左上角，这里看“文字中心”是不是锚点上方 88px
+	var want := Vector2(406, 585) + Vector2(0, -56)
+	# Label 原点是左上角，这里看"文字中心"是不是锚点上方 56px（M5-22 把 88 收到 56）
 	var center0 := label0.get_global_rect().get_center() if label0 != null else Vector2.ZERO
-	_check(center0.distance_to(want) < 1.0, "第一句中心没挂在锚点上方 88px: %s" % center0)
+	_check(center0.distance_to(want) < 1.0, "第一句中心没挂在锚点上方 56px: %s" % center0)
 
 	if player != null:
 		player.global_position.x += 220.0

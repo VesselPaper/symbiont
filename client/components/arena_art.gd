@@ -472,16 +472,11 @@ func _dress_props() -> void:
 		_add_lantern(props, Vector2(x, 505.0 + float(lantern_i % 2) * 6.0), 210.0,
 			strength, strength * 0.68)
 		lantern_i += 1
-	# 立在台面上的断柱：近景有高有低，画面才不是一条水平线。
-	# 只放在地面上（悬崖上方不立），高度/宽度带随机，免得一排柱子像栅栏。
-	var pillar_i := 0
-	for x in _spread(140.0, 900.0):
-		if _over_gap(x):
-			continue
-		var h := _rng.randf_range(250.0, 340.0)
-		var w := _rng.randf_range(30.0, 48.0) * (1.0 if pillar_i % 2 == 0 else -1.0)
-		_add_broken_pillar(props, x, 660.0, h, w)
-		pillar_i += 1
+	# 立在台面上的断柱：M5-22（组长反馈「史莱克村再往前走那里有一个灰色矩形，删除掉」
+	# 「降下去的地方也有一个矩形，也删除」）——这些断柱在深色背景上就是一块纯灰的矩形，
+	# 读起来像没做完的占位方块，不像柱子。不调颜色了，直接**不放**：
+	# 近景只留吊灯、锁链、碎石，地形本身有亮边和砖缝，画面反而干净。
+	# （_add_broken_pillar 函数留着：楼层脚本自己要立柱子时还在用同一套画法。）
 	# 碎石：地面散几块，别让地面是一条直线（悬崖跳过）
 	for i in range(int(world_width / 420.0) + 4):
 		var rock := Polygon2D.new()

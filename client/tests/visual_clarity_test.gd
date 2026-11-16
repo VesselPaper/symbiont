@@ -51,11 +51,18 @@ func _check_arena() -> void:
 		_check(int(hud.z_index) >= 4, "目标提示还在道具后面 z=%d" % hud.z_index)
 		var consts: Dictionary = hud.get_script().get_script_constant_map()
 		var offset: Vector2 = consts.get("TEXT_OFFSET", Vector2.ZERO)
-		_check(offset.y <= -80.0, "目标提示离引导光太近，容易叠在一起")
+		# M5-22 组长把提示文字往下收、字号减半：偏移从 -88 收到 -56，
+		# 所以这里钉的是"确实在锚点上方、但别高到跟物件叠在一起"这个区间
+		_check(offset.y <= -40.0 and offset.y >= -70.0,
+			"目标提示的垂直偏移不对（%s），要么压住物件要么离锚点太远" % offset)
 	# M4-21 组长要求删掉引导光：场景里不该再有 guide_mark，也别让“光点”再被谁引用回来
 	_check(_level.get_node_or_null("guide_mark") == null, "教学关还留着引导光 guide_mark")
-	# “K 献祭 / K 调查”这类靠近提示也属于 UI，不能缩在祭坛模型后面
+	# M5-22（组长要求"祭坛上方的文字只留一行"）：教学关里祭坛自己的常驻提示要关掉，
+	# 只留教程刻的那一句；别的楼层没有教程，祭坛那行照常显示。
 	var altar := _level.get_node_or_null("Altar")
+	if altar != null:
+		_check(not bool(altar.get("_hint_enabled")),
+			"教学关祭坛还开着常驻提示，会和教程那行叠在一起")
 	var altar_hint: Label = altar.get_node_or_null("HintLabel") if altar != null else null
 	_check(altar_hint != null, "祭坛缺少按 K 提示")
 	if altar_hint != null:
