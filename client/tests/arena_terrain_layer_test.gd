@@ -28,7 +28,7 @@ func _run() -> void:
 	var player_z := player.z_index
 
 	# ① 所有运行时地形组都不能盖在玩家身上
-	for path in ["HollowSteps", "CorridorGallery", "TutorialGates", "GroundRight"]:
+	for path in ["CorridorGallery", "TutorialGates", "GroundRight"]:
 		var node := arena.get_node_or_null(path) as CanvasItem
 		_check(node != null, "缺少地形节点 %s" % path)
 		if node == null:
@@ -37,9 +37,8 @@ func _run() -> void:
 			"%s 的 z_index=%d 不低于玩家（%d），走过去会被它盖住" % [path, node.z_index, player_z])
 
 	# 台阶里的每一块也要在玩家后面（组内相对父节点是 0，父节点已经压后，这里只确认父节点生效）
-	var steps := arena.get_node_or_null("HollowSteps")
-	if steps != null:
-		_check(steps.get_child_count() >= 2, "浅坑台阶数量不对")
+	# M5-30：台阶已经撤了，这一段不该再有 HollowSteps 节点
+	_check(arena.get_node_or_null("HollowSteps") == null, "浅坑台阶没删干净，还留着一个 HollowSteps")
 
 	# ② 厚平台侧面要有竖缝：下劈方台（131 高）至少要有几条比"顶面那 9px"更深的缝
 	var pogo := arena.get_node_or_null("PogoPlatform") as StaticBody2D
@@ -68,15 +67,35 @@ func _run() -> void:
 		_check(body != null, "缺少地形 %s" % path)
 		if body == null:
 			continue
-		_check(_overshoot(body, true) <= 1.0,
-			"%s 的 Visual 比碰撞盒大 %.1fpx（走上去是没有碰撞的灰块）" % [path, _overshoot(body, true)])
-		_check(_overshoot(body, false) <= 8.0,
-			"%s 有装饰画到碰撞盒外面 %.1fpx" % [path, _overshoot(body, false)])
+		# M5-30：地形改成岩体轮廓（顶面严格贴碰撞顶边，左右允许鼓出几像素、底部挂碎岩），
+		# 所以这里只要求**顶边**对齐 —— 顶边歪了角色就会踩空/悬空，侧面鼓一点是自然的岩石边。
+		_check(_top_overshoot(body) <= 1.0,
+			"%s 的 Visual 顶边比碰撞顶边高 %.1fpx（角色会踩空）" % [path, _top_overshoot(body)])
+		_check(_overshoot(body, false) <= 10.0,
+			"%s 有装饰画到碰撞盒外面 %.1fpx（侧面岩石边最多允许 10px）" % [path, _overshoot(body, false)])
 
 	arena.queue_free()
 	await process_frame
 	print("[terrain_layer] %s" % ("PASS" if not _failed else "FAIL"))
 	quit(0 if not _failed else 1)
+
+## Visual（或任一子节点）的顶边比碰撞顶边高多少 —— 这是"角色会不会踩空"的唯一硬指标
+func _top_overshoot(body: StaticBody2D) -> float:
+	var col := body.get_node_or_null("CollisionShape2D") as CollisionShape2D
+	if col == null or col.shape == null:
+		return 0.0
+	var half := (col.shape as RectangleShape2D).size * 0.5
+	var box := Rect2(col.position - half, half * 2.0)
+	var worst := 0.0
+	for child in body.get_children():
+		if str(child.name) != "Visual":
+			continue
+		var s: Vector2 = (child as Node2D).scale if child is Node2D else Vector2.ONE
+		var pos: Vector2 = (child as Node2D).position if child is Node2D else Vector2.ZERO
+		if child is Polygon2D:
+			for p in (child as Polygon2D).polygon:
+				worst = maxf(worst, box.position.y - (pos + p * s).y)
+	return worst
 
 ## 画到碰撞盒外面的最大像素数（0 = 全在盒内）。only_visual=true 时只量 Visual 那一块。
 func _overshoot(body: StaticBody2D, only_visual: bool) -> float:

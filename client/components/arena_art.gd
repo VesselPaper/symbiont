@@ -60,6 +60,7 @@ func _build_all() -> void:
 	_build_far()
 	_build_mid()
 	_build_left_wall()
+	_build_wall_detail()
 	_build_under_ground()
 	_build_fog()
 	_build_spores()
@@ -210,6 +211,113 @@ func _build_left_wall() -> void:
 		Vector2(-6, 2), Vector2(6, 2), Vector2(4, 10), Vector2(-4, 10),
 	])
 	bracket.add_child(cup)
+
+## 左右两堵墙的墙面装饰（M5-30，组长"有墙壁的部分要修饰，现在都是直直地下来"）。
+##
+## 原来 WallLeft / WallRight 就是两根 40px 宽的纯色竖条，从上到下一条直线。
+## 这里在墙**内部**（不越出碰撞盒，避免又出现"没有碰撞的灰块"）画：
+## 岩层横缝、两条裂缝、几块凸出的石棱、墙根的苔，以及两盏壁灯架。
+## 画在墙自己的局部坐标里，跟着墙走 —— 墙在关卡里被挪到地图两端也自动对。
+func _build_wall_detail() -> void:
+	for body_name in ["WallLeft", "WallRight"]:
+		var body := get_parent().get_node_or_null(str(body_name)) as StaticBody2D
+		if body == null:
+			continue
+		var col := body.get_node_or_null("CollisionShape2D") as CollisionShape2D
+		var shape := col.shape as RectangleShape2D if col != null else null
+		if shape == null:
+			continue
+		var half_w := shape.size.x * 0.5
+		var half_h := shape.size.y * 0.5
+		var top := -half_h
+		var bottom := half_h
+		var detail := Node2D.new()
+		detail.name = "WallDetail"
+		body.add_child(detail)
+
+		# ① 岩层横缝：一层层往下砌，缝的位置错开一点
+		var y := top + 30.0
+		var row := 0
+		while y < bottom - 20.0:
+			var seam := Line2D.new()
+			seam.name = "WallCourse"
+			seam.width = 1.0
+			seam.default_color = Color(0.030, 0.038, 0.046, 0.55)
+			var inset := 3.0 + float(row % 3) * 3.5
+			seam.points = PackedVector2Array([
+				Vector2(-half_w + inset, y),
+				Vector2(-half_w + 6.0, y + 1.5),
+				Vector2(half_w - 6.0, y - 1.0),
+				Vector2(half_w - inset, y),
+			])
+			detail.add_child(seam)
+			y += 26.0
+			row += 1
+
+		# ② 两条纵向裂缝，打断"一根直条"的观感
+		for k in range(2):
+			var crack := Line2D.new()
+			crack.name = "WallCrack"
+			crack.width = 1.4
+			crack.default_color = Color(0.022, 0.028, 0.034, 0.7)
+			var cx := -half_w * 0.35 + float(k) * half_w * 0.7
+			var pts := PackedVector2Array()
+			var cy := top + _rng.randf_range(20.0, 60.0)
+			while cy < bottom - 40.0:
+				pts.append(Vector2(cx + _rng.randf_range(-3.0, 3.0), cy))
+				cy += _rng.randf_range(50.0, 110.0)
+			crack.points = pts
+			detail.add_child(crack)
+
+		# ③ 凸出的石棱：贴在墙面上，朝玩家那一侧（左墙朝右、右墙朝左）
+		var dir := 1.0 if str(body_name) == "WallLeft" else -1.0
+		var ledge_y := top + 90.0
+		while ledge_y < bottom - 60.0:
+			var w := _rng.randf_range(6.0, 10.0)
+			var h := _rng.randf_range(4.0, 8.0)
+			var block := Polygon2D.new()
+			block.name = "WallLedge"
+			var tone := _rng.randf_range(0.105, 0.150)
+			block.color = Color(tone, tone * 1.08, tone * 1.14, 0.95)
+			block.polygon = PackedVector2Array([
+				Vector2(dir * (half_w - 1.0), ledge_y), Vector2(dir * (half_w - w), ledge_y + h * 0.4),
+				Vector2(dir * (half_w - w), ledge_y + h), Vector2(dir * (half_w - 1.0), ledge_y + h * 0.6),
+			])
+			detail.add_child(block)
+			ledge_y += _rng.randf_range(70.0, 160.0)
+
+		# ④ 墙根的苔：贴地那一段
+		var moss_y := bottom - 6.0
+		for k in range(5):
+			var moss := Polygon2D.new()
+			moss.name = "WallMoss"
+			moss.color = Color(0.120, 0.190, 0.158, 0.5)
+			var mx := _rng.randf_range(-half_w + 2.0, half_w - 12.0)
+			var mw := _rng.randf_range(8.0, 20.0)
+			moss.polygon = PackedVector2Array([
+				Vector2(mx, moss_y), Vector2(mx + mw, moss_y),
+				Vector2(mx + mw - 3.0, moss_y - _rng.randf_range(3.0, 7.0)),
+			])
+			detail.add_child(moss)
+
+		# ⑤ 两盏壁灯架：给"这是一面人砌的墙"一个线索，也顺便打断竖条
+		for gy in [top + 190.0, bottom - 260.0]:
+			var bracket := Node2D.new()
+			bracket.name = "WallBracket"
+			bracket.position = Vector2(dir * (half_w - 4.0), gy)
+			detail.add_child(bracket)
+			var arm := Polygon2D.new()
+			arm.color = Color(0.090, 0.102, 0.112, 0.95)
+			arm.polygon = PackedVector2Array([
+				Vector2(0, 0), Vector2(-dir * 16.0, 2.0), Vector2(-dir * 15.0, 7.0), Vector2(0, 5.0),
+			])
+			bracket.add_child(arm)
+			var cup := Polygon2D.new()
+			cup.color = Color(0.150, 0.138, 0.122, 0.9)
+			cup.polygon = PackedVector2Array([
+				Vector2(-4.0, 1.0), Vector2(4.0, 1.0), Vector2(3.0, 8.0), Vector2(-3.0, 8.0),
+			])
+			bracket.add_child(cup)
 
 ## 地面下方（M5-27，组长反馈"地面底下是空的"）。
 ##
@@ -535,6 +643,15 @@ func _dress_terrain() -> void:
 		if visual == null:
 			continue
 		visual.color = names[body_name]
+		# M5-30（组长："第一层的地图就很好，教学关照着做就行"）：
+		# 地形不给矩形了，换成和第一层同一套岩体轮廓（顶面两个点严格贴碰撞顶边，
+		# 左右各鼓几像素、底部挂几块碎岩），一眼看不出是"方盒子拼的"。
+		if not body_name.begins_with("Wall"):
+			var rect := _body_rect(body)
+			if rect.size != Vector2.ZERO:
+				visual.scale = Vector2.ONE
+				visual.position = Vector2.ZERO
+				visual.polygon = _rock_silhouette(rect.size, int(rect.position.x) % 5)
 		# M5-28：地形统一压到 z=-1。这样"全局材质层"（z=0，插在 Player 前面）能盖住地形，
 		# 又不会盖住玩家 —— 地形和玩家都是 z=0 时只能靠树的先后顺序，平台节点在 Player 后面，
 		# 材质层就永远被平台压住（组长看到的就是"平台还是一块平灰"）。
@@ -795,6 +912,31 @@ func _inside_terrain(rects: Array[Rect2], p: Vector2) -> bool:
 	# M5-25（组长反馈"坑两边灰色矩形、有个多出来的一点没有碰撞体积"）：
 	# `_add_edge_chunks` 会在碰撞盒边缘**多画出去几像素**的碎石和垂根 ——
 	# 那是纯装饰、没有碰撞，走过去看着像悬空的灰块。不画了，地形边缘就是碰撞边缘。
+
+## 岩体轮廓（和第一层 floor1.gd 的 `_rock_silhouette` 同一套写法）：
+## 顶面两点严格在 rect 的顶上（玩家踩的就是这条线），左右各鼓 3~7px、底部挂 5~9px 的碎岩。
+func _rock_silhouette(size: Vector2, index: int) -> PackedVector2Array:
+	var half := size.x * 0.5
+	var h := size.y
+	var top := -h * 0.5
+	var bottom := h * 0.5
+	var notch := 4.0 + float(index % 3) * 4.0
+	var bulge := 3.0 + float(index % 2) * 5.0
+	return PackedVector2Array([
+		Vector2(-half, top),
+		Vector2(half, top),
+		Vector2(half - 1.0, top + 9.0),
+		Vector2(half + bulge, top + 26.0),
+		Vector2(half - notch, top + 50.0),
+		Vector2(half - 2.0, top + 68.0),
+		Vector2(half - 16.0, bottom - 8.0),
+		Vector2(half - 32.0, bottom + 5.0),
+		Vector2(8.0, bottom + 9.0),
+		Vector2(-half + 30.0, bottom + 3.0),
+		Vector2(-half + 7.0, bottom - 16.0),
+		Vector2(-half - bulge, top + 58.0),
+		Vector2(-half + notch, top + 24.0),
+	])
 
 func _add_seams_and_moss(body: StaticBody2D, col: CollisionShape2D) -> void:
 	var shape := col.shape as RectangleShape2D

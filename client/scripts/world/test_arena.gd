@@ -58,10 +58,9 @@ const STAGE := {
 	"pogo_mark": Vector2(3400, 372),
 	"pogo_gate": Vector2(3620, 449),
 	# 浅坑：两侧各两级台阶，坑底和地面同高，史莱姆就站在坑里
-	"pit_steps": [
-		Rect2(3770, 607, 38, 52), Rect2(3808, 633, 38, 26),
-		Rect2(4280, 633, 38, 26), Rect2(4318, 607, 38, 52),
-	],
+	# M5-30（组长"去掉那两个台阶"）：坑两侧的台阶撤掉，这一段恢复成平地直走。
+	# 地面本来就是一条贯通的 659 平台，台阶只是装饰，留着还会在底边多一道接缝。
+	"pit_steps": [],
 	# 组长反馈：教学关只留一只史莱姆，两只同时贴脸容易被围住，节奏也太赶
 	"slimes": [Vector2(4100, 646)],
 	"combat_mark": Vector2(4100, 590),
@@ -655,6 +654,8 @@ func _unhandled_input(event: InputEvent) -> void:
 ## M4-03：史莱姆浅坑两侧各两级石阶。原来 PitFloor 是一块高 72px 的凸台，
 ## 从跳台走过去像突然踩到桌子；现在用 26/52px 两级台阶落下去，再对称爬上来。
 func _build_hollow_steps() -> void:
+	if (STAGE["pit_steps"] as Array).is_empty():
+		return   # M5-30：没有台阶，就不建这个节点（空 holder 只会多一个没用的节点）
 	_build_slab_holder("HollowSteps", STAGE["pit_steps"],
 		["HollowStepL1", "HollowStepL2", "HollowStepR1", "HollowStepR2"])
 
