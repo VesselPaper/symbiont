@@ -578,12 +578,13 @@ func _update_visual_anim(delta: float) -> void:
 				_set_down_slash(p < 0.7, maxf(0.0, 0.75 - p))
 			elif _attack_running:
 				# 跑砍：身体整体前压，脚下的步子不停；白痕在身前亮一条横的
+				# M5-26：跑砍也走"只往下沉"这一套，别把人抬离地面
 				var step_run := sin(_anim_time * 12.0)
-				body_y = -absf(step_run) * 1.4
+				body_y = absf(step_run) * 1.2
 				body_rot = 0.14
 				body_scale = Vector2(1.05, 0.95)
-				foot_l = Vector2(step_run * 1.6, -absf(step_run) * 1.2)
-				foot_r = Vector2(-step_run * 1.6, -absf(step_run) * 1.2)
+				foot_l = Vector2(step_run * 1.6, absf(step_run) * 1.2)
+				foot_r = Vector2(-step_run * 1.6, absf(step_run) * 1.2)
 				slash_rot = 0.0
 				if p < 0.18:
 					body_x = -0.8
@@ -664,10 +665,13 @@ func _update_visual_anim(delta: float) -> void:
 		elif absf(velocity.x) > 30.0:
 			# 走路（M4-62 重做）：不做伸缩。走路只做两件事 ——
 			# 身体一上一下地颠（落脚的重量），头跟着摆（_update_head 里做），斗篷跟着风飘。
+			# M5-26（组长反馈"有时候看着悬空在地面上"）：这一颠原来写成 -1.6（往上抬），
+			# 而整幅画（含脚）都挂在 Body 上，人每走一步就被抬起来 1.6px —— 看着就是离地。
+			# 改成**只往下沉**（abs 取正），像落脚时把重心压下去，脚永远踩在地上。
 			var step := sin(_anim_time * 12.0)
-			body_y = -absf(step) * 1.6
-			foot_l = Vector2(step * 2.4, -absf(step) * 1.2)
-			foot_r = Vector2(-step * 2.4, -absf(step) * 1.2)
+			body_y = absf(step) * 0.5
+			foot_l = Vector2(step * 2.4, absf(step) * 0.5)
+			foot_r = Vector2(-step * 2.4, absf(step) * 0.5)
 			# M4-69 启动/停止：起步时身子先往前压一点（像被自己拽出去），
 			# 停步时反过来往后坐一下再回正。这个量只看"有没有在加速/减速"，
 			# 稳态跑动时它是 0，所以不会让跑动变成一直斜着。
@@ -676,13 +680,14 @@ func _update_visual_anim(delta: float) -> void:
 			body_scale = Vector2(1.0 + 0.03 * _start_dip, 1.0 - 0.05 * _start_dip)
 		else:
 			# 待机：呼吸起伏，斗篷轻轻起伏
+			# M5-26：呼吸也只许**往下**（见走路那段的注释 —— 整幅画都在 Body 上，往上抬就是离地）
 			var breath := sin(_anim_time * 2.0)
-			body_y = breath * 0.8
+			body_y = absf(breath) * 0.3
 			# 刚停下来那几帧：身子往前一顿再收回来（M4-69 的"停止"）
 			body_rot += _stop_lean
 			body_y += _stop_dip
-			foot_l = Vector2(0.0, breath * 0.2)
-			foot_r = Vector2(0.0, -breath * 0.2)
+			foot_l = Vector2(0.0, absf(breath) * 0.2)
+			foot_r = Vector2(0.0, absf(breath) * 0.2)
 		# 受击：短暂缩身 + 泛红，叠加在其它状态上
 		if _hurt_timer > 0.0:
 			var k := _hurt_timer / HURT_ANIM_TIME
