@@ -14,14 +14,14 @@ from pptx.util import Inches, Pt
 
 ROOT = Path(__file__).resolve().parent
 
-INK = RGBColor(0x1B, 0x1F, 0x1D)
-MUTED = RGBColor(0x55, 0x5E, 0x59)
-DIM = RGBColor(0x8A, 0x92, 0x8D)
-FAINT = RGBColor(0xC4, 0xCA, 0xC4)
-ACCENT = RGBColor(0x1F, 0x5C, 0x54)
-WARN = RGBColor(0xA8, 0x44, 0x2F)
-LINE = RGBColor(0xD5, 0xD9, 0xD2)
-CARD = RGBColor(0xF2, 0xF2, 0xEC)
+INK = RGBColor(0xEE, 0xE8, 0xD8)
+MUTED = RGBColor(0xB3, 0xB0, 0xA2)
+DIM = RGBColor(0x83, 0x8C, 0x85)
+FAINT = RGBColor(0x2E, 0x3C, 0x37)
+ACCENT = RGBColor(0x86, 0xC7, 0xB4)
+WARN = RGBColor(0xD2, 0x8B, 0x6A)
+LINE = RGBColor(0x33, 0x44, 0x3E)
+CARD = RGBColor(0x1A, 0x27, 0x23)
 
 FONT = "微软雅黑"
 MONO = "Consolas"
@@ -40,7 +40,7 @@ def new_deck() -> Presentation:
 
 def blank(prs):
     slide = prs.slides.add_slide(prs.slide_layouts[6])
-    bg = slide.shapes.add_picture(str(ROOT / "img/bg_paper.png"), 0, 0, width=W, height=H)
+    bg = slide.shapes.add_picture(str(ROOT / "img/bg_ink.png"), 0, 0, width=W, height=H)
     bg.shadow.inherit = False
     return slide
 
@@ -110,14 +110,14 @@ def code(slide, x, y, w, h, s, size=11.5):
         r.text = ln
         r.font.size = Pt(size)
         r.font.name = MONO
-        r.font.color.rgb = DIM if ln.strip().startswith("#") else INK
+        r.font.color.rgb = RGBColor(0x74, 0x84, 0x7D) if ln.strip().startswith("#") else RGBColor(0xD8, 0xD3, 0xC4)
     return box
 
 
 def num(slide, x, y, value, unit, label, color=INK, w=Inches(2.7)):
     text(slide, x, y, w, Inches(0.8), value, 40, color, True, line=1.0)
     text(slide, x, y + Inches(0.66), w, Inches(0.3), unit, 11.5, DIM)
-    text(slide, x, y + Inches(0.98), w, Inches(0.4), label, 12.5, MUTED, line=1.3)
+    text(slide, x, y + Inches(0.98), w, Inches(0.4), label, 13.5, MUTED, line=1.3)
 
 
 # ---------------------------------------------------------------- 封面
@@ -145,7 +145,7 @@ def chapter(prs, index, title):
 # ---------------------------------------------------------------- 原理：七步
 def s_steps(prs):
     slide = blank(prs)
-    head(slide, "一次请求穿过网关的七个步骤")
+    head(slide, "请求经过网关的七步")
 
     steps = [
         ("1", "接连接", "接受 TCP 连接，建立 TLS 会话", "listen 8443 ssl，TLSv1.2 与 1.3"),
@@ -161,51 +161,56 @@ def s_steps(prs):
         text(slide, LEFT, Inches(y), Inches(0.4), Inches(0.34), n, 15, ACCENT, True)
         text(slide, Inches(1.36), Inches(y + 0.02), Inches(1.9), Inches(0.32), name, 14, INK, True)
         text(slide, Inches(3.4), Inches(y + 0.04), Inches(4.2), Inches(0.32), desc, 13.5, MUTED)
-        text(slide, Inches(7.75), Inches(y + 0.05), Inches(4.6), Inches(0.32), cfg, 12, MUTED, font=MONO)
+        text(slide, Inches(7.75), Inches(y + 0.05), Inches(4.6), Inches(0.32), cfg, 13.5, MUTED, font=MONO)
         y += 0.7
     return slide
 
 
 # ---------------------------------------------------------------- 原理：转发
-def s_forward(prs):
+def s_keepalive(prs):
     slide = blank(prs)
-    head(slide, "连接复用与流式转发")
-
-    text(slide, LEFT, Inches(1.82), Inches(5.4), Inches(0.34), "连接复用", 14, ACCENT, True)
-    text(slide, LEFT, Inches(2.24), Inches(5.4), Inches(1.5),
-         "每个请求重新握手，开销随并发升高迅速放大，还会留下大量等待关闭的连接。"
-         "网关保持一组到后端的长连接，请求直接复用。", 13, INK, line=1.55)
-
-    text(slide, LEFT, Inches(3.98), Inches(5.4), Inches(0.34), "超时分层", 14, ACCENT, True)
-    text(slide, LEFT, Inches(4.4), Inches(5.4), Inches(1.6),
-         "连接、读、写三个超时分开设，才能区分后端连不上和后端算得慢。"
-         "连接压到五秒，读留三十秒，慢接口不被当成故障。", 13, INK, line=1.55)
-
-    text(slide, Inches(6.6), Inches(1.82), Inches(5.8), Inches(0.34), "流式转发", 14, ACCENT, True)
-    text(slide, Inches(6.6), Inches(2.24), Inches(5.8), Inches(1.6),
-         "整块缓冲意味着网关内存要装得下整个响应体。边收边转只占一块固定缓冲区，"
-         "几十兆的 wasm 和 pck 过去，内存曲线是平的。", 13, INK, line=1.55)
-
-    code(slide, Inches(6.6), Inches(4.05), Inches(5.8), Inches(2.05),
+    head(slide, "连接复用")
+    text(slide, LEFT, Inches(1.86), Inches(5.5), Inches(1.6),
+         "每个请求重新和后端握手，开销随并发升高迅速放大，还会留下大量等待关闭的连接。"
+         "网关保持一组到后端的长连接，请求直接复用。", 14.5, INK, line=1.6)
+    code(slide, Inches(6.75), Inches(1.86), Inches(5.65), Inches(2.0),
          "upstream symbiont_backend {\n"
          "    zone symbiont_backend 64k;\n"
          "    least_conn;\n"
          "    server server-1:8000 max_fails=2 fail_timeout=10s;\n"
          "    keepalive 16;\n"
-         "}", 11.5)
+         "}", 12)
+    text(slide, LEFT, Inches(4.2), Inches(11.4), Inches(0.34), "超时分层", 15, ACCENT, True)
+    text(slide, LEFT, Inches(4.66), Inches(11.4), Inches(1.6),
+         "连接、读、写三个超时分开设，才能区分后端连不上和后端算得慢。"
+         "连接压到五秒，读留三十秒，慢接口不被当成故障，连不上才该立刻换一台。", 14, INK, line=1.6)
+    return slide
+
+
+def s_stream(prs):
+    slide = blank(prs)
+    head(slide, "流式转发")
+    text(slide, LEFT, Inches(1.86), Inches(11.4), Inches(1.4),
+         "整块缓冲意味着网关内存要装得下整个响应体。边收边转只占一块固定缓冲区，"
+         "几十兆的 wasm 和 pck 过去，内存曲线是平的。", 14.5, INK, line=1.6)
+
+    num(slide, Inches(0.9), Inches(3.5), "58.3", "MB　游戏数据包 index.pck", "Godot 导出产物")
+    num(slide, Inches(3.6), Inches(3.5), "37.7", "MB　引擎 index.wasm", "同一份导出")
+    num(slide, Inches(6.3), Inches(3.5), "96.0", "MB　首屏总量", "两个文件相加", ACCENT)
+    num(slide, Inches(9.0), Inches(3.5), "0.8", "MB　网关内存波动", "35.13 到 35.93 MiB", WARN)
     return slide
 
 
 # ---------------------------------------------------------------- 原理：上游池
 def s_upstream(prs):
     slide = blank(prs)
-    head(slide, "上游地址池要共享状态")
+    head(slide, "上游地址池的共享状态")
 
     text(slide, LEFT, Inches(1.82), Inches(11.4), Inches(1.0),
          "upstream 不写 zone，每个 worker 各算各的轮询计数。请求量小时看起来全落在第一台，"
          "另外两台闲着，服务本身却一直正常。", 14, INK, line=1.55)
 
-    code(slide, Inches(0.9), Inches(3.0), Inches(5.5), Inches(1.6),
+    code(slide, Inches(0.9), Inches(2.9), Inches(5.5), Inches(1.55),
          "upstream symbiont_backend {\n"
          "    zone symbiont_backend 64k;\n"
          "    least_conn;\n"
@@ -214,19 +219,19 @@ def s_upstream(prs):
     text(slide, Inches(6.9), Inches(3.0), Inches(5.5), Inches(1.6),
          "命中次数才说明配置生效。\n"
          "没有 zone：十次请求可能八次落在第一台。\n"
-         "有 zone：十次接近四比三比三。", 13, INK, line=1.75)
+         "有 zone：十次接近四比三比三。", 14, INK, line=1.75)
 
     text(slide, LEFT, Inches(5.3), Inches(11.4), Inches(0.34), "同一类问题还有一个", 14, ACCENT, True)
     text(slide, LEFT, Inches(5.72), Inches(11.4), Inches(1.0),
          "两份编排都放在 deploy 目录，compose 默认拿目录名当项目名，于是被当成同一个项目，"
-         "起对照栈时把网关那套容器顶掉。修法是文件里显式写 name。", 13, INK, line=1.55)
+         "起对照栈时把网关那套容器顶掉。修法是文件里显式写 name。", 14, INK, line=1.55)
     return slide
 
 
 # ---------------------------------------------------------------- 原理：算法
 def s_algo(prs):
     slide = blank(prs)
-    head(slide, "调度算法各自的失效场景")
+    head(slide, "调度算法的失效场景")
 
     cards = [
         ("轮询", "后端同构、耗时相近时最简单", "有慢请求时会堆在固定几台上"),
@@ -237,22 +242,22 @@ def s_algo(prs):
     for name, fit, fail in cards:
         card(slide, Inches(x), Inches(1.86), Inches(3.6), Inches(2.1))
         text(slide, Inches(x + 0.28), Inches(2.04), Inches(3.0), Inches(0.34), name, 16, INK, True)
-        text(slide, Inches(x + 0.28), Inches(2.52), Inches(3.05), Inches(0.64), fit, 12.5, INK, line=1.45)
-        text(slide, Inches(x + 0.28), Inches(3.26), Inches(3.05), Inches(0.64), fail, 12.5, WARN, line=1.45)
+        text(slide, Inches(x + 0.28), Inches(2.52), Inches(3.05), Inches(0.64), fit, 14, INK, line=1.45)
+        text(slide, Inches(x + 0.28), Inches(3.26), Inches(3.05), Inches(0.64), fail, 13.5, WARN, line=1.45)
         x += 4.0
 
     text(slide, LEFT, Inches(4.42), Inches(11.4), Inches(0.34), "我们选最少连接", 14, ACCENT, True)
     text(slide, LEFT, Inches(4.84), Inches(11.4), Inches(1.4),
          "健康检查和探测请求耗时接近，但存档上传和排行榜查询差很多。最少连接比轮询更抗慢请求，"
          "也不像加权轮询那样依赖人工估权重。后端是无状态 REST，任何一台都能处理任何请求，"
-         "所以粘性会话那套问题不会出现。", 13, INK, line=1.6)
+         "所以粘性会话那套问题不会出现。", 14, INK, line=1.6)
     return slide
 
 
 # ---------------------------------------------------------------- 原理：健康检查
 def s_health(prs):
     slide = blank(prs)
-    head(slide, "被动健康检查的切换代价")
+    head(slide, "健康检查的切换代价")
 
     num(slide, Inches(0.9), Inches(1.82), "9 / 9", "停一台后的成功率", "九次请求全部成功")
     num(slide, Inches(3.9), Inches(1.82), "5007", "ms　最慢一次", "正好落在已死实例上", WARN)
@@ -262,12 +267,12 @@ def s_health(prs):
     text(slide, LEFT, Inches(3.95), Inches(5.4), Inches(0.34), "被动检查", 14, ACCENT, True)
     text(slide, LEFT, Inches(4.38), Inches(5.4), Inches(1.9),
          "开源 nginx 只有被动检查：某台连续失败 max_fails 次后标为不可用，fail_timeout 之后放回。"
-         "那个五秒就是请求落在死实例上、等连接超时到点再重试的代价。", 13, INK, line=1.55)
+         "那个五秒就是请求落在死实例上、等连接超时到点再重试的代价。", 14, INK, line=1.55)
 
     text(slide, Inches(6.6), Inches(3.95), Inches(5.8), Inches(0.34), "主动检查", 14, ACCENT, True)
     text(slide, Inches(6.6), Inches(4.38), Inches(5.8), Inches(1.9),
          "想消除这个等待，要么把连接超时调短，代价是慢后端更容易被误判；"
-         "要么换带周期性探活的实现，NGINX Plus 和 Envoy 都支持。", 13, INK, line=1.55)
+         "要么换带周期性探活的实现，NGINX Plus 和 Envoy 都支持。", 14, INK, line=1.55)
     return slide
 
 
@@ -285,21 +290,21 @@ def code_slide(path, title):
 
 
 def s_code_limit(prs):
-    return code_slide("img/code_limit_crop.png", "限流配置与状态码")(prs)
+    return code_slide("img/code_limit_crop.png", "限流配置")(prs)
 
 
 def s_code_proxy(prs):
-    return code_slide("img/code_proxy_crop.png", "反向代理与转发头配置")(prs)
+    return code_slide("img/code_proxy_crop.png", "反向代理配置")(prs)
 
 
 def s_code_expose(prs):
-    return code_slide("img/code_expose_crop.png", "编排里的端口收口")(prs)
+    return code_slide("img/code_expose_crop.png", "端口收口")(prs)
 
 
 # ---------------------------------------------------------------- 演示步骤
 def s_demo(prs):
     slide = blank(prs)
-    head(slide, "现场演示的九个步骤")
+    head(slide, "九个演示步骤")
 
     left = [
         ("裸奔对照", "curl 直连 18081", "http、无安全头、docs 敞开"),
@@ -317,15 +322,15 @@ def s_demo(prs):
     y = Inches(1.82)
     for name, cmd, expect in left:
         text(slide, LEFT, y, Inches(1.7), Inches(0.32), name, 13.5, ACCENT, True)
-        text(slide, Inches(2.65), y, Inches(3.1), Inches(0.32), cmd, 12.5, MUTED)
-        text(slide, Inches(2.65), y + Inches(0.3), Inches(3.1), Inches(0.32), expect, 12.5, INK)
+        text(slide, Inches(2.65), y, Inches(3.1), Inches(0.32), cmd, 13.5, MUTED)
+        text(slide, Inches(2.65), y + Inches(0.3), Inches(3.1), Inches(0.32), expect, 14, INK)
         y += Inches(0.95)
 
     y = Inches(1.82)
     for name, cmd, expect in right:
         text(slide, Inches(6.5), y, Inches(1.6), Inches(0.32), name, 13.5, ACCENT, True)
-        text(slide, Inches(8.2), y, Inches(4.2), Inches(0.32), cmd, 12.5, MUTED)
-        text(slide, Inches(8.2), y + Inches(0.3), Inches(4.2), Inches(0.32), expect, 12.5, INK)
+        text(slide, Inches(8.2), y, Inches(4.2), Inches(0.32), cmd, 13.5, MUTED)
+        text(slide, Inches(8.2), y + Inches(0.3), Inches(4.2), Inches(0.32), expect, 14, INK)
         y += Inches(0.95)
     return slide
 
@@ -333,7 +338,7 @@ def s_demo(prs):
 # ---------------------------------------------------------------- 实测
 def s_measure(prs):
     slide = blank(prs)
-    head(slide, "本机实测的四个数字")
+    head(slide, "四个实测数字")
 
     num(slide, Inches(0.9), Inches(1.8), "4 / 4 / 4", "次　三台分到的请求", "12 次依次请求，全部成功")
     num(slide, Inches(3.9), Inches(1.8), "21 / 19", "个　200 与 429", "40 并发，超出直接被拒")
@@ -348,7 +353,7 @@ def s_measure(prs):
     ]
     y = 3.62
     for ln in lines:
-        text(slide, LEFT, Inches(y), Inches(11.4), Inches(0.34), ln, 13.5, INK, line=1.4)
+        text(slide, LEFT, Inches(y), Inches(11.4), Inches(0.34), ln, 14.5, INK, line=1.4)
         y += 0.78
     return slide
 
@@ -356,7 +361,7 @@ def s_measure(prs):
 # ---------------------------------------------------------------- 项目：拓扑
 def s_topology(prs):
     slide = blank(prs)
-    head(slide, "项目的入口拓扑")
+    head(slide, "入口拓扑")
 
     y = Inches(1.9)
     boxes = [
@@ -368,7 +373,7 @@ def s_topology(prs):
     for x, name, desc, col in boxes:
         card(slide, x, y, Inches(2.3), Inches(1.75))
         text(slide, x + Inches(0.2), y + Inches(0.2), Inches(1.95), Inches(0.34), name, 15, col, True)
-        text(slide, x + Inches(0.2), y + Inches(0.7), Inches(1.95), Inches(0.9), desc, 12, MUTED, line=1.45)
+        text(slide, x + Inches(0.2), y + Inches(0.7), Inches(1.95), Inches(0.9), desc, 13.5, MUTED, line=1.45)
 
     for x in (Inches(3.2), Inches(6.5), Inches(9.5)):
         rule(slide, x, y + Inches(0.82), Inches(0.3), Inches(0.05))
@@ -376,14 +381,14 @@ def s_topology(prs):
     text(slide, LEFT, Inches(4.1), Inches(11.4), Inches(0.7),
          "后端 8000 与数据库 3306 都不映射宿主机，从公网够不到它们。", 15, INK, line=1.5)
     text(slide, LEFT, Inches(4.85), Inches(11.4), Inches(0.7),
-         "源站只要还能被直连，入口上配的限流、转发头和超时都可以被绕过。", 13, MUTED, line=1.5)
+         "源站只要还能被直连，入口上配的限流、转发头和超时都可以被绕过。", 14, MUTED, line=1.5)
     return slide
 
 
 # ---------------------------------------------------------------- 项目：问题
 def s_problem(prs):
     slide = blank(prs)
-    head(slide, "改造前的三个暴露面")
+    head(slide, "改造前的暴露面")
 
     items = [
         ("明文链路", "HTTP 自己不加密，请求行、请求头、正文在链路上都是可读的。"
@@ -397,7 +402,7 @@ def s_problem(prs):
     for name, desc in items:
         card(slide, LEFT, y, Inches(11.5), Inches(1.42))
         text(slide, Inches(1.14), y + Inches(0.2), Inches(2.2), Inches(0.34), name, 15, ACCENT, True)
-        text(slide, Inches(3.5), y + Inches(0.2), Inches(8.6), Inches(1.05), desc, 13, INK, line=1.55)
+        text(slide, Inches(3.5), y + Inches(0.2), Inches(8.6), Inches(1.05), desc, 14, INK, line=1.55)
         y += Inches(1.62)
     return slide
 
@@ -405,7 +410,7 @@ def s_problem(prs):
 # ---------------------------------------------------------------- 项目：职责
 def s_duty(prs):
     slide = blank(prs)
-    head(slide, "网关承担的八项职责")
+    head(slide, "网关的八项职责")
 
     items = [
         ("传输加密", "TLS 在网关终止，同链路改走 443 之后中继只看到十六进制"),
@@ -421,34 +426,15 @@ def s_duty(prs):
         x = 0.9 + (i // 4) * 6.0
         y = 1.86 + (i % 4) * 1.22
         text(slide, Inches(x), Inches(y), Inches(5.3), Inches(0.32), name, 14, ACCENT, True)
-        text(slide, Inches(x), Inches(y + 0.42), Inches(5.3), Inches(0.62), ev, 12.5, INK, line=1.5)
+        text(slide, Inches(x), Inches(y + 0.42), Inches(5.3), Inches(0.62), ev, 14, INK, line=1.5)
     return slide
 
 
 # ---------------------------------------------------------------- 项目：体积
-def s_size(prs):
-    slide = blank(prs)
-    head(slide, "首屏九十六兆过网关")
-
-    num(slide, Inches(0.9), Inches(1.82), "58.3", "MB　游戏数据包 index.pck", "Godot 导出产物")
-    num(slide, Inches(3.6), Inches(1.82), "37.7", "MB　引擎 index.wasm", "同一份导出")
-    num(slide, Inches(6.3), Inches(1.82), "96.0", "MB　首屏要过的总量", "两个文件相加", ACCENT)
-    num(slide, Inches(9.0), Inches(1.82), "0.8", "MB　网关内存波动", "35.13 到 35.93 MiB", WARN)
-
-    text(slide, LEFT, Inches(4.15), Inches(5.4), Inches(0.34), "整块缓冲", 14, WARN, True)
-    text(slide, LEFT, Inches(4.6), Inches(5.4), Inches(1.0),
-         "内存要装下整个响应体，包越大顶得越紧。", 13, INK, line=1.5)
-
-    text(slide, Inches(6.6), Inches(4.15), Inches(5.6), Inches(0.34), "边收边转", 14, ACCENT, True)
-    text(slide, Inches(6.6), Inches(4.6), Inches(5.6), Inches(1.0),
-         "只占一块转发缓冲区，和文件大小无关。", 13, INK, line=1.5)
-    return slide
-
-
 # ---------------------------------------------------------------- 项目：前后
 def s_before_after(prs):
     slide = blank(prs)
-    head(slide, "改造前后的六项差异")
+    head(slide, "改造前后的差异")
 
     rows = [
         ("对外端口", "8000、3306、8080", "80、443"),
@@ -460,21 +446,21 @@ def s_before_after(prs):
     ]
     y = Inches(1.86)
     for label, before, after in rows:
-        text(slide, LEFT, y + 0.04, Inches(2.0), Inches(0.3), label, 12.5, MUTED)
+        text(slide, LEFT, y + 0.04, Inches(2.0), Inches(0.3), label, 13.5, MUTED)
         text(slide, Inches(3.0), y, Inches(3.3), Inches(0.32), before, 13, DIM)
         rule(slide, Inches(6.45), y + Inches(0.16), Inches(0.4), Inches(0.03), FAINT)
-        text(slide, Inches(7.0), y, Inches(5.3), Inches(0.32), after, 13, INK)
+        text(slide, Inches(7.0), y, Inches(5.3), Inches(0.32), after, 14, INK)
         y += Inches(0.72)
 
     text(slide, LEFT, Inches(6.55), Inches(11.4), Inches(0.4),
-         "改动最大的一行在编排里：数据库与后端从 ports 改成 expose。", 13, ACCENT, line=1.4)
+         "改动最大的一行在编排里：数据库与后端从 ports 改成 expose。", 14, ACCENT, line=1.4)
     return slide
 
 
 # ---------------------------------------------------------------- 项目：实景
 def s_browser(prs):
     slide = blank(prs)
-    head(slide, "Web 版在网关后面运行")
+    head(slide, "网关后面的 Web 版")
     pic = slide.shapes.add_picture(str(ROOT / "img/game_browser_crop.png"),
                                    Inches(0.9), Inches(1.72), width=Inches(11.5), height=Inches(5.85))
     pic.line.color.rgb = LINE
@@ -485,7 +471,7 @@ def s_browser(prs):
 # ---------------------------------------------------------------- 总结
 def s_summary(prs):
     slide = blank(prs)
-    head(slide, "这次分享的四句话")
+    head(slide, "四条结论")
 
     points = [
         ("代理解决的是入口问题", "安全策略只有在唯一入口上才成立，分散到每台后端就无从统一。"),
@@ -508,7 +494,8 @@ def build(path):
 
     chapter(prs, "01", "原理")
     s_steps(prs)
-    s_forward(prs)
+    s_keepalive(prs)
+    s_stream(prs)
     s_upstream(prs)
     s_algo(prs)
     s_health(prs)
@@ -526,7 +513,6 @@ def build(path):
     s_topology(prs)
     s_problem(prs)
     s_duty(prs)
-    s_size(prs)
     s_before_after(prs)
     s_browser(prs)
 
