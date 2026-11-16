@@ -1,7 +1,7 @@
 """生成技术分享 PPT：Web 访问安全中的应用代理与负载均衡（以《共生之缚》Web 入口为例）。
 
 设计约定：
-- 16:9，深底冷青，和游戏 UI 同一套色；每页一句话主旨，字少图大。
+- 16:9，白底深字，左侧 3pt 竖线做品牌元素；标题写成一整句结论，标题下不放小字解释。
 - 数字全部来自 share/应用代理与负载均衡-技术报告.md 的实测记录和本仓库配置，不编。
 """
 
@@ -13,15 +13,17 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 
-BG = RGBColor(0x0B, 0x11, 0x14)
-CARD = RGBColor(0x13, 0x1C, 0x21)
-CYAN = RGBColor(0x5F, 0xD6, 0xD0)
-BONE = RGBColor(0xD8, 0xCF, 0xA8)
-WHITE = RGBColor(0xE6, 0xEE, 0xEF)
-MUTED = RGBColor(0x8E, 0x9E, 0xA2)
-DIM = RGBColor(0x6B, 0x7A, 0x7E)
-RED = RGBColor(0xD2, 0x7A, 0x6C)
-GREEN = RGBColor(0x8F, 0xC9, 0x92)
+BG = RGBColor(0xFC, 0xFB, 0xF7)
+CARD = RGBColor(0xF1, 0xF2, 0xEE)
+CYAN = RGBColor(0x1F, 0x5C, 0x54)
+BONE = RGBColor(0x17, 0x20, 0x1E)
+WHITE = RGBColor(0x17, 0x20, 0x1E)
+MUTED = RGBColor(0x5E, 0x6A, 0x66)
+DIM = RGBColor(0x93, 0x9C, 0x98)
+RED = RGBColor(0xA8, 0x44, 0x2F)
+GREEN = RGBColor(0x2E, 0x6B, 0x45)
+
+LINE = RGBColor(0xDC, 0xDF, 0xD9)
 
 FONT = "微软雅黑"
 MONO = "Consolas"
@@ -71,29 +73,23 @@ def text(slide, x, y, w, h, s, size=15, color=WHITE, bold=False, font=FONT,
     return box
 
 
-def head(slide, kicker, title, sub=""):
-    """页眉：节标记 + 主标题 + 一条冷青细线。"""
-    if kicker:
-        text(slide, Inches(0.85), Inches(0.52), Inches(11.5), Inches(0.3),
-             kicker, 11, CYAN)
-    text(slide, Inches(0.85), Inches(0.86), Inches(11.6), Inches(0.75),
-         title, 27, WHITE, True)
-    if sub:
-        text(slide, Inches(0.85), Inches(1.59), Inches(11.6), Inches(0.34),
-             sub, 13, RGBColor(0xC2, 0xCE, 0xD0))
-    bar = slide.shapes.add_shape(1, Inches(0.85), Inches(1.50), Inches(0.62), Inches(0.035))
-    bar.fill.solid()
-    bar.fill.fore_color.rgb = CYAN
-    bar.line.fill.background()
-    bar.shadow.inherit = False
-    return Inches(2.02)
+def head(slide, title):
+    """页眉：左侧 3pt 竖线加一整句结论。标题下不写解释。"""
+    rule = slide.shapes.add_shape(1, Inches(0.85), Inches(0.62), Inches(0.05), Inches(0.72))
+    rule.fill.solid()
+    rule.fill.fore_color.rgb = CYAN
+    rule.line.fill.background()
+    rule.shadow.inherit = False
+    text(slide, Inches(1.1), Inches(0.6), Inches(11.1), Inches(0.9),
+         title, 24, WHITE, True, line=1.22)
+    return Inches(1.78)
 
 
 def card(slide, x, y, w, h):
     box = slide.shapes.add_shape(1, x, y, w, h)
     box.fill.solid()
     box.fill.fore_color.rgb = CARD
-    box.line.color.rgb = RGBColor(0x22, 0x30, 0x35)
+    box.line.color.rgb = LINE
     box.line.width = Pt(0.75)
     box.shadow.inherit = False
     return box
@@ -150,7 +146,7 @@ def code(slide, x, y, w, h, s, size=11):
         r.text = ln
         r.font.size = Pt(size)
         r.font.name = MONO
-        r.font.color.rgb = RGBColor(0xA8, 0xC6, 0xC8) if not ln.strip().startswith("#") else DIM
+        r.font.color.rgb = RGBColor(0x27, 0x33, 0x2F) if not ln.strip().startswith("#") else DIM
     return box
 
 
@@ -164,66 +160,60 @@ def big(slide, x, y, w, number, unit, label, color=BONE):
 # ---------------------------------------------------------------- 1 封面
 def s_cover(prs):
     slide = blank(prs)
-    line = slide.shapes.add_shape(1, Inches(0.9), Inches(2.06), Inches(1.1), Inches(0.05))
-    line.fill.solid()
-    line.fill.fore_color.rgb = CYAN
-    line.line.fill.background()
-    line.shadow.inherit = False
 
-    text(slide, Inches(0.9), Inches(1.32), Inches(11.5), Inches(0.35),
-         "2 组　软件工程课程设计　2026 年 11 月", 12, CYAN)
-    text(slide, Inches(0.9), Inches(2.28), Inches(11.6), Inches(1.5),
-         "Web 访问安全中的应用代理与负载均衡", 34, WHITE, True, line=1.25)
-    text(slide, Inches(0.9), Inches(3.62), Inches(11.6), Inches(0.42),
-         "以《共生之缚》的 Web 入口为例", 17, BONE)
-    text(slide, Inches(0.9), Inches(5.55), Inches(11.0), Inches(1.1),
-         "", 13, MUTED, line=1.55)
+    rule = slide.shapes.add_shape(1, Inches(0.9), Inches(2.02), Inches(0.05), Inches(1.5))
+    rule.fill.solid()
+    rule.fill.fore_color.rgb = CYAN
+    rule.line.fill.background()
+    rule.shadow.inherit = False
+
+    text(slide, Inches(1.15), Inches(2.0), Inches(10.8), Inches(1.4),
+         "Web 访问安全中的应用代理与负载均衡", 36, WHITE, True, line=1.2)
+    text(slide, Inches(1.15), Inches(3.42), Inches(10.8), Inches(0.4),
+         "以《共生之缚》的 Web 入口为例", 17, MUTED)
+    text(slide, Inches(1.15), Inches(5.9), Inches(10.8), Inches(0.3),
+         "2 组　软件工程课程设计　2026 年 11 月", 12, DIM)
     return slide
 
 
 # ---------------------------------------------------------------- 2 架构
 def s_topology(prs):
     slide = blank(prs)
-    head(slide, "现状", "我们的入口现在长这样",
-         "")
+    head(slide, "对外只开 80 和 443，后端与数据库不出内网")
 
-    y = Inches(2.34)
+    y = Inches(2.3)
     boxes = [
-        (Inches(0.85),  "浏览器", "玩家打开的页面\n和游戏包", BONE),
-        (Inches(3.35),  "网关 80 / 443", "TLS 终止　限流\n静态托管　反代", CYAN),
-        (Inches(6.35),  "后端 ×3", "无状态 REST\n等价副本", WHITE),
-        (Inches(9.05),  "MySQL", "账号　存档\n排行榜", MUTED),
+        (Inches(0.85), "浏览器", "玩家打开的页面\n和游戏包", MUTED),
+        (Inches(3.55), "网关 80 / 443", "TLS 终止　限流\n静态托管　反向代理", CYAN),
+        (Inches(6.85), "后端 ×3", "无状态 REST\n等价副本", WHITE),
+        (Inches(9.85), "MySQL", "账号　存档\n排行榜", MUTED),
     ]
     for x, name, desc, col in boxes:
-        box = card(slide, x, y, Inches(2.05), Inches(1.55))
-        text(slide, x + Inches(0.16), y + Inches(0.16), Inches(1.75), Inches(0.34),
+        card(slide, x, y, Inches(2.3), Inches(1.8))
+        text(slide, x + Inches(0.2), y + Inches(0.2), Inches(1.95), Inches(0.34),
              name, 15, col, True)
-        text(slide, x + Inches(0.16), y + Inches(0.62), Inches(1.8), Inches(0.8),
-             desc, 11, MUTED, line=1.4)
+        text(slide, x + Inches(0.2), y + Inches(0.72), Inches(1.95), Inches(0.9),
+             desc, 11, MUTED, line=1.45)
 
-    for x in (Inches(2.95), Inches(5.95), Inches(8.55)):
-        arrow = slide.shapes.add_shape(1, x, y + Inches(0.72), Inches(0.34), Inches(0.06))
+    for x in (Inches(3.2), Inches(6.5), Inches(9.5)):
+        arrow = slide.shapes.add_shape(1, x, y + Inches(0.85), Inches(0.3), Inches(0.05))
         arrow.fill.solid()
         arrow.fill.fore_color.rgb = CYAN
         arrow.line.fill.background()
         arrow.shadow.inherit = False
 
-    text(slide, Inches(0.85), Inches(4.35), Inches(11.6), Inches(0.9),
-         "对外只开 80 和 443。后端 8000、数据库 3306 都不映射宿主机，从公网够不到它们。",
+    text(slide, Inches(0.85), Inches(4.85), Inches(11.6), Inches(0.9),
+         "后端 8000 与数据库 3306 都不映射宿主机，从公网够不到它们。",
          15, WHITE, line=1.5)
-    text(slide, Inches(0.85), Inches(4.95), Inches(11.6), Inches(0.9),
-         "改造前不是这样：后端和数据库直接 publish 到宿主机，nginx 只有 22 行，只做了同源转发。",
-         13, RED, line=1.5)
-    text(slide, Inches(0.85), Inches(6.35), Inches(11.6), Inches(0.5),
-         "三台后端是可选叠加层，默认部署只有一台；副本数是部署决策，不是代码。",
-         12, DIM, line=1.4)
+    text(slide, Inches(0.85), Inches(5.6), Inches(11.6), Inches(0.9),
+         "源站只要还能被直连，入口上配的限流、转发头和超时都可以被绕过。",
+         13, MUTED, line=1.5)
     return slide
-
 
 # ---------------------------------------------------------------- 3 出发点
 def s_why(prs):
     slide = blank(prs)
-    head(slide, "出发点", "把后端直接开到公网上会发生什么")
+    head(slide, "改造前有三个暴露面：明文链路、可绕过源站、单点")
 
     items = [
         ("明文", "HTTP 自己不加密，请求行、请求头、请求正文在链路上都是可读的。"
@@ -242,17 +232,13 @@ def s_why(prs):
              desc, 12.5, WHITE, line=1.45)
         y += Inches(1.52)
 
-    text(slide, Inches(0.85), Inches(6.72), Inches(11.6), Inches(0.42),
-         "这三件事对应两层不同的东西：前两个靠入口那一层解决，第三个才轮到负载均衡。",
-         13, BONE, line=1.4)
     return slide
 
 
 # ---------------------------------------------------------------- 4 七步
 def s_seven_steps(prs):
     slide = blank(prs)
-    head(slide, "原理", "一次请求穿过网关要经过七步",
-         "写一个能转发的脚本，一百多行就够了。差距在第五步、第六步和超时体系上。")
+    head(slide, "网关处理一次请求分七步，成熟度落在第五步与第六步")
 
     steps = [
         ("1", "接连接", "接受 TCP 连接，建立 TLS 会话", "listen 8443 ssl，TLSv1.2 与 1.3"),
@@ -275,7 +261,7 @@ def s_seven_steps(prs):
 # ---------------------------------------------------------------- 5 连接复用
 def s_keepalive(prs):
     slide = blank(prs)
-    head(slide, "原理", "第五步和第六步是分水岭")
+    head(slide, "连接复用省握手开销，流式转发省内存占用")
 
     text(slide, Inches(0.85), Inches(1.95), Inches(5.35), Inches(0.34),
          "连接复用", 14, CYAN, True)
@@ -292,7 +278,7 @@ def s_keepalive(prs):
          "我们把连接压到五秒，读留三十秒：慢接口不该被当成故障，连不上才该立刻换一台。",
          12, WHITE, line=1.55)
 
-    code(slide, Inches(6.55), Inches(1.95), Inches(5.9), Inches(2.95),
+    code(slide, Inches(6.55), Inches(1.9), Inches(5.9), Inches(2.35),
          "upstream symbiont_backend {\n"
          "    zone symbiont_backend 64k;\n"
          "    least_conn;\n"
@@ -302,7 +288,7 @@ def s_keepalive(prs):
          "    keepalive 16;\n"
          "}", 11)
 
-    text(slide, Inches(6.55), Inches(5.12), Inches(5.9), Inches(1.4),
+    text(slide, Inches(6.55), Inches(4.55), Inches(5.9), Inches(1.4),
          "proxy_http_version 1.1 和 Connection 空值这两行不能少，"
          "否则 nginx 会退回短连接，keepalive 形同没写。",
          12, BONE, line=1.55)
@@ -315,8 +301,7 @@ def s_keepalive(prs):
 # ---------------------------------------------------------------- 6 流式
 def s_stream(prs):
     slide = blank(prs)
-    head(slide, "原理", "96 MB 的包和网关内存",
-         "把响应整体缓冲下来再发，意味着网关内存要装得下响应体。")
+    head(slide, "96 MB 首屏包经过网关，容器内存不随之增长")
 
     big(slide, Inches(0.85), Inches(2.05), Inches(2.6), "58.3", "MB　游戏数据包 index.pck", "Godot 导出产物")
     big(slide, Inches(3.65), Inches(2.05), Inches(2.6), "37.7", "MB　引擎 index.wasm", "同一份导出")
@@ -345,7 +330,7 @@ def s_stream(prs):
 # ---------------------------------------------------------------- 7 zone
 def s_zone(prs):
     slide = blank(prs)
-    head(slide, "踩坑", "地址池要共享状态")
+    head(slide, "upstream 不共享状态，调度计数就各算各的")
 
     text(slide, Inches(0.85), Inches(1.95), Inches(11.6), Inches(1.1),
          "upstream 不写 zone，每个 worker 会各算各的轮询计数。请求量小的时候，"
@@ -369,8 +354,8 @@ def s_zone(prs):
          "不写 name 会被当成同一个项目，起对照栈的时候把网关那套容器顶掉了。",
          12, MUTED, line=1.55)
     text(slide, Inches(6.9), Inches(5.1), Inches(5.55), Inches(1.5),
-         "判断配置有没有生效，别看“服务是否可用”，看“三台的命中次数是否接近”。"
-         "可用性永远是对的，分布才是配置在说话的证据。",
+         ""
+         "",
          12, BONE, line=1.55)
     return slide
 
@@ -378,8 +363,7 @@ def s_zone(prs):
 # ---------------------------------------------------------------- 8 安全职责
 def s_security(prs):
     slide = blank(prs)
-    head(slide, "应用", "网关实际承担的职责",
-         "")
+    head(slide, "网关承担八项职责，每项都有对应实测")
 
     items = [
         ("传输加密", "TLS 在网关终止，同链路改走 443 之后中继只看到十六进制"),
@@ -401,38 +385,40 @@ def s_security(prs):
     return slide
 
 # ---------------------------------------------------------------- 8.5 代码
-def code_slide(path, title, sub):
+def code_slide(path, title):
     """一页一张编辑器截图。裁掉了活动栏和标签栏，正文才放得大。"""
     def build(prs):
         slide = blank(prs)
-        head(slide, "代码", title, sub)
+        head(slide, title)
         w = Inches(10.3)
         h = Inches(5.24)
-        slide.shapes.add_picture(str(ROOT / path), Inches((13.333 - 10.3) / 2), Inches(1.95),
-                                 width=w, height=h)
+        pic = slide.shapes.add_picture(str(ROOT / path), Inches((13.333 - 10.3) / 2), Inches(1.9),
+                                       width=w, height=h)
+        pic.line.color.rgb = LINE
+        pic.line.width = Pt(0.75)
         return slide
     return build
 
 
 def s_code_limit(prs):
-    return code_slide("img/code_limit_crop.png", "限流与状态码",
-                      "deploy/nginx/templates/default.conf.template　第 9 到 17 行")(prs)
+    return code_slide("img/code_limit_crop.png",
+                      "限流以真实客户端地址为键，超出返回 429")(prs)
 
 
 def s_code_proxy(prs):
-    return code_slide("img/code_proxy_crop.png", "反代与转发头",
-                      "同文件　第 96 到 115 行")(prs)
+    return code_slide("img/code_proxy_crop.png",
+                      "反代负责连接复用、转发头与三层超时")(prs)
 
 
 def s_code_expose(prs):
-    return code_slide("img/code_expose_crop.png", "端口不外露",
-                      "deploy/docker-compose.yml　第 13 行与第 31 行")(prs)
+    return code_slide("img/code_expose_crop.png",
+                      "编排上后端只 expose 不 publish")(prs)
 
 
 # ---------------------------------------------------------------- 9 两个细节
 def s_details(prs):
     slide = blank(prs)
-    head(slide, "应用", "两个容易被漏掉的细节")
+    head(slide, "限流状态码与转发头信任链决定策略是否可信")
 
     text(slide, Inches(0.85), Inches(1.95), Inches(5.5), Inches(0.34),
          "限流的状态码", 14, CYAN, True)
@@ -455,7 +441,7 @@ def s_details(prs):
          "limit_conn_status 429;", 11.5)
     text(slide, Inches(0.85), Inches(4.75), Inches(5.5), Inches(1.5),
          "如果以后前面再加一层 CDN，这里必须改用 realip 模块，"
-         "否则所有用户会被当成同一个 IP 一起限流。这是一个现在不必做、但必须提前知道的边界。",
+         "否则所有用户会被当成同一个 IP 一起限流。",
          12, BONE, line=1.55)
     return slide
 
@@ -463,8 +449,7 @@ def s_details(prs):
 # ---------------------------------------------------------------- 10 两个门槛
 def s_threshold(prs):
     slide = blank(prs)
-    head(slide, "负载均衡", "容量和可用性不是同一件事",
-         "")
+    head(slide, "容量与可用性是两套门槛，不能合并判断")
 
     text(slide, Inches(0.85), Inches(1.98), Inches(5.4), Inches(0.3), "容量", 13.5, CYAN, True)
     text(slide, Inches(0.85), Inches(2.38), Inches(5.4), Inches(1.1),
@@ -500,8 +485,7 @@ def s_threshold(prs):
 # ---------------------------------------------------------------- 11 算法
 def s_algo(prs):
     slide = blank(prs)
-    head(slide, "负载均衡", "算法取舍与无状态",
-         "")
+    head(slide, "三种调度算法各有失效场景，本项目选最少连接")
 
     cards = [
         ("轮询", "后端同构、耗时相近时最简单", "有慢请求时会堆在固定几台上"),
@@ -534,7 +518,7 @@ def s_algo(prs):
 # ---------------------------------------------------------------- 12 健康检查
 def s_health(prs):
     slide = blank(prs)
-    head(slide, "负载均衡", "被动检查的代价是五秒")
+    head(slide, "被动健康检查让故障切换付出五秒代价")
 
     big(slide, Inches(0.85), Inches(2.0), Inches(2.9), "9 / 9", "", "停掉一台后的请求成功率", GREEN)
     big(slide, Inches(4.35), Inches(2.0), Inches(2.9), "5020", "ms　最慢一次", "正好打到死实例的那个", RED)
@@ -565,8 +549,7 @@ def s_health(prs):
 # ---------------------------------------------------------------- 13 前后对照
 def s_before_after(prs):
     slide = blank(prs)
-    head(slide, "改造", "改造前后",
-         "")
+    head(slide, "六项配置改动与一处编排改动")
 
     rows = [
         ("对外端口", "8000、3306、8080", "80、443"),
@@ -597,8 +580,7 @@ def s_before_after(prs):
 # ---------------------------------------------------------------- 14 实测
 def s_measure(prs):
     slide = blank(prs)
-    head(slide, "实测", "本机实测结果",
-         "Windows 11，Docker 29.7.2，nginx 1.31.8，FastAPI 0.115.14，MySQL 8.4.13。")
+    head(slide, "实测：分流均匀、限流精确、故障可转移")
 
     big(slide, Inches(0.85), Inches(1.98), Inches(2.9), "4 / 4 / 4", "次　三台分到的请求", "12 次依次请求，全部成功")
     big(slide, Inches(4.05), Inches(1.98), Inches(2.9), "21 / 19", "个　200 与 429", "40 并发，超出直接被拒")
@@ -622,7 +604,7 @@ def s_measure(prs):
 # ---------------------------------------------------------------- 15 判断
 def s_judgement(prs):
     slide = blank(prs)
-    head(slide, "判断", "我们这个项目到底需不需要负载均衡")
+    head(slide, "结论：入口这一层必须做，负载均衡暂不需要")
 
     text(slide, Inches(0.85), Inches(2.0), Inches(11.6), Inches(1.0),
          "结论是：入口这一层必须存在，负载均衡这一层现在还不需要。",
@@ -652,20 +634,21 @@ def s_judgement(prs):
 # ---------------------------------------------------------------- 15.5 真跑
 def s_game_browser(prs):
     slide = blank(prs)
-    head(slide, "实测", "先看一眼它真的在浏览器里跑",
-         "")
+    head(slide, "Web 版已经在网关后面跑起来")
     w = Inches(10.4)
     h = Inches(5.41)
-    slide.shapes.add_picture(str(ROOT / "img/game_browser_crop.png"),
-                             Inches((13.333 - 10.4) / 2), Inches(1.98),
-                             width=w, height=h)
+    pic = slide.shapes.add_picture(str(ROOT / "img/game_browser_crop.png"),
+                                   Inches((13.333 - 10.4) / 2), Inches(1.9),
+                                   width=w, height=h)
+    pic.line.color.rgb = LINE
+    pic.line.width = Pt(0.75)
     return slide
 
 
 # ---------------------------------------------------------------- 16 演示
 def s_demo(prs):
     slide = blank(prs)
-    head(slide, "演示", "现场跑这几步")
+    head(slide, "现场演示的九个步骤")
 
     left = [
         ("裸奔对照", "curl 直连 18081", "http、无安全头、docs 敞开"),
