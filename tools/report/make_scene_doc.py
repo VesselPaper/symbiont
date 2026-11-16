@@ -88,11 +88,11 @@ class Doc:
             para.paragraph_format.first_line_indent = Pt(21)
 
     def items(self, rows: list[str]) -> None:
-        """一组短条目：行首一个短横线，不缩进（换行后也顶格，读起来不歪）。"""
-        for text in rows:
+        """一组短条目：行首写序号（1. 2. 3.），每组从 1 开始。"""
+        for index, text in enumerate(rows, start=1):
             para = self.d.add_paragraph()
             para.paragraph_format.space_after = Pt(2)
-            run_font(para.add_run("— " + text), SONG)
+            run_font(para.add_run(f"{index}. " + text), SONG)
         self.d.add_paragraph().paragraph_format.space_after = Pt(2)
 
     def img(self, name: str, caption: str, width_cm: float = 13.4) -> None:
