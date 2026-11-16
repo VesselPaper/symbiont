@@ -335,8 +335,11 @@ func _player_input_locked() -> bool:
 	return bool(player.get("_input_locked"))
 
 func _show_feedback(text: String) -> void:
-	# 反馈（"你手上没有肢体""献祭已成"）是按键之后的一次性回应，和"关掉常驻提示"无关：
-	# 教学关里常驻那行被关掉，玩家按 R/K 仍然要知道发生了什么。
+	# M5-29（组长反馈"祭坛上方有两行字叠在一起"）：常驻提示被关掉时（教学关），
+	# 反馈也不再往同一个位置写字 —— 那行刻字已经在说"按 R"，这里再冒一行就撞上了。
+	# 需要反馈的场景（第一层祭坛）没关提示，照旧显示。
+	if not _hint_enabled:
+		return
 	_hint_label.text = text
 	_hint_label.visible = true
 	_feedback_timer = FEEDBACK_DURATION

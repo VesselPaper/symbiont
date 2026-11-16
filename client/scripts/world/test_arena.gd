@@ -35,54 +35,54 @@ const PLAYER_HALF_HEIGHT := 13.0   # 玩家碰撞盒 14×26，中心到脚底 13
 ## 拓扑不变、间距与跑动距离同步变长，约多出 1.2 km 的横向路程）。
 const SPREAD := 1.25
 const STAGE := {
-	"world_width": 6250.0,
+	"world_width": 7150.0,
 	"spawn": Vector2(100, 647),
 	# 移动环：走完这段才算学会走路（判定点）
-	"move_mark": Vector2(700, 585),
+	"move_mark": Vector2(780, 585),
 	# 这里只管“话写在哪”，判定还是 move_mark：句子写在入口上方，人继续往前走才算过。
-	"move_hint": Vector2(508, 585),
-	"move_gate": Vector2(750, 559),
+	"move_hint": Vector2(700, 585),
+	"move_gate": Vector2(900, 559),
 	# 跳台（顶 571，比地面高 88）：拿剑、打桩、下劈都在这条长台上
-	"ledge": Rect2(1025, 571, 1975, 90),
-	"jump_mark": Vector2(1125, 500),
-	"jump_gate": Vector2(1300, 471),
-	"corpse": Vector2(1556, 567),
-	"sword": Vector2(1638, 568),
-	"weapon_mark": Vector2(1638, 500),
-	"dummy_a": Vector2(2063, 557),
-	"attack_mark": Vector2(2063, 480),
-	"attack_gate": Vector2(2200, 471),
+	"ledge": Rect2(1025, 571, 2695, 90),
+	"jump_mark": Vector2(1300, 500),
+	"jump_gate": Vector2(1480, 471),
+	"corpse": Vector2(1840, 567),
+	"sword": Vector2(2000, 568),
+	"weapon_mark": Vector2(2000, 500),
+	"dummy_a": Vector2(2700, 558),
+	"attack_mark": Vector2(2700, 480),
+	"attack_gate": Vector2(2920, 471),
 	# 下劈：小方台（顶 440）+ 悬在台前的木桩乙，下劈反弹才够得着
-	"pogo": Rect2(2594, 440, 200, 131),
-	"dummy_b": Vector2(2575, 496),
-	"pogo_mark": Vector2(2694, 372),
-	"pogo_gate": Vector2(2913, 449),
+	"pogo": Rect2(3300, 440, 200, 131),
+	"dummy_b": Vector2(3280, 496),   # 悬在方台前的踏板（落到地面就够不着台顶）
+	"pogo_mark": Vector2(3400, 372),
+	"pogo_gate": Vector2(3620, 449),
 	# 浅坑：两侧各两级台阶，坑底和地面同高，史莱姆就站在坑里
 	"pit_steps": [
-		Rect2(3000, 607, 38, 52), Rect2(3038, 633, 38, 26),
-		Rect2(3500, 633, 38, 26), Rect2(3538, 607, 38, 52),
+		Rect2(3770, 607, 38, 52), Rect2(3808, 633, 38, 26),
+		Rect2(4280, 633, 38, 26), Rect2(4318, 607, 38, 52),
 	],
 	# 组长反馈：教学关只留一只史莱姆，两只同时贴脸容易被围住，节奏也太赶
-	"slimes": [Vector2(3325, 646)],
-	"combat_mark": Vector2(3325, 590),
-	"combat_gate": Vector2(3488, 309),
+	"slimes": [Vector2(4100, 646)],
+	"combat_mark": Vector2(4100, 590),
+	"combat_gate": Vector2(4400, 309),
 	# 祭坛台（顶 572）＋ 祭坛
-	"altar_hall": Rect2(3575, 572, 675, 90),
-	"altar": Vector2(3913, 597),
-	"pickup_mark": Vector2(3913, 498),
+	"altar_hall": Rect2(4700, 572, 675, 90),
+	"altar": Vector2(5040, 570),
+	"pickup_mark": Vector2(5040, 498),
 	# 献祭那行字要抬到祭坛提示（HintLabel 在 519）上面去：两句原来只差 21px，叠在一起看不清
-	"sacrifice_mark": Vector2(3913, 466),
+	"sacrifice_mark": Vector2(5040, 466),
 	# 祭坛之后：长廊台阶是可选路线，层门在地图最右。
 	# 蒸汽靴宝箱已移到第二层工程师处（剧情上靴子由工程师交付），教学关不再放箱子。
 	"gallery": [
-		Rect2(5075, 607, 163, 26), Rect2(5300, 552, 150, 26),
-		Rect2(5538, 505, 138, 26), Rect2(5775, 565, 188, 26),
+		Rect2(5925, 607, 163, 26), Rect2(6150, 552, 150, 26),
+		Rect2(6388, 505, 138, 26), Rect2(6625, 565, 188, 26),
 	],
 	# M5-11：长廊下面那段地面挖空成悬崖（左岸止于 5000，右岸从 6040 起）。
 	# 四块石台就是过河的路，掉进中间会死；右岸刚好接住"第一层"门。
-	"chasm_left": 5000.0,
-	"chasm_right": 6040.0,
-	"door": Vector2(6125, 659),
+	"chasm_left": 5850.0,
+	"chasm_right": 6890.0,
+	"door": Vector2(7000, 659),
 }
 
 ## 物理门：每环一个，只有做完前面那一环才开。高度按玩家跳跃高度留死角：
@@ -534,16 +534,16 @@ func _box_polygon(size: Vector2) -> PackedVector2Array:
 const TEXT_HEIGHT_ABOVE_SURFACE := 84.0
 ## 每一环的落脚面（x, 这一环的地面/台面顶 y）；文字由它算出来
 const STATION_SURFACES := [
-	Vector2(508, 659),    # MOVE：平地
-	Vector2(1125, 571),   # JUMP：跳台顶
-	Vector2(1638, 571),   # WEAPON：跳台上（尸体和剑）
-	Vector2(2063, 571),   # ATTACK：跳台上（木桩甲）
+	Vector2(700, 659),    # MOVE：平地
+	Vector2(1300, 571),   # JUMP：跳台顶
+	Vector2(2000, 571),   # WEAPON：跳台上（尸体和剑）
+	Vector2(2700, 571),   # ATTACK：跳台上（木桩甲）
 	# POGO：句子的左边是木桩乙、右边是下劈方台。方台从 440 一直堆到 571（和跳台面贴着），
 	# 所以"平台下方"其实是方块里面，字写那儿会被埋进石头 —— 写方块左边，人站在跳台上就能看见。
-	Vector2(2450, 571),
-	Vector2(3325, 659),   # COMBAT：浅坑底
-	Vector2(3913, 572),   # PICKUP：祭坛台
-	Vector2(3913, 572),   # SACRIFICE：祭坛台
+	Vector2(3160, 571),
+	Vector2(4100, 659),   # COMBAT：浅坑底
+	Vector2(5040, 572),   # PICKUP：祭坛台
+	Vector2(5040, 572),   # SACRIFICE：祭坛台
 ]
 func station_anchors() -> Array[Vector2]:
 	var out: Array[Vector2] = []
@@ -903,7 +903,7 @@ func _build_campfire() -> void:
 	# M5-22（组长反馈"火堆往前移，剧情受伤、剧情过了之后才遇到火堆"）：
 	# 原来火在 4650、剧情触发点在它后面，等于先看见火、后挨打，教学顺序是反的。
 	# 现在火挪到 4820（剧情和战斗之后），玩家是带着伤口走到火边的，才有"该回血了"的动机。
-	fire.position = Vector2(CAMPFIRE_X, 659)
+	fire.position = Vector2(CAMPFIRE_X, CAMPFIRE_Y)
 	add_child(fire)
 
 # ---------- 火堆前那一战（M5-18） ----------
@@ -915,12 +915,13 @@ func _build_campfire() -> void:
 ## 掉血必须是确定发生的一次，不能看玩家闪不闪得开。
 ## 怪物就用史莱姆（同一套跳扑 AI），只是血加厚，算"稍简单的小 boss"：
 ## 它不会一招秒人，也不会放弹幕，代价是它就在悬崖边上 —— 打急了会被自己撞下去。
-const BEAST_TRIGGER := Vector2(4520, 620)
-const BEAST_SPAWN := Vector2(4700, 646)
+const BEAST_TRIGGER := Vector2(5400, 620)
+const BEAST_SPAWN := Vector2(5580, 646)
 ## 篝火位置：必须在剧情和战斗之后（见 _build_campfire 的注释）
-const CAMPFIRE_X := 4820.0
+const CAMPFIRE_X := 5700.0
+## 火堆的 y：地面 659 往下让 22px（石圈 + 石块自身的高度），不然会陷进地里
+const CAMPFIRE_Y := 637.0
 const BEAST_HP := 14
-const BEAST_BITE_DELAY := 0.45
 const BEAST_DIALOGUE := "tutorial_beast"
 const CAMPFIRE_HINT := "血掉了。回火边歇一下（K）"
 ## 层门提示也用统一组件：和火堆/钟绳/守钟人长一个样（白字、黑描边、居中）
@@ -947,24 +948,34 @@ func _build_beast_encounter() -> void:
 			_beast_encounter())
 	add_child(area)
 
-## 剧情 → 咬一口 → 放怪。旁白在播的时候 Dialogue 会把玩家输入锁住，
-## 念完才解锁，所以"掉 1 血之后才能动"这个顺序是天然的，不用自己再锁一遍。
+## M5-29（组长定的演出）：**先放怪，让它自己走过来咬**，玩家掉的那一格血是史莱姆咬掉的，
+## 不是脚本扣的；掉了血之后才念这段旁白，念完把玩家引回火边。
+## 原来的一版是"先念旁白、再固定 0.45 秒后脚本扣 1 血"，看着就是剧情自己扣血，和怪没关系。
 func _beast_encounter() -> void:
 	if _beast_started:
 		return
 	_beast_started = true
+	var player := get_tree().get_first_node_in_group("player")
+	if player == null or not is_inside_tree():
+		return
+	# 先放怪：出生点在玩家前面 200px 以内，史莱姆 AI 会自己追上来
+	_spawn_beast()
+	# 等血真的掉一格（史莱姆的接触伤害），这是一切判定的起点
+	var hp_before := int(player.get("hp"))
+	while is_instance_valid(player) and is_inside_tree():
+		if int(player.get("hp")) < hp_before:
+			break
+		await get_tree().process_frame
+	if not is_inside_tree():
+		return
+	# 被咬之后才念旁白（念的时候 Dialogue 会锁输入、冻结场上的怪，正好让这一下结束）
 	var dialogue := get_node_or_null("Dialogue")
 	if dialogue != null and dialogue.has_method("play"):
-		# 别的旁白正在播（比如刚好还在念开场低语）就先等它念完：
-		# 同一时间只能有一条对话在播，硬插进去会被吞掉，这段演出就没了
 		while is_instance_valid(dialogue) and bool(dialogue.call("is_playing")):
 			await get_tree().process_frame
 		if not is_inside_tree():
 			return
 		dialogue.call("play", BEAST_DIALOGUE)
-		while is_instance_valid(dialogue) and bool(dialogue.call("is_playing")):
-			await get_tree().process_frame
-	await _spawn_beast()
 
 func _spawn_beast() -> void:
 	if _beast_killed or not is_inside_tree():
@@ -979,12 +990,6 @@ func _spawn_beast() -> void:
 	# 手里的引用会变成一个"已释放对象"，拿它和 null 比不一定为真 —— 提示就可能永远不出现。
 	# tree_exited 在节点真正离开场景树时发一次，这时候还能判断、也只发一次。
 	beast.tree_exited.connect(_on_beast_gone)
-	# 扑上来咬一口：先把无敌时间清掉，保证这一下真的掉 1 颗心（不是"可能掉"）
-	await get_tree().create_timer(BEAST_BITE_DELAY).timeout
-	var player := get_tree().get_first_node_in_group("player")
-	if player != null and is_instance_valid(player) and player.has_method("take_damage"):
-		player.set("_invincible_timer", 0.0)
-		player.call("take_damage", 1, beast)
 
 ## 怪死了（被打死或者自己掉进悬崖）：在火堆上方挂一句提示，把玩家领回火边。
 func _on_beast_gone() -> void:

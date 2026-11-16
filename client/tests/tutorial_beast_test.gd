@@ -1,18 +1,19 @@
 extends SceneTree
-## 火堆前那一战回归（M5-18）
+## 火堆前那一战回归（M5-18，M5-29 重排演出顺序）
 ##   Godot_v4.7.2-stable_win64_console.exe --headless --path client --script res://tests/tutorial_beast_test.gd
 ##
-## 组长定的教学节奏：走到火堆前方 → 过一段剧情 → 剧情末尾怪物扑上来咬一口（固定掉 1 颗心）
-## → 这时候才交还操作、开始打 → 打完回火边歇一下学会回血。
-## 这条钉住四个环节：
-##   ① 火堆前方有触发区，走进去会播 tutorial_beast 这段旁白；
-##   ② 旁白念完会放出一只加厚血的史莱姆（CaveBeast），并且玩家**正好掉 1 颗心**；
-##   ③ 怪死了（打死或自己掉进悬崖）会在火堆上方挂"回火边歇一下"的提示；
-##   ④ 回火边按 K 休息，回 1 颗心 —— 正好把刚才掉的那颗补回来。
+## 组长 M5-29 定的顺序：走到火堆前方 → **史莱姆自己走过来咬你一口**（掉血是它咬的，不是脚本扣的）
+## → 掉了血之后才念旁白 → 打死它 → 回火边歇一下学会回血。
+## 这条钉住五个环节：
+##   ① 火堆前方有触发区，走进去会放出那只加厚血的史莱姆（CaveBeast，hp=14）；
+##   ② 血是它咬掉的：等玩家血掉 1 颗，而不是脚本定时扣；
+##   ③ 掉血之前不播 tutorial_beast —— 旁白是"被咬之后"才出；
+##   ④ 怪死了（打死或自己掉进悬崖）会在火堆上方挂"回火边歇一下"的提示；
+##   ⑤ 回火边按 K 休息，回 1 颗心 —— 正好把刚才掉的那颗补回来。
 
 const ARENA := "res://scenes/world/test_arena.tscn"
-const TRIGGER := Vector2(4520, 640)
-const CAMPFIRE := Vector2(4820, 659)
+const TRIGGER := Vector2(5400, 640)
+const CAMPFIRE := Vector2(5700, 637)
 
 var _failed := false
 
@@ -43,19 +44,43 @@ func _run() -> void:
 	player.global_position = TRIGGER
 	player.velocity = Vector2.ZERO
 
+	# ① 走进触发区 → 怪先出来（不是先念旁白）
+	var beast: Node2D = null
+	for _i in range(240):
+		await physics_frame
+		beast = arena.get_node_or_null("CaveBeast") as Node2D
+		if beast != null:
+			break
+	_check(beast != null, "走到火堆前方没有放出史莱姆")
+	if beast != null:
+		_check(int(beast.get("hp")) == 14, "怪物不是加厚血的小 boss（hp=%d）" % int(beast.get("hp")))
+
+	# ② 等它自己走过来咬；③ 掉血之前不许播那句旁白
+	var hp_after_bite := max_hp
+	var playing_before_hit := false
+	for _i in range(600):
+		await physics_frame
+		if dialogue != null and bool(dialogue.call("is_playing")) \
+				and str(dialogue.get("_entry_dialogue_id")) == "tutorial_beast":
+			playing_before_hit = int(player.get("hp")) >= max_hp
+			break
+		hp_after_bite = int(player.get("hp"))
+		if hp_after_bite < max_hp:
+			break
+	print("[beast] 咬完 hp=%d / %d" % [hp_after_bite, max_hp])
+	_check(hp_after_bite == max_hp - 1, "史莱姆咬完没有正好掉 1 颗心（hp=%d）" % hp_after_bite)
+
+	# ③ 被咬之后才念旁白
 	var playing := false
-	# 走到触发区之后，这一战的旁白要等别的旁白念完才轮到它，所以这里等到"那条是 tutorial_beast"为止
-	for _i in range(400):
+	for _i in range(300):
 		await physics_frame
 		if dialogue != null and bool(dialogue.call("is_playing")) \
 				and str(dialogue.get("_entry_dialogue_id")) == "tutorial_beast":
 			playing = true
 			break
-	_check(playing, "走进火堆前方没有播 tutorial_beast 这段剧情")
+	_check(playing, "被咬之后没有播 tutorial_beast 这段旁白")
+	_check(not playing_before_hit, "血还没掉就把旁白播了（顺序不对）")
 	if playing:
-		_check(str(dialogue.get("_entry_dialogue_id")) == "tutorial_beast",
-			"播的不是 tutorial_beast（%s）" % str(dialogue.get("_entry_dialogue_id")))
-		# 把这段旁白翻完（玩家按 K 的行为）
 		for _i in range(20):
 			if not bool(dialogue.call("is_playing")):
 				break
@@ -63,26 +88,7 @@ func _run() -> void:
 			await physics_frame
 	_check(not bool(dialogue.call("is_playing")), "旁白翻不完")
 
-	# ② 念完之后才放怪、才掉血
-	var beast: Node2D = null
-	for _i in range(180):
-		await physics_frame
-		beast = arena.get_node_or_null("CaveBeast") as Node2D
-		if beast != null:
-			break
-	_check(beast != null, "剧情演完没有放出怪物")
-	if beast != null:
-		_check(int(beast.get("hp")) == 14, "怪物不是加厚血的小 boss（hp=%d）" % int(beast.get("hp")))
-	var hp_after_bite := -1
-	for _i in range(180):
-		await physics_frame
-		hp_after_bite = int(player.get("hp"))
-		if hp_after_bite < max_hp:
-			break
-	print("[beast] 咬完 hp=%d / %d" % [hp_after_bite, max_hp])
-	_check(hp_after_bite == max_hp - 1, "怪物咬完没有正好掉 1 颗心（hp=%d）" % hp_after_bite)
-
-	# ③ 打死它 → 火堆上方出现提示
+	# ④ 打死它 → 火堆上方出现提示
 	if beast != null and is_instance_valid(beast):
 		beast.call("take_damage", 999)
 	for _i in range(180):
@@ -93,7 +99,7 @@ func _run() -> void:
 	await physics_frame
 	_check(arena.get_node_or_null("CampfireHint") != null, "怪死了没有在火堆上方提示回血")
 
-	# ④ 回火边休息：正好把掉的那颗补回来
+	# ⑤ 回火边休息：正好把掉的那颗补回来
 	var fire := arena.get_node_or_null("Campfire")
 	_check(fire != null, "教学关没有火堆")
 	if fire != null:

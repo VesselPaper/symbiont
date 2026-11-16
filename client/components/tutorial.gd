@@ -40,14 +40,14 @@ const DONE_HINT_DURATION := 1.0
 ## 兜底锚点（M5-25）：这一环落脚面往上 3 个角色身高（28×3=84）。
 ## 场景在 _ready 里会调 set_step_anchors 覆盖这份——改布局改 test_arena 的 STATION_SURFACES。
 const STEP_ANCHORS: Array[Vector2] = [
-	Vector2(508, 575),   # MOVE：平地 659 - 84
-	Vector2(1125, 487),  # JUMP：跳台顶 571 - 84
-	Vector2(1638, 487),  # WEAPON：同上（尸体+剑）
-	Vector2(2063, 487),  # ATTACK：同上（木桩甲）
-	Vector2(2450, 487),  # POGO：方台左边（写方块里会被埋），台面往上 84
-	Vector2(3325, 575),  # COMBAT：浅坑底 659 - 84
-	Vector2(3913, 488),  # PICKUP：祭坛台 572 - 84
-	Vector2(3913, 488),  # SACRIFICE：同上
+	Vector2(700, 575),   # MOVE：平地 659 - 84
+	Vector2(1300, 487),  # JUMP：跳台顶 571 - 84
+	Vector2(2000, 487),  # WEAPON：同上（尸体+剑）
+	Vector2(2700, 487),  # ATTACK：同上（木桩甲）
+	Vector2(3160, 487),  # POGO：方台左边（写方块里会被埋），台面往上 84
+	Vector2(4100, 575),  # COMBAT：浅坑底 659 - 84
+	Vector2(5040, 488),  # PICKUP：祭坛台 572 - 84
+	Vector2(5040, 488),  # SACRIFICE：同上
 ]
 
 ## 教学假人节点名（test_arena 内的实例名，见 test_arena.tscn）
@@ -62,14 +62,14 @@ const POGO_PLATFORM_KEY := "pogo"
 ## 每环目标文案。M4-23 组长定稿：提示要带上按键，新手才知道按什么；
 ## 但话说在前面，按键放在括号里当“旁注”，读起来仍是寄生体在耳边低语，不像说明书。
 const OBJECTIVE_TEXTS := [
-	"向前走。身体会记得。（A / D）",          # MOVE
-	"跃上去，离开地面。（空格）",              # JUMP
-	"捡起那把铁器。（K）",                     # WEAPON
-	"让它尝尝铁的味道。（J）",                 # ATTACK
-	"踩住它，借力跳高。（空中按 J）",           # POGO（成功标志是站上去，不是挥出下劈）
-	"它来了。别被碰到。",                     # COMBAT
-	"把肢体带走，给我。（K）",                 # PICKUP
-	"放到祭坛上，献给我。（K）",               # SACRIFICE
+	"按 A 或 D 往右走，走一段它自己就熟了。",  # MOVE
+	"跳上这块台子，空格按住别松。",            # JUMP
+	"把地上那把铁器捡起来，走近了按 K。",      # WEAPON
+	"对着草人按 J，砍一下试试手感。",          # ATTACK
+	"踩着草人借力，落地前按 J 往下劈，上那个方台。",  # POGO（成功标志是站上去，不是挥出下劈）
+	"有东西过来了，它扑的时候别硬接。",        # COMBAT
+	"走近它按 K，把掉下来的肢体带走。",        # PICKUP
+	"把肢体放进祭坛，按 K。",                  # SACRIFICE
 ]
 const WEAPON_FLASH_TEXT := "获得铁剑"
 const DONE_BUBBLE_TEXT := "教程完成"
