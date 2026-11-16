@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://djm3uuopulchw"
-path="res://.godot/imported/cloak_top.png-99d03a15055d2816cd57d3c7b6b23c98.ctex"
+uid="uid://blssuqfgrhgkk"
+path="res://.godot/imported/helmet_empty.png-bbef5c19f91de5e555da07574cb2ad95.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/art/knight4/cloak_top.png"
-dest_files=["res://.godot/imported/cloak_top.png-99d03a15055d2816cd57d3c7b6b23c98.ctex"]
+source_file="res://assets/art/player/helmet_empty.png"
+dest_files=["res://.godot/imported/helmet_empty.png-bbef5c19f91de5e555da07574cb2ad95.ctex"]
 
 [params]
 

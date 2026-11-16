@@ -4,7 +4,7 @@
 
 ## 一、核心规则
 
-1. **main 受保护，禁止直接 push。** 所有改动走：`feature/xx` 分支 → Pull Request → 至少 1 人 review → CI 绿 → 合并。
+1. **main 可以直接推**（小组约定：main 没有分支保护，方便同学随时看到最新版本）。**但大改动仍然走分支**：美术重做、动画系统、存档格式、剧情大段重写这类，先开 `feature/xx` 或 `backup/local-日期`，跑完全量测试再合回 main。
 2. **一次只做一张任务卡**（`docs/tasks/`）。每张卡：实现 → 无头验证跑通 → 合并 → 组长试玩验收 → 通过后才开下一张。
 3. **agent 只实现任务卡内容**，不发明功能、不改已定接口、不调数值。
 
@@ -53,7 +53,7 @@ git push -u origin feature/m1-01-player-move
 
 ## 五、红线
 
-- ❌ 不 `git push -f`；不删别人的文件；不绕过 PR 直接推 main。
+- ❌ 不 `git push -f`；不删别人的文件；大改不直接怼 main（先备份分支）。
 - ❌ 不改范围外代码、不改已定接口/信号签名、不发明功能。
 - ❌ 数值不写死进代码（一律进 `database/game_data` 或 JSON）。
 - ❌ `client/data/*.json` 是生成物，禁止手改（改 SQL → 重新导出）。

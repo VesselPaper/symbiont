@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bia787mr5ee80"
-path="res://.godot/imported/cape.png-72d084287e96a1e03d78563f36eeea34.ctex"
+uid="uid://dssscbfolxw0r"
+path="res://.godot/imported/body.png-9227d00508d5ff09a158fe0fa72267ea.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/art/knight4/cape.png"
-dest_files=["res://.godot/imported/cape.png-72d084287e96a1e03d78563f36eeea34.ctex"]
+source_file="res://assets/art/player/body.png"
+dest_files=["res://.godot/imported/body.png-9227d00508d5ff09a158fe0fa72267ea.ctex"]
 
 [params]
 

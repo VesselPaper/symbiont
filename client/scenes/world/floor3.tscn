@@ -1,4 +1,4 @@
-﻿[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="Script" path="res://scripts/world/floor3.gd" id="1_level"]
 [ext_resource type="Script" path="res://components/abyss_backdrop.gd" id="2_backdrop"]

@@ -1,11 +1,11 @@
 [gd_scene load_steps=9 format=3]
 
-[ext_resource type="Texture2D" path="res://assets/art/knight4/cape.png" id="1_cape"]
-[ext_resource type="Texture2D" path="res://assets/art/knight4/body.png" id="2_body"]
-[ext_resource type="Texture2D" path="res://assets/art/knight4/cloak_top.png" id="3_top"]
-[ext_resource type="Texture2D" path="res://assets/art/knight4/cloak_hem.png" id="4_hem"]
-[ext_resource type="Texture2D" path="res://assets/art/knight4/helmet.png" id="5_helmet"]
-[ext_resource type="Texture2D" path="res://assets/art/knight4/eyes.png" id="6_eyes"]
+[ext_resource type="Texture2D" path="res://assets/art/player/cape.png" id="1_cape"]
+[ext_resource type="Texture2D" path="res://assets/art/player/body.png" id="2_body"]
+[ext_resource type="Texture2D" path="res://assets/art/player/cloak_top.png" id="3_top"]
+[ext_resource type="Texture2D" path="res://assets/art/player/cloak_hem.png" id="4_hem"]
+[ext_resource type="Texture2D" path="res://assets/art/player/helmet.png" id="5_helmet"]
+[ext_resource type="Texture2D" path="res://assets/art/player/eyes.png" id="6_eyes"]
 
 [sub_resource type="Gradient" id="Gradient_eye"]
 offsets = PackedFloat32Array(0, 1)

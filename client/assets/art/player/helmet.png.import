@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://216rbnm2el0f"
-path="res://.godot/imported/body.png-4c75f169fe7287cae42eb915614150f4.ctex"
+uid="uid://c2ddtivm52dvg"
+path="res://.godot/imported/helmet.png-9dad5c11d6e75d3f11ace25192bccf4a.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/art/knight4/body.png"
-dest_files=["res://.godot/imported/body.png-4c75f169fe7287cae42eb915614150f4.ctex"]
+source_file="res://assets/art/player/helmet.png"
+dest_files=["res://.godot/imported/helmet.png-9dad5c11d6e75d3f11ace25192bccf4a.ctex"]
 
 [params]
 

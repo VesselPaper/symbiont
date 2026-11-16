@@ -74,7 +74,7 @@ const DEATH_ANIM_TIME := 1.15   # 化雾 → 头盔落地躺住 → 才复活。
 const DEATH_DISSOLVE_TIME := 0.26  # 身体化雾用的时间，剩下都留给头盔落地
 const DEATH_HELMET_GRAVITY := 1450.0
 ## 掉在地上的空头盔贴图：和头上一层同一张，只是眼窝里的蓝眼换成近黑（摘空了就该是空的）
-const HELMET_EMPTY_TEX := preload("res://assets/art/knight4/helmet_empty.png")
+const HELMET_EMPTY_TEX := preload("res://assets/art/player/helmet_empty.png")
 const REVIVE_ANIM_TIME := 0.4   # 复活起身时长
 ## 开场从虚空砸下来之后的"落地站起"时长（落地压扁 → 弹起过头 → 站定）
 const INTRO_LAND_TIME := 0.62

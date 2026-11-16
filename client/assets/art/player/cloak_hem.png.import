@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://hghlwnyt7p5u"
-path="res://.godot/imported/cloak_hem.png-e73c39aaa4fe35e50c24620cc6221130.ctex"
+uid="uid://ce6c4m7sq2upy"
+path="res://.godot/imported/cloak_hem.png-c630e1e6ee3c9ba915c99e9c0733d806.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/art/knight4/cloak_hem.png"
-dest_files=["res://.godot/imported/cloak_hem.png-e73c39aaa4fe35e50c24620cc6221130.ctex"]
+source_file="res://assets/art/player/cloak_hem.png"
+dest_files=["res://.godot/imported/cloak_hem.png-c630e1e6ee3c9ba915c99e9c0733d806.ctex"]
 
 [params]
 

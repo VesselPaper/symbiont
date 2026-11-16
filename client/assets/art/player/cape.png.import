@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://d57omijj0p5k"
-path="res://.godot/imported/eyes.png-8e2ccd00cbaceaa4535db199b517d5f2.ctex"
+uid="uid://bpbv8ujiedpy0"
+path="res://.godot/imported/cape.png-14b1894c1f639ca6a02c6957459f41b7.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/art/knight4/eyes.png"
-dest_files=["res://.godot/imported/eyes.png-8e2ccd00cbaceaa4535db199b517d5f2.ctex"]
+source_file="res://assets/art/player/cape.png"
+dest_files=["res://.godot/imported/cape.png-14b1894c1f639ca6a02c6957459f41b7.ctex"]
 
 [params]
 
