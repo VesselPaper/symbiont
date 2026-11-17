@@ -40,8 +40,8 @@ const BEATS := [
 ]
 ## 融合后的独白：同样避开“它进来了”这种直白结论，写成身体上发生的事
 const AFTER_FUSE := [
-	{"delay": 1.4, "text": "过来，再靠近些，不必踌躇脚下的道路，到我这来。", "hold": 3.2},
-	{"delay": 5.2, "text": "迷途的旅人，到这来。触碰我……感受我……吞噬我……", "hold": 3.6},
+	{"delay": 1.4, "text": "胸膛、四肢，连脸庞都逐渐清晰。", "hold": 3.2},
+	{"delay": 5.2, "text": "感知接踵而至，直到下坠感充满全身。你不再迷茫，任由自己坠入深渊。", "hold": 3.6},
 ]
 
 var _soul: Node2D
@@ -732,7 +732,7 @@ func _check_touch() -> void:
 	var distance := _soul.global_position.distance_to(_heart.global_position)
 	if distance < CALL_DISTANCE and not _called_out:
 		_called_out = true
-		_whisper_heart("过来。这里没有路，可你踩得上来。", 3.6)
+		_whisper_heart("过来，再靠近些，不必踌躇脚下的道路，到我这来。", 3.6)
 	if distance < TOUCH_DISTANCE:
 		_fuse()
 
@@ -760,7 +760,7 @@ func _fuse() -> void:
 	cam_tw.set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
 	cam_tw.tween_property(_camera, "zoom", Vector2(1.42, 1.42), 0.7)
 	_shake(1.2, 9.0)
-	_whisper_heart("……你碰到我了。", 2.2)
+	_whisper_heart("迷途的旅人，到这来。触碰我……感受我……吞噬我……", 3.0)
 
 	# 心跳加速：越靠近越快、越亮。
 	# M4-54：不再 tween _heart_core.scale —— 尺寸归 _update_heart 写，
@@ -774,7 +774,7 @@ func _fuse() -> void:
 	var target := _soul.position + Vector2(0, -14)
 	var tw := create_tween()
 	tw.tween_interval(1.1)
-	tw.tween_callback(func() -> void: _whisper_heart("别急着明白。先把这只手接过去。", 2.2))
+	tw.tween_callback(func() -> void: _whisper_heart("刺痛穿过掌心，你再次感受到自我。", 3.0))
 	# M4-41：不再"扑过来三次、每次放大缩小"。本心在原地直接化成黑烟，
 	# 由烟自己收进胸口（视觉交给 components/shadow_mass.gd + dark_swarm.gd）。
 	tw.tween_callback(_heart_scatter)
