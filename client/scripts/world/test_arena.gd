@@ -159,6 +159,7 @@ func _ready() -> void:
 	_build_corridor_gallery()
 	_build_next_floor_door()
 	_build_tall_grass()
+	_build_story_beats()
 	_build_foreground_occluders()
 	# 门前圣所装饰（供台、烛台、断柱、瓦砾、门楣旧布）
 	_build_door_shrine()
@@ -1042,7 +1043,7 @@ func _build_foreground_occluders() -> void:
 	var dark2 := Color(0.038, 0.046, 0.052, 0.88)
 
 	# 巨型草丛：一根根很高的叶片，几乎铺满竖向
-	for cx in [1700.0, 7400.0, 12900.0, 18300.0]:
+	for cx in [1700.0, 5200.0, 7400.0, 12900.0, 16000.0, 18300.0]:
 		var clump := Node2D.new()
 		clump.name = "ForegroundGrass"
 		clump.position = Vector2(cx, 659.0)
@@ -1052,14 +1053,14 @@ func _build_foreground_occluders() -> void:
 			blade.width = float(4 + k % 3)
 			blade.default_color = very_dark
 			var bx := float(k - 4) * 9.0
-			var bh := 260.0 + float((k * 37) % 160)
+			var bh := 620.0 + float((k * 41) % 190)
 			blade.points = PackedVector2Array([
 				Vector2(bx, 0), Vector2(bx + bh * 0.06, -bh * 0.55), Vector2(bx + bh * 0.16, -bh),
 			])
 			clump.add_child(blade)
 
 	# 石像的腿 / 大石头：挡在角色前面，只露出下半截
-	for spec in [[4200.0, 520.0, 70.0], [9800.0, 460.0, 96.0], [15600.0, 600.0, 64.0]]:
+	for spec in [[4200.0, 720.0, 92.0], [9800.0, 660.0, 118.0], [15600.0, 780.0, 82.0]]:
 		var rock := Polygon2D.new()
 		rock.name = "ForegroundRock"
 		rock.color = dark2
@@ -1073,6 +1074,49 @@ func _build_foreground_occluders() -> void:
 			Vector2(rw, -rh * 0.4), Vector2(rw * 0.95, 0),
 		])
 		layer.add_child(rock)
+
+
+## 路上的剧情节点（M5-40）：走到某个位置就念一段旁白，每段只播一次。
+## 组长要的是"走路这段要有东西看、有东西听"，不是一路空跑。
+const STORY_BEATS := [
+	{"x": 4300.0, "id": "tutorial_colossus"},
+	{"x": 8500.0, "id": "tutorial_cage"},
+	{"x": 18500.0, "id": "tutorial_chasm"},
+]
+
+var _story_seen: Dictionary = {}
+
+func _build_story_beats() -> void:
+	for spec in STORY_BEATS:
+		var area := Area2D.new()
+		area.name = "StoryBeat_%s" % str(spec["id"])
+		area.collision_layer = 0
+		area.collision_mask = 2
+		area.position = Vector2(float(spec["x"]), 600.0)
+		var col := CollisionShape2D.new()
+		var shape := RectangleShape2D.new()
+		shape.size = Vector2(60, 260)
+		col.shape = shape
+		area.add_child(col)
+		area.body_entered.connect(func(body: Node2D) -> void:
+			if not body.is_in_group("player"):
+				return
+			var id := str(spec["id"])
+			if _story_seen.has(id):
+				return
+			# 只有真的播出来了才记账；如果这时别的话正在播，下次进来再试
+			if _play_story_beat(id):
+				_story_seen[id] = true)
+		add_child(area)
+
+func _play_story_beat(id: String) -> bool:
+	var dialogue := get_node_or_null("Dialogue")
+	if dialogue == null or not dialogue.has_method("play"):
+		return false
+	if bool(dialogue.call("is_playing")):
+		return false
+	dialogue.call("play", id)
+	return true
 
 func _build_tall_grass() -> void:
 	for spec in GRASS_PATCHES:
