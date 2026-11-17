@@ -1127,7 +1127,9 @@ func _set_subtitle_mode(on: bool) -> void:
 	if _soul_label == null:
 		return
 	_soul_label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM if on else VERTICAL_ALIGNMENT_CENTER
-	_soul_label.offset_bottom = -84.0 if on else 0.0
+	# 字幕位：底边留 96px，字号也跟着放大一点（22 → 26）
+	_soul_label.offset_bottom = -96.0 if on else 0.0
+	_soul_label.add_theme_font_size_override("font_size", 26 if on else 22)
 
 func _leave() -> void:
 	if _leaving:
@@ -1143,6 +1145,8 @@ func _whisper_soul(text: String, hold: float) -> void:
 	_whisper(0, text, hold, true)
 
 func _whisper_heart(text: String, hold: float) -> void:
+	# M5-47：这三句要贴在屏幕下方（原来走的是画面中央的旁白位）
+	_set_subtitle_mode(true)
 	_whisper(1, text, hold, false)
 
 ## who: 0 = 旁白（偏白）；1 = 身影说的话（偏紫）。两者都摆在屏幕正中央，只换颜色。

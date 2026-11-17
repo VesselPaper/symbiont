@@ -32,7 +32,7 @@ func _run() -> void:
 
 	# 字幕位：附身一开始旁白就该降到画面底部
 	_check(label.vertical_alignment == VERTICAL_ALIGNMENT_BOTTOM, "旁白没降到字幕位")
-	_check(absf(label.offset_bottom + 84.0) < 0.5, "字幕位偏移不对（%.0f）" % label.offset_bottom)
+	_check(absf(label.offset_bottom + 96.0) < 0.5, "字幕位偏移不对（%.0f）" % label.offset_bottom)
 
 	var beat0 := float(_p.get("_beat_interval"))
 	var soul_scale0 := soul.scale.x
