@@ -1031,53 +1031,82 @@ const GRASS_PATCHES := [
 ]
 
 
-## 前景遮挡（M5-39）：压在角色**前面**的一层暗色剪影 —— 巨型草丛、石像的腿、大石头。
-## z_index = 3（玩家是 0），所以走过去时角色会被挡住一点；只放稀疏几处，
-## 颜色压得很暗（0.03 上下），读起来是"更近的一层"而不是"地图画错了"。
+## 前景遮挡（M5-41 重做）：压在角色前面的暗色剪影。
+##
+## 上一版是一堆 4~7px 的细线，读起来像栅栏，组长说难看。现在改成"有厚度"的剪影：
+## 每根草叶是一个带弧度的填充多边形（中间宽、两头收），体量放大、数量减少，
+## 另外配两块近景岩石，颜色压到 0.02 上下 —— 是"更近的一层"，不是"画糊了"。
 func _build_foreground_occluders() -> void:
 	var layer := Node2D.new()
 	layer.name = "ForegroundOccluders"
 	layer.z_index = 3
 	add_child(layer)
-	var very_dark := Color(0.026, 0.032, 0.038, 0.92)
-	var dark2 := Color(0.038, 0.046, 0.052, 0.88)
+	var leaf_dark := Color(0.022, 0.030, 0.034, 0.94)
+	var leaf_edge := Color(0.048, 0.062, 0.058, 0.85)
+	var rock_dark := Color(0.030, 0.038, 0.044, 0.96)
+	var rock_edge := Color(0.070, 0.082, 0.086, 0.7)
 
-	# 巨型草丛：一根根很高的叶片，几乎铺满竖向
-	for cx in [1700.0, 5200.0, 7400.0, 12900.0, 16000.0, 18300.0]:
+	# 巨型草簇：五根粗叶 + 一根最高叶，体量到 700px 上下
+	for cx in [1700.0, 7000.0, 12600.0, 18000.0]:
 		var clump := Node2D.new()
 		clump.name = "ForegroundGrass"
-		clump.position = Vector2(cx, 659.0)
+		clump.position = Vector2(cx, 676.0)
 		layer.add_child(clump)
-		for k in range(9):
-			var blade := Line2D.new()
-			blade.width = float(4 + k % 3)
-			blade.default_color = very_dark
-			var bx := float(k - 4) * 9.0
-			var bh := 620.0 + float((k * 41) % 190)
-			blade.points = PackedVector2Array([
-				Vector2(bx, 0), Vector2(bx + bh * 0.06, -bh * 0.55), Vector2(bx + bh * 0.16, -bh),
+		var blades := [
+			[-34.0, 520.0, 30.0, -0.22], [-14.0, 640.0, 26.0, -0.10],
+			[6.0, 720.0, 24.0, 0.05], [28.0, 580.0, 28.0, 0.18],
+			[52.0, 460.0, 24.0, 0.30],
+		]
+		for b in blades:
+			var bx := float(b[0])
+			var bh := float(b[1])
+			var bw := float(b[2])
+			var tilt := float(b[3])
+			var leaf := Polygon2D.new()
+			leaf.color = leaf_dark
+			var tip := Vector2(bx + tilt * bh, -bh)
+			leaf.polygon = PackedVector2Array([
+				Vector2(bx - bw, 0), Vector2(bx - bw * 0.55, -bh * 0.45),
+				tip + Vector2(-bw * 0.18, 6.0), tip, tip + Vector2(bw * 0.18, 6.0),
+				Vector2(bx + bw * 0.55, -bh * 0.4), Vector2(bx + bw, 0),
 			])
-			clump.add_child(blade)
+			clump.add_child(leaf)
+			# 叶心一条极暗的芯，让剪影不是一块死黑
+			var core := Line2D.new()
+			core.width = 3.0
+			core.default_color = leaf_edge
+			core.points = PackedVector2Array([
+				Vector2(bx, -6.0), Vector2(bx + tilt * bh * 0.5, -bh * 0.5), tip,
+			])
+			clump.add_child(core)
 
-	# 石像的腿 / 大石头：挡在角色前面，只露出下半截
-	for spec in [[4200.0, 720.0, 92.0], [9800.0, 660.0, 118.0], [15600.0, 780.0, 82.0]]:
-		var rock := Polygon2D.new()
+	# 近景岩石：两块，压在台边，挡住角色下半身
+	for spec in [[4200.0, 300.0, 150.0], [15200.0, 260.0, 130.0]]:
+		var rock := Node2D.new()
 		rock.name = "ForegroundRock"
-		rock.color = dark2
-		var rx: float = spec[0]
-		var rh: float = spec[1]
-		var rw: float = spec[2]
-		rock.position = Vector2(rx, 659.0)
-		rock.polygon = PackedVector2Array([
-			Vector2(-rw, 0), Vector2(-rw * 0.9, -rh * 0.55),
-			Vector2(-rw * 0.35, -rh), Vector2(rw * 0.4, -rh * 0.92),
-			Vector2(rw, -rh * 0.4), Vector2(rw * 0.95, 0),
-		])
+		rock.position = Vector2(float(spec[0]), 676.0)
 		layer.add_child(rock)
+		var rw := float(spec[2])
+		var rh := float(spec[1])
+		var body := Polygon2D.new()
+		body.color = rock_dark
+		body.polygon = PackedVector2Array([
+			Vector2(-rw, 0), Vector2(-rw * 0.92, -rh * 0.42),
+			Vector2(-rw * 0.45, -rh * 0.86), Vector2(rw * 0.25, -rh),
+			Vector2(rw * 0.9, -rh * 0.5), Vector2(rw, 0),
+		])
+		rock.add_child(body)
+		var edge := Line2D.new()
+		edge.width = 2.4
+		edge.default_color = rock_edge
+		edge.points = PackedVector2Array([
+			Vector2(-rw * 0.92, -rh * 0.42), Vector2(-rw * 0.45, -rh * 0.86),
+			Vector2(rw * 0.25, -rh), Vector2(rw * 0.9, -rh * 0.5),
+		])
+		rock.add_child(edge)
 
 
 ## 路上的剧情节点（M5-40）：走到某个位置就念一段旁白，每段只播一次。
-## 组长要的是"走路这段要有东西看、有东西听"，不是一路空跑。
 const STORY_BEATS := [
 	{"x": 4300.0, "id": "tutorial_colossus"},
 	{"x": 8500.0, "id": "tutorial_cage"},

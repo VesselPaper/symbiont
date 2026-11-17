@@ -28,10 +28,10 @@ INSERT INTO npc (id, name, faction, location, desc) VALUES
 -- ---------- 对话 ----------
 INSERT INTO dialogues (id, npc_id, title, lines, next_id, branch) VALUES
   ('intro_parasite_1', '', '有了躯体',
-   '[{"speaker": "", "text": "你动了一下，才知道自己有手有脚。"}, {"speaker": "", "text": "四周黑得连自己的手都看不清，站久了腿还会软。"}, {"speaker": "寄生体", "text": "想要眼睛和腿，就把路上捡到的东西给我。别的路没有。"}]',
+   '[{"speaker": "", "text": "无垠之间，你缓缓苏醒。万般皆不可触及，连自我，都难以辨认。"}, {"speaker": "", "text": "一份根植于灵魂的渴望被唤醒，你向着虚无前进。"}, {"speaker": "寄生体", "text": "到这来，迷途的旅人，到这来。"}]',
    'intro_parasite_2', ''),
   ('intro_parasite_2', '', '第一句指引',
-   '[{"speaker": "寄生体", "text": "往前走，别停。你身上没剩多少血，别浪费在站着不动上。"}]',
+   '[{"speaker": "寄生体", "text": "过来，再靠近些，不必踌躇脚下的道路，到我这来。"}, {"speaker": "寄生体", "text": "迷途的旅人，到这来。触碰我……感受我……吞噬我……"}, {"speaker": "", "text": "刺痛穿过掌心，你再次感受到自我。胸膛、四肢，连脸庞都逐渐清晰。"}]',
    '', ''),
   ('refuse_die', '', '拒绝',
    '[{"speaker": "寄生体", "text": "你拒绝了。那就慢慢看着自己散掉，剩下的我收下。"}]',
