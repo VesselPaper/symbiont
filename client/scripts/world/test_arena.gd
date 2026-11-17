@@ -1046,64 +1046,47 @@ func _build_foreground_occluders() -> void:
 	var rock_dark := Color(0.030, 0.038, 0.044, 0.96)
 	var rock_edge := Color(0.070, 0.082, 0.086, 0.7)
 
-	# 巨型草簇：五根粗叶 + 一根最高叶，体量到 700px 上下
-	for cx in [1700.0, 7000.0, 12600.0, 18000.0]:
-		var clump := Node2D.new()
-		clump.name = "ForegroundGrass"
-		clump.position = Vector2(cx, 676.0)
-		layer.add_child(clump)
-		var blades := [
-			[-34.0, 520.0, 30.0, -0.22], [-14.0, 640.0, 26.0, -0.10],
-			[6.0, 720.0, 24.0, 0.05], [28.0, 580.0, 28.0, 0.18],
-			[52.0, 460.0, 24.0, 0.30],
-		]
-		for b in blades:
-			var bx := float(b[0])
-			var bh := float(b[1])
-			var bw := float(b[2])
-			var tilt := float(b[3])
-			var leaf := Polygon2D.new()
-			leaf.color = leaf_dark
-			var tip := Vector2(bx + tilt * bh, -bh)
-			leaf.polygon = PackedVector2Array([
-				Vector2(bx - bw, 0), Vector2(bx - bw * 0.55, -bh * 0.45),
-				tip + Vector2(-bw * 0.18, 6.0), tip, tip + Vector2(bw * 0.18, 6.0),
-				Vector2(bx + bw * 0.55, -bh * 0.4), Vector2(bx + bw, 0),
-			])
-			clump.add_child(leaf)
-			# 叶心一条极暗的芯，让剪影不是一块死黑
-			var core := Line2D.new()
-			core.width = 3.0
-			core.default_color = leaf_edge
-			core.points = PackedVector2Array([
-				Vector2(bx, -6.0), Vector2(bx + tilt * bh * 0.5, -bh * 0.5), tip,
-			])
-			clump.add_child(core)
-
-	# 近景岩石：两块，压在台边，挡住角色下半身
-	for spec in [[4200.0, 300.0, 150.0], [15200.0, 260.0, 130.0]]:
+	# 近景岩石：四块，压在画面下缘 —— 走过去时挡住角色下半身，又不至于糊成一团黑
+	for spec in [[2400.0, 320.0, 150.0], [7600.0, 360.0, 190.0], [12800.0, 300.0, 160.0], [18600.0, 340.0, 175.0]]:
 		var rock := Node2D.new()
 		rock.name = "ForegroundRock"
-		rock.position = Vector2(float(spec[0]), 676.0)
+		rock.position = Vector2(float(spec[0]), 690.0)
 		layer.add_child(rock)
 		var rw := float(spec[2])
 		var rh := float(spec[1])
 		var body := Polygon2D.new()
 		body.color = rock_dark
 		body.polygon = PackedVector2Array([
-			Vector2(-rw, 0), Vector2(-rw * 0.92, -rh * 0.42),
-			Vector2(-rw * 0.45, -rh * 0.86), Vector2(rw * 0.25, -rh),
-			Vector2(rw * 0.9, -rh * 0.5), Vector2(rw, 0),
+			Vector2(-rw, 0), Vector2(-rw * 0.9, -rh * 0.36),
+			Vector2(-rw * 0.5, -rh * 0.78), Vector2(rw * 0.2, -rh),
+			Vector2(rw * 0.85, -rh * 0.46), Vector2(rw, 0),
 		])
 		rock.add_child(body)
 		var edge := Line2D.new()
-		edge.width = 2.4
+		edge.width = 2.2
 		edge.default_color = rock_edge
 		edge.points = PackedVector2Array([
-			Vector2(-rw * 0.92, -rh * 0.42), Vector2(-rw * 0.45, -rh * 0.86),
-			Vector2(rw * 0.25, -rh), Vector2(rw * 0.9, -rh * 0.5),
+			Vector2(-rw * 0.9, -rh * 0.36), Vector2(-rw * 0.5, -rh * 0.78),
+			Vector2(rw * 0.2, -rh), Vector2(rw * 0.85, -rh * 0.46),
 		])
 		rock.add_child(edge)
+
+	# 顶部垂下来的枯藤：细线，衬出"更近的一层"但不遮视线
+	for cx in [3200.0, 9000.0, 14400.0, 19600.0]:
+		var vine := Node2D.new()
+		vine.name = "ForegroundVine"
+		vine.position = Vector2(cx, -40.0)
+		layer.add_child(vine)
+		for k2 in range(3):
+			var strand := Line2D.new()
+			strand.width = 2.4 - float(k2) * 0.5
+			strand.default_color = Color(0.020, 0.026, 0.030, 0.9)
+			var sx := float(k2 - 1) * 16.0
+			var length := 180.0 + float((k2 * 73) % 140)
+			strand.points = PackedVector2Array([
+				Vector2(sx, 0), Vector2(sx + 6.0, length * 0.5), Vector2(sx - 4.0, length),
+			])
+			vine.add_child(strand)
 
 
 ## 路上的剧情节点（M5-40）：走到某个位置就念一段旁白，每段只播一次。

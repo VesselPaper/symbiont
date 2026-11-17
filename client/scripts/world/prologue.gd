@@ -168,7 +168,84 @@ var _k_eye_energy_base := 0.35
 var _shake_timer := 0.0
 var _shake_strength := 0.0
 
+
+## 虚空台词（M5-42）：组长给的《台词修改p1》，按时间点一句句放出来，淡入淡出。
+## 放在序章的最上层（CanvasLayer 30），不参与任何玩法判定。
+const VOID_LINES := [
+	{"t": 0.6, "text": "无垠之间，你缓缓苏醒。万般皆不可触及，连自我，都难以辨认。"},
+	{"t": 4.4, "text": "一份根植于灵魂的渴望被唤醒，你向着虚无前进。"},
+	{"t": 8.2, "text": "到这来，迷途的旅人，到这来。"},
+	{"t": 11.6, "text": "过来，再靠近些，不必踌躇脚下的道路，到我这来。"},
+	{"t": 15.0, "text": "迷途的旅人，到这来。"},
+	{"t": 16.8, "text": "触碰我……"},
+	{"t": 18.2, "text": "感受我……"},
+	{"t": 19.6, "text": "吞噬我……"},
+	{"t": 22.4, "text": "刺痛穿过掌心，你再次感受到自我。"},
+	{"t": 24.6, "text": "胸膛、四肢，连脸庞都逐渐清晰。"},
+	{"t": 26.8, "text": "感知接踵而至，直到下坠感充满全身。"},
+	{"t": 28.6, "text": "你不再迷茫，任由自己坠入深渊。"},
+]
+
+var _void_label: Label
+var _void_layer: CanvasLayer
+var _void_index := 0
+var _void_line_t := 0.0
+var _void_fade := 0.0
+
+func _build_void_subtitles() -> void:
+	_void_layer = CanvasLayer.new()
+	_void_layer.name = "VoidSubtitles"
+	_void_layer.layer = 30
+	add_child(_void_layer)
+	_void_label = Label.new()
+	_void_label.name = "VoidLine"
+	_void_label.visible = false
+	_void_label.position = Vector2(140, 604)
+	_void_label.size = Vector2(1000, 40)
+	_void_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_void_label.add_theme_font_size_override("font_size", 20)
+	_void_label.add_theme_color_override("font_color", Color(0.88, 0.90, 0.94, 1.0))
+	_void_label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.9))
+	_void_label.add_theme_constant_override("shadow_offset_x", 1)
+	_void_label.add_theme_constant_override("shadow_offset_y", 2)
+	var font := load("res://assets/fonts/NotoSansCJKsc-Regular.otf") as Font
+	if font != null:
+		_void_label.add_theme_font_override("font", font)
+	_void_layer.add_child(_void_label)
+
+## 每帧推进：到点换句，句子自己淡入、停留 4 秒、淡出
+func _update_void_subtitles(delta: float) -> void:
+	if _void_label == null:
+		return
+	_void_line_t += delta
+	while _void_index < VOID_LINES.size() and _void_line_t >= float(VOID_LINES[_void_index]["t"]):
+		_void_label.text = str(VOID_LINES[_void_index]["text"])
+		_void_label.modulate.a = 0.0
+		_void_label.visible = true
+		_void_fade = 0.0
+		_void_index += 1
+		_void_fade = 0.0
+		if _void_index >= VOID_LINES.size():
+			break
+	if not _void_label.visible:
+		return
+	var age := _void_line_t
+	var last_t := 0.0
+	if _void_index > 0:
+		last_t = float(VOID_LINES[_void_index - 1]["t"])
+	var life := age - last_t
+	if life < 0.5:
+		_void_label.modulate.a = life / 0.5
+	elif life > 3.6:
+		_void_label.modulate.a = clampf((4.2 - life) / 0.6, 0.0, 1.0)
+	else:
+		_void_label.modulate.a = 1.0
+	if life > 4.2:
+		_void_label.visible = false
+
+
 func _ready() -> void:
+	_build_void_subtitles()
 	GameManager.mark_floor_start("prologue")
 	GameManager.current_floor = "start"
 	EventBus.log_event("prologue_enter", {})
@@ -530,6 +607,7 @@ func _make_label(node_name: String, font_size: int, color: Color) -> Label:
 
 func _process(delta: float) -> void:
 	_time += delta
+	_update_void_subtitles(delta)
 	_update_shake(delta)
 	_update_darkness()
 	# M4-44：融合阶段就开始把镜头往角色身上靠，黑雾钻进来时人才在画面正中
