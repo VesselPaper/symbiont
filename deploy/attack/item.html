@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>检测项 · 共生之缚</title>
+<link rel="stylesheet" href="/attack/range.css">
+</head>
+<body data-page="overview">
+<div class="shell">
+  <aside class="rail" id="rail"></aside>
+
+  <main class="content">
+    <header class="hero">
+      <div>
+        <span class="eyebrow" id="eyebrow">检测项</span>
+        <h1 id="title">读取中</h1>
+      </div>
+      <div class="verdicts">
+        <div class="verdict">
+          <span class="k">网关栈</span>
+          <span class="v" id="gw">—</span>
+        </div>
+        <div class="verdict">
+          <span class="k">裸奔对照栈</span>
+          <span class="v" id="base">—</span>
+        </div>
+      </div>
+    </header>
+
+    <div class="actions">
+      <button id="run">执行本项检测</button>
+      <a class="btn" id="link" href="" hidden>打开对照页</a>
+      <span class="status" id="status">尚未执行</span>
+    </div>
+
+    <section class="block" id="xff-block" hidden>
+      <h2>三栈对照</h2>
+      <div class="compare">
+        <div class="cmp"><span class="k">正式网关 443</span><span class="v" id="xff-now">—</span></div>
+        <div class="cmp"><span class="k">修复前网关 9443</span><span class="v" id="xff-before">—</span></div>
+        <div class="cmp"><span class="k">裸奔对照栈 18081</span><span class="v" id="xff-base">—</span></div>
+      </div>
+      <button id="xff-run">执行三栈对照</button>
+    </section>
+
+    <section class="block">
+      <h2>检测方法</h2>
+      <p id="how"></p>
+    </section>
+
+    <section class="block">
+      <h2>检测结论</h2>
+      <p id="evidence">尚未执行。</p>
+    </section>
+
+    <section class="block">
+      <h2>原始记录</h2>
+      <pre id="trace">执行本项检测后，此处显示实际发出的请求、执行命令与响应原文。</pre>
+    </section>
+
+    <section class="block" id="cmd-block" hidden>
+      <h2>复现命令</h2>
+      <pre id="cmd"></pre>
+    </section>
+  </main>
+</div>
+
+<script src="/attack/range-data.js"></script>
+<script src="/attack/range-results.js"></script>
+<script>
+  var css = { '拦住': 'v-blocked', '打穿': 'v-broken', '待打': 'v-pending', '同网关栈': 'v-none' };
+  var label = { '拦住': '拦截', '打穿': '穿透', '待打': '未检测', '同网关栈': '无独立对照' };
+  var CONTROL = location.protocol + '//' + location.hostname + ':18082';
+  var item = null;
+  var layer = null;
+
+  var id = new URLSearchParams(location.search).get('id') || '';
+  window.RANGE.layers.forEach(function (row) {
+    row.items.forEach(function (it, index) {
+      if (it.id === id) {
+        item = it;
+        layer = { id: row.id, title: row.title, no: index + 1 };
+      }
+    });
+  });
+
+  function put(target, value) {
+    var el = document.getElementById(target);
+    el.className = 'v ' + (css[value] || 'v-none');
+    el.textContent = label[value] || value || '—';
+  }
+
+  function setStatus(text) { document.getElementById('status').textContent = text; }
+
+  if (!item) {
+    document.getElementById('title').textContent = '未找到该检测项';
+    document.getElementById('how').textContent = '地址中的 id 与清单不一致，请返回总览重新选择。';
+    document.getElementById('run').disabled = true;
+  } else {
+    document.body.setAttribute('data-page', 'layer-' + layer.id);
+    document.title = item.name + ' · 攻防靶场';
+    document.getElementById('eyebrow').textContent = layer.title + ' · 第 ' + layer.no + ' 项';
+    document.getElementById('title').textContent = item.name;
+
+    if (window.RANGE_RESULTS && window.RANGE_RESULTS.items[id]) {
+      var saved = window.RANGE_RESULTS.items[id];
+      item.gw = saved.gw;
+      item.base = saved.base;
+      item.evidence = saved.evidence;
+      setStatus('上次判定 ' + (saved.at || window.RANGE_RESULTS.updated));
+    }
+    put('gw', item.gw);
+    put('base', item.base);
+    document.getElementById('how').textContent = item.how;
+    document.getElementById('evidence').textContent = item.evidence;
+
+    if (item.link) {
+      var link = document.getElementById('link');
+      link.href = item.link.href;
+      link.textContent = '打开' + item.link.text;
+      link.hidden = false;
+    }
+    if (item.cmd) {
+      document.getElementById('cmd').textContent = item.cmd;
+      document.getElementById('cmd-block').hidden = false;
+    }
+    if (id === 'xff') {
+      document.getElementById('xff-block').hidden = false;
+    }
+  }
+
+  function post(path) {
+    return fetch(CONTROL + path, { method: 'POST' }).then(function (r) {
+      return r.json().then(function (data) {
+        if (!r.ok || !data.ok) { throw new Error(data.error || ('HTTP ' + r.status)); }
+        return data;
+      });
+    });
+  }
+
+  function renderTrace(data) {
+    document.getElementById('trace').textContent = data.transcript.map(function (entry) {
+      return '[' + entry.at + '] ' + entry.title + '\n' + entry.text;
+    }).join('\n\n');
+  }
+
+  document.getElementById('run').addEventListener('click', function () {
+    var btn = this;
+    btn.disabled = true;
+    setStatus('正在执行');
+    post('/run/' + encodeURIComponent(id))
+      .then(function (data) {
+        put('gw', data.gw);
+        put('base', data.base);
+        document.getElementById('evidence').textContent = data.evidence;
+        renderTrace(data);
+        setStatus('执行完成 · ' + data.at + ' · 耗时 ' + data.ms + ' 毫秒');
+      })
+      .catch(function (e) { setStatus('执行失败：' + e.message + '，请确认控制服务已启动'); })
+      .then(function () { btn.disabled = false; });
+  });
+
+  document.getElementById('xff-run').addEventListener('click', function () {
+    setStatus('正在执行三栈对照');
+    post('/xff')
+      .then(function (data) {
+        document.getElementById('xff-now').textContent = data.now;
+        document.getElementById('xff-before').textContent = data.before;
+        document.getElementById('xff-base').textContent = data.baseline;
+        setStatus('三栈对照完成');
+      })
+      .catch(function (e) { setStatus('执行失败：' + e.message); });
+  });
+</script>
+<script src="/attack/range-nav.js"></script>
+</body>
+</html>

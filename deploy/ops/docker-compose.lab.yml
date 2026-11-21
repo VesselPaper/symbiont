@@ -1,0 +1,29 @@
+# 课堂演示用的靶站，跑在后端镜像上，只绑本机回环。
+#
+#   docker compose --env-file deploy/.env -f deploy/ops/docker-compose.lab.yml up -d
+#   http://127.0.0.1:18090/
+#
+# 为什么不新做镜像：镜像里已经有 fastapi 和 uvicorn，代码用卷挂进去、
+# 换一条启动命令就够了，装依赖和联网都不需要。
+#
+# 项目名单独起，别跟网关栈撞。
+name: symbiont-lab
+
+services:
+  lab:
+    image: symbiont-server:${IMAGE_TAG:-local}
+    command:
+      - uvicorn
+      - lab.app:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - --no-server-header
+    environment:
+      LAB_DB: /tmp/lab.db
+    ports:
+      - "127.0.0.1:18090:8000"
+    volumes:
+      - ../../lab:/srv/app/lab:ro
+    mem_limit: 256m

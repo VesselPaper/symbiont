@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>跨站请求伪造 · 攻防靶场</title>
+<link rel="stylesheet" href="/attack/range.css">
+</head>
+<body data-page="csrf">
+<div class="shell">
+  <aside class="rail" id="rail"></aside>
+
+  <main class="content">
+    <header class="hero">
+      <div>
+        <span class="eyebrow">浏览器侧 · 对照页</span>
+        <h1>跨站请求伪造</h1>
+      </div>
+      <div class="figs">
+        <div class="fig"><span class="k">成立条件</span><span class="v">3</span></div>
+        <div class="fig"><span class="k">不成立</span><span class="v v-blocked">1</span></div>
+      </div>
+    </header>
+
+    <div class="actions">
+      <button id="btn-get">跨站表单读取存档</button>
+      <button id="btn-post">跨站表单写入存档</button>
+      <button id="btn-fetch">携带自定义请求头的跨站请求</button>
+      <span class="status" id="state">尚未发送</span>
+    </div>
+
+    <div class="notice" id="warn" hidden>
+      当前页面经 localhost 打开，与接口同站；跨站测试须从 http://127.0.0.1:18080/attack/csrf.html 打开。
+    </div>
+
+    <section class="block">
+      <h2>发送记录</h2>
+      <pre id="log">尚未发送请求。</pre>
+    </section>
+
+    <section class="block">
+      <h2>成立条件</h2>
+      <div class="conds">
+        <div class="cond">
+          <span>浏览器自动携带身份</span>
+          <span class="v-blocked">不成立</span>
+          <span class="exp">后端没有 cookie 与会话，跨站请求不携带任何身份。</span>
+        </div>
+        <div class="cond">
+          <span>攻击者可构造请求</span>
+          <span class="v-broken">成立</span>
+          <span class="exp">表单可正常发出，响应中的 400 与 405 表明请求已到达服务器。</span>
+        </div>
+        <div class="cond">
+          <span>服务端仅校验请求本身</span>
+          <span class="v-broken">成立</span>
+          <span class="exp">接口信任 X-Device-Id，且不校验该 id 的归属；风险转移至应用层无认证。</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="block">
+      <h2>结论</h2>
+      <p>经典 CSRF 在该接口上不成立。后端没有身份概念：没有 cookie、没有会话、没有令牌，浏览器不会在跨站请求中自动携带任何身份。实际风险位于应用层：接口仅信任请求头中的设备 id，而该 id 可自行编造。</p>
+      <pre>curl.exe -k -s "https://localhost/api/v1/saves/0"
+curl.exe -k -s -X POST https://localhost/api/v1/saves/0 -d "save_data=x"
+curl.exe -k -s https://localhost/api/v1/saves/0 -H "X-Device-Id: attack-probe-0001"</pre>
+    </section>
+
+    <form id="form-get" method="GET" action="https://localhost/api/v1/saves/0" target="_blank" hidden></form>
+    <form id="form-post" method="POST" action="https://localhost/api/v1/saves/0" target="_blank" hidden>
+      <input name="save_data" value="x">
+    </form>
+  </main>
+</div>
+
+<script>
+  var log = document.getElementById('log');
+  var state = document.getElementById('state');
+  var API = 'https://localhost/api/v1/saves/0';
+
+  if (location.hostname === 'localhost') {
+    document.getElementById('warn').hidden = false;
+  }
+
+  function say(text) {
+    log.textContent = text;
+    state.textContent = '已发送';
+  }
+
+  document.getElementById('btn-get').addEventListener('click', function () {
+    say('跨站表单 GET 已发出，响应在新标签页打开。返回 400 表示请求已到达后端，且未携带身份。');
+    document.getElementById('form-get').submit();
+  });
+
+  document.getElementById('btn-post').addEventListener('click', function () {
+    say('跨站表单 POST 已发出，响应在新标签页打开。返回 405 表示请求已到达后端，存档接口仅接受 PUT。');
+    document.getElementById('form-post').submit();
+  });
+
+  document.getElementById('btn-fetch').addEventListener('click', function () {
+    say('正在携带 X-Device-Id 发起跨站请求，浏览器将先发送预检。');
+    fetch(API, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'X-Device-Id': 'attack-probe-0001' },
+      body: JSON.stringify({ save_data: { hp: 1 } })
+    })
+      .then(function (r) { return r.text().then(function (t) { say('请求通过：' + r.status + ' ' + t); }); })
+      .catch(function (e) { say('浏览器在预检阶段拦截：' + e.message + '。控制台可见 CORS 相关报错。'); });
+  });
+</script>
+<script src="/attack/range-nav.js"></script>
+</body>
+</html>

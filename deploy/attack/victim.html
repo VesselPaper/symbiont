@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>补偿奖励 · 云端存档</title>
+<link rel="stylesheet" href="/attack/product.css">
+</head>
+<body>
+<header class="p-head">
+  <span class="brand">共生之缚 · 云端存档</span>
+  <span class="who">补偿活动</span>
+</header>
+
+<main class="p-main">
+  <h1>补偿奖励</h1>
+  <div class="p-card">
+    <p>上一轮存档维护期间，部分设备的数据写入出现延迟。受影响的设备可在本页领取一次补偿。</p>
+    <p class="muted">补偿内容：存档槽位扩容一次，有效期 7 天。</p>
+    <button class="p-btn" id="btn">领取补偿</button>
+    <p class="p-result" id="count">尚未领取</p>
+  </div>
+  <pre class="p-pre" id="where"></pre>
+</main>
+
+<script>
+  var times = 0;
+  document.getElementById('btn').addEventListener('click', function () {
+    times += 1;
+    document.getElementById('count').textContent = '已点击 ' + times + ' 次';
+  });
+
+  document.getElementById('where').textContent =
+    '页面地址：' + location.href + '\n' +
+    '来源页面：' + (document.referrer || '无，直接打开') + '\n' +
+    '是否被嵌套：' + (window.top !== window.self ? '是' : '否');
+</script>
+</body>
+</html>

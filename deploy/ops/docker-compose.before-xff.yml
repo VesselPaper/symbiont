@@ -1,0 +1,43 @@
+# 修复前的网关副本，只用来演示那一招打穿。
+#
+#   docker compose -f deploy/ops/docker-compose.before-xff.yml up -d --build
+#   curl.exe -k -s -H "X-Forwarded-For: 6.6.6.6" https://localhost:9443/api/v1/health
+#   curl.exe -k -s -H "X-Forwarded-For: 6.6.6.6" https://localhost/api/v1/health
+#
+# 两台网关接同一个后端，唯一差别是 X-Forwarded-For 那一行写的是追加还是覆盖：
+# 9443 回显 6.6.6.6（打穿），443 回显 172.18.0.1（拦住）。
+#
+# 独立项目名，避免跟网关栈互相顶掉。
+name: symbiont-before-xff
+
+services:
+  proxy:
+    image: symbiont-proxy-before-xff:local
+    build:
+      context: ..
+      dockerfile: ops/Dockerfile.before-xff
+    restart: unless-stopped
+    environment:
+      SYMBIONT_API_HOST: server
+      SYMBIONT_API_PORT: 8000
+      SYMBIONT_TLS_CERT: /etc/nginx/certs/server.crt
+      SYMBIONT_TLS_KEY: /etc/nginx/certs/server.key
+      SYMBIONT_RATE_LIMIT: 8r/s
+      SYMBIONT_RATE_BURST: 20
+      SYMBIONT_RATE_CONN: 20
+      SYMBIONT_MAX_BODY_SIZE: 4m
+    ports:
+      # 只把 HTTPS 露在 9443，演示用；80 端口归正式网关
+      - "9443:8443"
+    volumes:
+      - ../certs:/etc/nginx/certs:ro
+    networks:
+      - default
+      - gateway
+    mem_limit: 128m
+
+networks:
+  # 加入正式网关栈的网络，才能解析到 server:8000 这个后端
+  gateway:
+    external: true
+    name: symbiont_default

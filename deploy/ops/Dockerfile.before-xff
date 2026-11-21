@@ -1,0 +1,42 @@
+# 修复前的网关，专门留着演示「伪造 X-Forwarded-For 打穿」。
+#
+# 做法不是抄一份旧配置，而是拿现在这份配置，把那一行改回去：
+#   proxy_set_header X-Forwarded-For   $remote_addr;
+# 改成
+#   proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+# 这样这台和正式网关的差别就真的是那一行，配置别处改了它也跟得上。
+#
+# 为什么不用卷覆盖模板：模板是 envsubst 在启动时渲染的，卷覆盖要维护一整份副本，
+# 改一处忘一处，演示时说的「只差一行」就不成立了。
+#
+# 构建上下文是 deploy/：
+#   docker build -f deploy/ops/Dockerfile.before-xff -t symbiont-proxy-before-xff deploy
+FROM nginx:alpine
+
+ENV NGINX_ENVSUBST_FILTER="^SYMBIONT_"
+
+COPY nginx/templates/ /etc/nginx/templates/
+
+RUN sed -i \
+      's|proxy_set_header X-Forwarded-For   \$remote_addr;|proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;|' \
+      /etc/nginx/templates/default.conf.template \
+ && grep -q 'proxy_add_x_forwarded_for' /etc/nginx/templates/default.conf.template
+
+COPY html/ /usr/share/nginx/html/
+
+RUN mkdir -p /usr/share/nginx/html/game \
+ && chown -R nginx:nginx \
+      /etc/nginx/conf.d \
+      /etc/nginx/templates \
+      /var/cache/nginx \
+      /run \
+      /usr/share/nginx/html
+
+USER nginx
+
+EXPOSE 8080 8443
+
+HEALTHCHECK --interval=10s --timeout=3s --retries=5 \
+    CMD wget -q --no-check-certificate -O /dev/null https://127.0.0.1:8443/healthz || exit 1
+
+CMD ["nginx", "-g", "daemon off;"]

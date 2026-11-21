@@ -64,7 +64,9 @@ services:
   proxy:
     image: symbiont-proxy:${IMAGE_TAG:-local}
     build:
-      context: deploy
+      # 相对路径按 compose 文件所在目录算，这个文件就在 deploy/ 里，所以是 "."
+      # 之前写 deploy 会解析成 deploy/deploy，docker compose build 直接报路径不存在
+      context: .
       dockerfile: Dockerfile.proxy
     restart: unless-stopped
     logging: *default-logging

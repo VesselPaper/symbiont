@@ -105,7 +105,11 @@ server {
         # 后端看到的是网关地址，真实来源只能靠这几个头 —— 信任链的起点
         proxy_set_header Host              $host;
         proxy_set_header X-Real-IP         $remote_addr;
-        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        # 这里是覆盖写入，不是 $proxy_add_x_forwarded_for 的追加。
+        # 追加会把客户端自己塞的值留在最左边，后端取最左边那个就等于信了假地址，
+        # 拿一个 X-Forwarded-For: 6.6.6.6 就能把来源改成任意值（靶场里打穿过一次）。
+        # 只有前面还挂着一层自己信任的代理时才需要用追加，现在网关就是唯一入口。
+        proxy_set_header X-Forwarded-For   $remote_addr;
         proxy_set_header X-Forwarded-Proto $scheme;
 
         # 一台挂了自动换下一台

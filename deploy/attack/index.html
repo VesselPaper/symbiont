@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>攻防检测总览 · 共生之缚</title>
+<link rel="stylesheet" href="/attack/range.css">
+</head>
+<body data-page="overview">
+<div class="shell">
+  <aside class="rail" id="rail"></aside>
+
+  <main class="content">
+    <header class="hero">
+      <div>
+        <span class="eyebrow">攻击面清单 · 五层</span>
+        <h1>攻防检测总览</h1>
+      </div>
+      <div class="figs" id="stats"></div>
+    </header>
+
+    <div class="actions">
+      <button id="btn-all">重新执行全部检测</button>
+      <button id="btn-clean">清理检测数据</button>
+      <a class="btn" href="/attack/demo.html">打开演示流程</a>
+      <a class="btn" href="http://127.0.0.1:18090/">进入云端存档</a>
+      <span class="status" id="hint"></span>
+    </div>
+
+    <div class="layers" id="layers"></div>
+
+    <p class="foot" id="foot"></p>
+  </main>
+</div>
+
+<script src="/attack/range-data.js"></script>
+<script src="/attack/range-results.js"></script>
+<script>
+  var css = { '拦住': 'v-blocked', '打穿': 'v-broken', '待打': 'v-pending' };
+  var label = { '拦住': '拦截', '打穿': '穿透', '待打': '未检测', '同网关栈': '无独立对照' };
+  var CONTROL = location.protocol + '//' + location.hostname + ':18082';
+  var layers = window.RANGE.layers;
+
+  var results = window.RANGE_RESULTS || null;
+  if (results) {
+    layers.forEach(function (layer) {
+      layer.items.forEach(function (it) {
+        var r = results.items && results.items[it.id];
+        if (r) { it.gw = r.gw; it.base = r.base; it.evidence = r.evidence; }
+      });
+    });
+  }
+
+  var rowRefs = {};
+
+  function verdict(value) {
+    var span = document.createElement('span');
+    span.className = css[value] || 'v-none';
+    span.textContent = label[value] || value || '—';
+    return span;
+  }
+
+  function countLayer(layer, value) {
+    return layer.items.filter(function (it) { return it.gw === value; }).length;
+  }
+
+  function renderStats() {
+    var total = 0, blocked = 0, broken = 0, pending = 0;
+    layers.forEach(function (layer) {
+      layer.items.forEach(function (item) {
+        total++;
+        if (item.gw === '拦住') { blocked++; }
+        if (item.gw === '打穿') { broken++; }
+        if (item.gw === '待打') { pending++; }
+      });
+    });
+    var box = document.getElementById('stats');
+    box.innerHTML = '';
+    [['攻击项', total], ['已拦截', blocked], ['已穿透', broken], ['未检测', pending]]
+      .forEach(function (pair) {
+        var fig = document.createElement('div');
+        fig.className = 'fig';
+        var k = document.createElement('span');
+        k.className = 'k';
+        k.textContent = pair[0];
+        var v = document.createElement('span');
+        v.className = 'v';
+        v.textContent = String(pair[1]);
+        fig.appendChild(k);
+        fig.appendChild(v);
+        box.appendChild(fig);
+      });
+  }
+
+  function renderLayer(layer) {
+    var section = document.createElement('section');
+    section.className = 'layer';
+    section.id = 'layer-' + layer.id;
+
+    var head = document.createElement('div');
+    head.className = 'layer-head';
+    var title = document.createElement('h2');
+    title.textContent = layer.title;
+    var meta = document.createElement('span');
+    meta.className = 'meta';
+    meta.textContent = layer.items.length + ' 项 · 拦截 ' + countLayer(layer, '拦住') +
+                       ' · 穿透 ' + countLayer(layer, '打穿');
+    head.appendChild(title);
+    head.appendChild(meta);
+
+    var headRow = document.createElement('div');
+    headRow.className = 'rows-head';
+    ['检测项', '网关栈', '裸奔对照栈'].forEach(function (text) {
+      var cell = document.createElement('span');
+      cell.textContent = text;
+      headRow.appendChild(cell);
+    });
+
+    var rows = document.createElement('div');
+    rows.className = 'rows';
+
+    layer.items.forEach(function (item) {
+      var row = document.createElement('a');
+      row.className = 'row';
+      row.href = '/attack/item.html?id=' + encodeURIComponent(item.id);
+
+      var name = document.createElement('span');
+      name.className = 'name';
+      name.textContent = item.name;
+      var hint = document.createElement('em');
+      hint.textContent = '查看检测项';
+      name.appendChild(hint);
+
+      var gw = document.createElement('span');
+      gw.appendChild(verdict(item.gw));
+      var base = document.createElement('span');
+      base.appendChild(verdict(item.base));
+
+      rowRefs[item.id] = { gw: gw, base: base };
+      row.appendChild(name);
+      row.appendChild(gw);
+      row.appendChild(base);
+      rows.appendChild(row);
+    });
+
+    section.appendChild(head);
+    section.appendChild(headRow);
+    section.appendChild(rows);
+    document.getElementById('layers').appendChild(section);
+  }
+
+  function applyResult(id, item) {
+    var ref = rowRefs[id];
+    if (!ref) { return; }
+    ref.gw.innerHTML = '';
+    ref.gw.appendChild(verdict(item.gw));
+    ref.base.innerHTML = '';
+    ref.base.appendChild(verdict(item.base));
+    layers.forEach(function (layer) {
+      layer.items.forEach(function (it) {
+        if (it.id === id) {
+          it.gw = item.gw;
+          it.base = item.base;
+          it.evidence = item.evidence;
+        }
+      });
+    });
+    renderStats();
+  }
+
+  function setHint(text) { document.getElementById('hint').textContent = text; }
+
+  function post(path) {
+    return fetch(CONTROL + path, { method: 'POST' }).then(function (r) {
+      return r.json().then(function (data) {
+        if (!r.ok || !data.ok) { throw new Error(data.error || ('HTTP ' + r.status)); }
+        return data;
+      });
+    });
+  }
+
+  document.getElementById('btn-all').addEventListener('click', function () {
+    document.getElementById('btn-all').disabled = true;
+    document.getElementById('btn-clean').disabled = true;
+    setHint('正在逐项执行，约 1 分钟');
+    post('/run/all')
+      .then(function (data) {
+        Object.keys(data.items).forEach(function (id) { applyResult(id, data.items[id]); });
+        setHint('全部检测执行完毕');
+      })
+      .catch(function (e) { setHint('执行失败：' + e.message + '，请确认控制服务已启动'); })
+      .then(function () {
+        document.getElementById('btn-all').disabled = false;
+        document.getElementById('btn-clean').disabled = false;
+      });
+  });
+
+  document.getElementById('btn-clean').addEventListener('click', function () {
+    setHint('正在清理');
+    post('/cleanup')
+      .then(function () { setHint('检测产生的临时账号已清理'); })
+      .catch(function (e) { setHint('清理失败：' + e.message); });
+  });
+
+  renderStats();
+  layers.forEach(renderLayer);
+
+  var foot = document.getElementById('foot');
+  var stamp = results ? results.updated : window.RANGE.updated;
+  foot.textContent = '判定更新于 ' + stamp + '。网关 443 · 裸奔对照 18081 · 靶站 18090 · 修复前网关 9443。';
+</script>
+<script src="/attack/range-nav.js"></script>
+</body>
+</html>

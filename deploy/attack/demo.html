@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>演示流程 · 共生之缚</title>
+<link rel="stylesheet" href="/attack/range.css">
+</head>
+<body data-page="demo">
+<div class="shell">
+  <aside class="rail" id="rail"></aside>
+
+  <main class="content">
+    <header class="hero">
+      <div>
+        <span class="eyebrow">课堂演示 · 四场</span>
+        <h1>演示流程</h1>
+      </div>
+      <div class="figs">
+        <div class="fig"><span class="k">场次</span><span class="v">4</span></div>
+        <div class="fig"><span class="k">步骤</span><span class="v">17</span></div>
+      </div>
+    </header>
+
+    <div class="phases" id="tabs">
+      <button class="phase-tab on" data-index="0">
+        <span class="no">01</span><span class="t">无网关基线环境</span>
+      </button>
+      <button class="phase-tab" data-index="1">
+        <span class="no">02</span><span class="t">网关防护环境</span>
+      </button>
+      <button class="phase-tab" data-index="2">
+        <span class="no">03</span><span class="t">应用层存档服务</span>
+      </button>
+      <button class="phase-tab" data-index="3">
+        <span class="no">04</span><span class="t">跨站请求伪造</span>
+      </button>
+    </div>
+
+    <section class="phase-panel" data-index="0">
+      <h2 class="phase-title">无网关基线环境</h2>
+      <div class="phase-meta"><span>裸奔对照栈</span><span>18081 / 13307</span><span>后端与数据库直接对外开放</span></div>
+      <div class="steps">
+        <div class="steps-head"><span>步骤</span><span>操作</span><span>预期结果</span></div>
+        <div class="step">
+          <span class="no">01</span>
+          <span class="act"><a href="http://localhost:18081/api/v1/health" target="_blank">打开健康检查接口</a></span>
+          <span class="exp">后端直接返回 JSON，端口对外开放，请求未经过网关。</span>
+        </div>
+        <div class="step">
+          <span class="no">02</span>
+          <span class="act"><a href="http://localhost:18081/docs" target="_blank">打开接口文档</a></span>
+          <span class="exp">接口文档完整呈现，接口与字段全部暴露。</span>
+        </div>
+        <div class="step">
+          <span class="no">03</span>
+          <span class="act"><a href="/attack/item.html?id=xff" target="_blank">打开检测项「伪造 X-Forwarded-For」，执行三栈对照</a></span>
+          <span class="exp">裸奔对照栈回显 6.6.6.6，来源地址可被客户端改写。</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="phase-panel" data-index="1" hidden>
+      <h2 class="phase-title">网关防护环境</h2>
+      <div class="phase-meta"><span>网关栈</span><span>443</span><span>修复前网关 9443</span></div>
+      <div class="steps">
+        <div class="steps-head"><span>步骤</span><span>操作</span><span>预期结果</span></div>
+        <div class="step">
+          <span class="no">01</span>
+          <span class="act"><a href="https://localhost/api/v1/health" target="_blank">打开健康检查接口</a></span>
+          <span class="exp">请求经 443 进入网关，由其中一台后端返回。</span>
+        </div>
+        <div class="step">
+          <span class="no">02</span>
+          <span class="act"><a href="https://localhost/docs" target="_blank">打开接口文档</a></span>
+          <span class="exp">网关返回 404，该路径不转发至后端。</span>
+        </div>
+        <div class="step">
+          <span class="no">03</span>
+          <span class="act"><a href="/attack/item.html?id=xff" target="_blank">打开检测项「伪造 X-Forwarded-For」，执行三栈对照</a></span>
+          <span class="exp">修复前网关（9443）回显 6.6.6.6，判定为穿透。</span>
+        </div>
+        <div class="step">
+          <span class="no">04</span>
+          <span class="act">同一检测项读取正式网关一栏</span>
+          <span class="exp">443 回显 172.18.0.1，来源地址不可伪造，判定为拦截。</span>
+        </div>
+        <div class="step">
+          <span class="no">05</span>
+          <span class="act"><a href="/attack/item.html?id=burst" target="_blank">打开检测项「并发打爆」，执行本项检测</a></span>
+          <span class="exp">40 个并发请求中 19 个返回 429，单 IP 并发上限为 20。</span>
+        </div>
+        <div class="step">
+          <span class="no">06</span>
+          <span class="act"><a href="/attack/item.html?id=body" target="_blank">打开检测项「超大请求体」，执行本项检测</a></span>
+          <span class="exp">5 MB 请求体返回 413，后端未收到该请求。</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="phase-panel" data-index="2" hidden>
+      <h2 class="phase-title">应用层存档服务</h2>
+      <div class="phase-meta"><span>云端存档</span><span>127.0.0.1:18090</span><span>故意保留五处漏洞</span></div>
+      <div class="steps">
+        <div class="steps-head"><span>步骤</span><span>操作</span><span>预期结果</span></div>
+        <div class="step">
+          <span class="no">01</span>
+          <span class="act"><a href="http://127.0.0.1:18090/rank" target="_blank">打开排行榜</a>，检索框输入 <code>zzz</code></span>
+          <span class="exp">返回无匹配结果，说明检索参数参与查询。</span>
+        </div>
+        <div class="step">
+          <span class="no">02</span>
+          <span class="act">在检索框输入 <code>' OR '1'='1' --</code></span>
+          <span class="exp">三台设备的昵称、设备号与分数全部返回，SQL 注入生效。</span>
+        </div>
+        <div class="step">
+          <span class="no">03</span>
+          <span class="act"><a href="http://127.0.0.1:18090/nickname" target="_blank">打开改昵称</a>，提交 <code>xss&lt;script&gt;alert('xss')&lt;/script&gt;</code>，再打开排行榜</span>
+          <span class="exp">排行榜打开即弹窗，昵称被当作代码执行。</span>
+        </div>
+        <div class="step">
+          <span class="no">04</span>
+          <span class="act"><a href="http://127.0.0.1:18090/save?slot=0" target="_blank">打开槽位 0</a>，再打开 <a href="http://127.0.0.1:18090/save?slot=0&amp;device=bob-0002" target="_blank">bob 的槽位</a></span>
+          <span class="exp">两个地址仅 device 参数不同，读取到 bob 的存档内容与更新时间。</span>
+        </div>
+        <div class="step">
+          <span class="no">05</span>
+          <span class="act"><a href="http://127.0.0.1:18090/admin" target="_blank">直接打开后台</a></span>
+          <span class="exp">全部设备、昵称、分数与存档数量可见，无登录校验。</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="phase-panel" data-index="3" hidden>
+      <h2 class="phase-title">跨站请求伪造</h2>
+      <div class="phase-meta"><span>攻击页 localhost:18080</span><span>靶站 127.0.0.1:18090</span><span>两个主机名构成跨站</span></div>
+      <div class="steps">
+        <div class="steps-head"><span>步骤</span><span>操作</span><span>预期结果</span></div>
+        <div class="step">
+          <span class="no">01</span>
+          <span class="act"><a href="http://127.0.0.1:18090/" target="_blank">打开云端存档首页</a></span>
+          <span class="exp">浏览器写入设备 cookie，页面显示设备 alice-0001。</span>
+        </div>
+        <div class="step">
+          <span class="no">02</span>
+          <span class="act"><a href="http://localhost:18080/attack/lab-csrf.html" target="_blank">从 localhost:18080 打开领奖页</a>，点击「领取奖励」</span>
+          <span class="exp">跳转至存档站昵称页，提示昵称已修改。</span>
+        </div>
+        <div class="step">
+          <span class="no">03</span>
+          <span class="act"><a href="http://127.0.0.1:18090/rank" target="_blank">打开排行榜</a></span>
+          <span class="exp">alice 的昵称变为「这个昵称被改了」。</span>
+        </div>
+      </div>
+
+      <div class="block">
+        <h2>成立条件</h2>
+        <div class="conds">
+          <div class="cond"><span>浏览器自动携带身份</span><span class="v-broken">成立</span><span class="exp">首页写入设备 cookie，跨站顶层导航仍会携带该 cookie。</span></div>
+          <div class="cond"><span>攻击者可构造请求</span><span class="v-broken">成立</span><span class="exp">一条链接即可完成状态变更，无需表单。</span></div>
+          <div class="cond"><span>服务端仅校验请求本身</span><span class="v-broken">成立</span><span class="exp">改昵称未校验令牌与来源，状态变更使用了 GET。</span></div>
+        </div>
+        <p class="phase-note">防护措施：改昵称改为 POST 并校验令牌，cookie 显式设置 SameSite=Strict。</p>
+      </div>
+    </section>
+
+    <div class="phase-nav">
+      <button id="prev">上一场</button>
+      <button id="next">下一场</button>
+    </div>
+
+    <p class="foot">每场按顺序执行；检测项的判定与原始记录以检测项页面为准。</p>
+  </main>
+</div>
+
+<script src="/attack/range-nav.js"></script>
+<script>
+  var tabs = document.querySelectorAll('.phase-tab');
+  var panels = document.querySelectorAll('.phase-panel');
+  var current = 0;
+
+  function show(index) {
+    current = Math.max(0, Math.min(panels.length - 1, index));
+    tabs.forEach(function (tab, i) { tab.classList.toggle('on', i === current); });
+    panels.forEach(function (panel, i) { panel.hidden = i !== current; });
+    document.getElementById('prev').disabled = current === 0;
+    document.getElementById('next').disabled = current === panels.length - 1;
+  }
+
+  tabs.forEach(function (tab, i) {
+    tab.addEventListener('click', function () { show(i); });
+  });
+  document.getElementById('prev').addEventListener('click', function () { show(current - 1); });
+  document.getElementById('next').addEventListener('click', function () { show(current + 1); });
+
+  show(0);
+</script>
+</body>
+</html>

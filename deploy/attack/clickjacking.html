@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>点击劫持 · 攻防靶场</title>
+<link rel="stylesheet" href="/attack/range.css">
+</head>
+<body data-page="clickjack">
+<div class="shell">
+  <aside class="rail" id="rail"></aside>
+
+  <main class="content">
+    <header class="hero">
+      <div>
+        <span class="eyebrow">浏览器侧 · 对照页</span>
+        <h1>点击劫持</h1>
+      </div>
+      <div class="figs">
+        <div class="fig"><span class="k">对照站点</span><span class="v">3</span></div>
+        <div class="fig"><span class="k">已拦截</span><span class="v v-blocked">1</span></div>
+      </div>
+    </header>
+
+    <section class="block">
+      <h2>检测方法</h2>
+      <p>三个页面分别来自网关、裸奔对照栈与靶场服务，均以跨站方式嵌入下方框架。框内为空并出现 Refused to display 表示拦截；框内正常渲染且按钮可点击表示可被嵌套。</p>
+    </section>
+
+    <div class="frames">
+      <div class="frame">
+        <div class="cap">网关状态页</div>
+        <iframe id="f-gw" src="https://localhost/status.html"></iframe>
+        <div class="out">网关对所有响应附加 X-Frame-Options: SAMEORIGIN。</div>
+      </div>
+      <div class="frame">
+        <div class="cap">裸奔对照栈接口描述</div>
+        <iframe id="f-base" src="http://localhost:18081/openapi.json"></iframe>
+        <div class="out">FastAPI 直接对外，接口描述原样返回，未附加任何 frame 相关头。</div>
+      </div>
+      <div class="frame">
+        <div class="cap">靶场受害者页</div>
+        <iframe id="f-victim"></iframe>
+        <div class="out">同端口不同主机名构成跨站；该页未附加 X-Frame-Options。</div>
+      </div>
+    </div>
+
+    <section class="block">
+      <h2>结论</h2>
+      <p>网关一侧拦截，裸奔对照栈与靶场自身页面均可被嵌套。差异仅在一行响应头：网关在 server 段统一附加 X-Frame-Options: SAMEORIGIN。</p>
+      <pre>curl.exe -k -sI https://localhost/status.html | findstr X-Frame-Options
+curl.exe -sI http://localhost:18081/docs | findstr /i frame
+curl.exe -sI http://localhost:18080/attack/victim.html | findstr /i frame</pre>
+    </section>
+  </main>
+</div>
+
+<script>
+  // 受害者页从另一个主机名取，这样这一栏也是跨站；同主机名等于没测。
+  var other = location.hostname === '127.0.0.1' ? 'localhost' : '127.0.0.1';
+  document.getElementById('f-victim').src =
+    location.protocol + '//' + other + ':' + location.port + '/attack/victim.html';
+</script>
+<script src="/attack/range-nav.js"></script>
+</body>
+</html>

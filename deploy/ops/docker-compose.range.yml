@@ -1,0 +1,29 @@
+# 靶场页面单独一台静态服务，只绑本机回环。
+#
+#   docker compose -f deploy/ops/docker-compose.range.yml up -d
+#   http://127.0.0.1:18080/attack/
+#
+# 为什么不挂在网关的 /attack/ 下：
+#   那页上是完整的攻击清单和命令，挂在 443 上等于谁都能看到。想用 IP 白名单挡住，
+#   宿主机打进来的源地址是 docker 网桥的 172.18.0.1，不是 127.0.0.1，白名单要么写死
+#   网段要么失灵，换台机器就变。绑 127.0.0.1:8080 是确定的：只有本机能访问。
+#
+# 为什么用独立项目名：不写 name 会按目录名算，跟网关栈撞车。
+name: symbiont-range
+
+services:
+  range:
+    image: nginx:alpine
+    restart: unless-stopped
+    ports:
+      # 冒号左边写死 127.0.0.1，局域网上的机器连不上。
+      # 8080 被本机别的程序占着，这里用 18080。
+      - "127.0.0.1:18080:80"
+    volumes:
+      - ../attack:/usr/share/nginx/html/attack:ro
+    mem_limit: 64m
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/attack/"]
+      interval: 10s
+      timeout: 3s
+      retries: 5

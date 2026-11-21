@@ -1,0 +1,84 @@
+/* 靶站与诱饵页共用的产品外观。
+ *
+ * 暖色、圆角、沙地纸面，跟靶场控制台的黑底等宽刻意分开：
+ * 一个是演示台，一个是被演示的产品，观众一眼能分清哪边是"网站"。
+ */
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: #e8dcc7;
+  color: #2e2a22;
+  font: 16px/1.85 "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+  position: relative;
+}
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: .04;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2'/></filter><rect width='140' height='140' filter='url(%23n)'/></svg>");
+}
+
+.p-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px 32px;
+  background: #606c38;
+  color: #f3eada;
+  border-radius: 0 0 26px 26px;
+}
+.p-head .brand { font-family: Georgia, "Songti SC", serif; font-size: 18px; letter-spacing: .06em; }
+.p-head .who { font-size: 13px; color: #e4dcc8; }
+
+.p-main { max-width: 620px; margin: 0 auto; padding: 54px 26px 80px; text-align: center; }
+
+.p-main h1 {
+  margin: 0 0 26px;
+  font-family: Georgia, "Songti SC", serif;
+  font-size: 32px;
+  font-weight: 600;
+  letter-spacing: .02em;
+}
+
+.p-card {
+  padding: 30px 30px 32px;
+  background: #f3eada;
+  border: 1px solid #dccdae;
+  border-radius: 22px;
+  text-align: left;
+}
+.p-card p { margin: 0 0 14px; }
+.p-card .muted { color: #7d7364; font-size: 14px; }
+
+.p-btn {
+  display: inline-block;
+  width: 100%;
+  padding: 15px 24px;
+  border: 0;
+  border-radius: 999px;
+  background: #c66b3d;
+  color: #fdf7ec;
+  font: inherit;
+  font-size: 17px;
+  cursor: pointer;
+}
+.p-btn:hover { background: #ad5730; }
+.p-btn:focus-visible { outline: 2px solid #606c38; outline-offset: 3px; }
+
+.p-result { margin-top: 12px; text-align: center; color: #7d7364; font-size: 14px; }
+
+.p-pre {
+  margin: 26px 0 0;
+  padding: 14px 16px;
+  background: #efe3cd;
+  border: 1px solid #dccdae;
+  border-radius: 14px;
+  color: #6b6253;
+  font: 12px/1.8 Consolas, "Microsoft YaHei", monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  text-align: left;
+}

