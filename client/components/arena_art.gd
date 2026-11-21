@@ -9,8 +9,6 @@ extends Node2D
 ## 教学关手感；这里只改它们的 Visual 颜色并往 StaticBody 下挂装饰子节点。
 ## 视差层跟 abyss_backdrop.gd 一个思路：越远跟得越少。
 
-const VIGNETTE_SHADER := preload("res://assets/shaders/vignette.gdshader")
-
 @export var camera_path: NodePath
 @export var world_width := 2560.0
 @export var world_top := -200.0
@@ -31,20 +29,14 @@ const RIM_COLOR := Color(0.42, 0.55, 0.56, 0.75)
 const MOSS_COLOR := Color(0.140, 0.215, 0.180, 0.9)
 
 var _camera: Node2D
-var _layers: Array[Dictionary] = []
-var _fog: Array[Dictionary] = []
-var _spores: CPUParticles2D
 var _rng := RandomNumberGenerator.new()
-var _time := 0.0
 
 func _ready() -> void:
 	_rng.seed = seed_value
 	if camera_path != NodePath(""):
 		_camera = get_node_or_null(camera_path)
-	# 关掉原来那块纯灰底，换成自己的渐变天空（不改它的碰撞/位置，纯粹视觉）
-	var old_backdrop := get_parent().get_node_or_null("Backdrop")
-	if old_backdrop is CanvasItem:
-		old_backdrop.visible = false
+	# 天空、远景、中景、雾、孢子、暗角都交给 Backdrop（components/abyss_backdrop.gd），
+	# 跟第一、二、三层用同一套底座。这里只管地形材质、地表、墙、门前和关卡里的物件。
 	# 推迟一帧再画（M5-03）：
 	# 教学关的 test_arena.gd 在 _ready 里才按 STAGE 表把地图从 4000 拉到 6250、把三块平台
 	# 重新摆一遍。子节点的 _ready 比父节点早，如果这里当场按 4000 的尺寸把天空/远景/砖缝画完，
@@ -55,23 +47,399 @@ func _ready() -> void:
 func _build_all() -> void:
 	if not is_inside_tree():
 		return
-	_build_sky()
+	# 背景六层（天空/远景/中景/雾/孢子/暗角）不在这里造，全在 Backdrop 上。
 	_build_shaft()
-	_build_far()
-	_build_mid()
 	_build_left_wall()
+	_build_monuments()
 	_build_grand_backdrop()
 	_build_wall_detail()
 	_build_under_ground()
-	_build_fog()
-	_build_spores()
 	_dress_terrain()
 	# 全局石材纹理铺在所有地形上（跨过平台/地面/台阶的边界，看不出拼接）
 	_build_terrain_material()
 	# 地表细节要在 _dress_terrain 之后：地面顶边颜色已经定好，碎石/草才压得住
 	_build_surface_detail()
 	_dress_props()
-	_build_vignette()
+	# 最前面那层压在地表之上、角色之前的石头，最后建，保证盖在所有地形装饰上面
+	_build_foreground_rocks()
+
+## 远处的巨物（M5-49）。
+##
+## 组长原话："远处的背景现在有点单一，你可以做一些石像，或者建筑，一些巨物观的东西"。
+## 这里的做法和撒远景尖塔不同：不随机，一件一件写死位置和尺寸，逐个搭解剖结构
+## （基座、塔身、檐口、窗洞、扶壁），配色压在 0.03~0.09 这一段 —— 比地形暗，
+## 比星空亮，夹在 abyss_backdrop 的尖塔和地形之间当"中远景"。
+func _build_monuments() -> void:
+	var root := Node2D.new()
+	root.name = "Monuments"
+	add_child(root)
+	var stone := Color(0.100, 0.114, 0.132, 1)
+	var lit := Color(0.152, 0.170, 0.190, 1)
+	var deep := Color(0.058, 0.068, 0.084, 1)
+
+	_add_watchtower(root, 4380.0, 580.0, 118.0, 0, stone, lit, deep)
+	_add_colonnade(root, 1180.0, 420.0, stone, lit, deep)
+	_add_sunken_arch(root, 5620.0, 520.0, 190.0, stone, lit, deep)
+	_add_watchtower(root, 8880.0, 640.0, 142.0, 1, stone, lit, deep)
+	_add_broken_facade(root, 6780.0, 470.0, 250.0, stone, lit, deep)
+
+## 一座塔：基座 → 塔身 → 两道檐口 → 顶端断口，扶壁和窗洞另外补。
+## variant 0 是完整的那座，1 是被削掉半边、顶上还压着一块歪石的那座。
+func _add_watchtower(parent: Node, x: float, h: float, w: float, variant: int,
+		stone: Color, lit: Color, deep: Color) -> void:
+	var base := world_bottom
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 4400 + variant * 71
+	var group := Node2D.new()
+	group.name = "Watchtower"
+	parent.add_child(group)
+
+	# ① 基座：比塔身宽一圈，上沿往里收
+	var plinth := Polygon2D.new()
+	plinth.color = deep
+	plinth.polygon = PackedVector2Array([
+		Vector2(x - w * 0.16, base), Vector2(x - w * 0.12, base - h * 0.06),
+		Vector2(x + w * 1.12, base - h * 0.06), Vector2(x + w * 1.16, base),
+	])
+	group.add_child(plinth)
+
+	# ② 塔身：上窄下宽，断口那一侧直接削掉
+	var shaft_top := base - h * 0.86
+	var cut := w * 0.30 if variant == 1 else w * 0.02
+	var shaft := Polygon2D.new()
+	shaft.color = stone
+	shaft.polygon = PackedVector2Array([
+		Vector2(x, base - h * 0.05), Vector2(x + w * 0.06, shaft_top + h * 0.10),
+		Vector2(x + w - cut * 0.4, shaft_top), Vector2(x + w, base - h * 0.05),
+	])
+	group.add_child(shaft)
+
+	# ③ 两道檐口：横着挑出来的石带，让塔身分段
+	for k in range(2):
+		var y := base - h * (0.28 + 0.26 * float(k))
+		var overshoot := w * 0.07
+		var band := Polygon2D.new()
+		band.color = lit if k == 0 else stone
+		band.polygon = PackedVector2Array([
+			Vector2(x - overshoot, y), Vector2(x + w + overshoot, y - h * 0.012),
+			Vector2(x + w + overshoot, y - h * 0.035), Vector2(x - overshoot, y - h * 0.023),
+		])
+		group.add_child(band)
+
+	# ④ 窗洞：每层两扇窄长的竖口，只有暗色，没有框 —— 远看是"里面有东西"
+	for k in range(3):
+		var wy := base - h * (0.18 + 0.20 * float(k))
+		for side in [0, 1]:
+			var slot := Polygon2D.new()
+			slot.color = Color(0.022, 0.026, 0.034, 0.94)
+			var sx := x + w * (0.24 + 0.36 * float(side))
+			slot.polygon = PackedVector2Array([
+				Vector2(sx, wy), Vector2(sx + w * 0.10, wy - 2.0),
+				Vector2(sx + w * 0.10, wy - h * 0.075), Vector2(sx, wy - h * 0.073),
+			])
+			group.add_child(slot)
+
+	# ⑤ 扶壁：底部两块斜撑，塔才不像一块竖着的板
+	for side in [0, 1]:
+		var bx := x - w * 0.10 if side == 0 else x + w
+		var dir := -1.0 if side == 0 else 1.0
+		var butt := Polygon2D.new()
+		butt.color = deep
+		butt.polygon = PackedVector2Array([
+			Vector2(bx, base), Vector2(bx, base - h * 0.20),
+			Vector2(bx + dir * w * 0.13, base - h * 0.05), Vector2(bx + dir * w * 0.13, base),
+		])
+		group.add_child(butt)
+
+	# ⑥ 断口：顶上那几块参差的石头，位置按种子固定
+	var top_blocks := 3 if variant == 0 else 2
+	for k in range(top_blocks):
+		var block := Polygon2D.new()
+		block.color = stone if k % 2 == 0 else lit
+		var bx2 := x + w * (0.08 + 0.30 * float(k))
+		var bw := w * rng.randf_range(0.18, 0.30)
+		var bh := h * rng.randf_range(0.03, 0.055)
+		block.polygon = PackedVector2Array([
+			Vector2(bx2, shaft_top + bh), Vector2(bx2 + bw * 0.20, shaft_top - bh * 0.4),
+			Vector2(bx2 + bw, shaft_top + bh * 0.2), Vector2(bx2 + bw * 0.8, shaft_top + bh * 1.6),
+		])
+		group.add_child(block)
+
+	# ⑦ 受光边：只在左侧走一条，光从上面来
+	var rim := Line2D.new()
+	rim.width = 1.6
+	rim.default_color = Color(0.140, 0.160, 0.180, 0.55)
+	rim.points = PackedVector2Array([
+		Vector2(x + w * 0.06, shaft_top + h * 0.10), Vector2(x - w * 0.05, base - h * 0.05),
+	])
+	group.add_child(rim)
+
+## 一排断柱：五根高低不同的柱子，顶上横着两段没塌的额枋。
+func _add_colonnade(parent: Node, x: float, h: float, stone: Color, lit: Color, deep: Color) -> void:
+	var group := Node2D.new()
+	group.name = "Colonnade"
+	parent.add_child(group)
+	var heights := [1.0, 0.72, 0.94, 0.44, 0.66]
+	var gap := 82.0
+	for i in range(heights.size()):
+		var cx := x + gap * float(i)
+		var ch: float = h * float(heights[i])
+		var col := Polygon2D.new()
+		col.color = stone
+		col.polygon = PackedVector2Array([
+			Vector2(cx, world_bottom), Vector2(cx + 4.0, world_bottom - ch),
+			Vector2(cx + 26.0, world_bottom - ch + 6.0), Vector2(cx + 31.0, world_bottom),
+		])
+		group.add_child(col)
+		# 柱头：一块挑出来的方石，断掉的那几根只留半个
+		var cap := Polygon2D.new()
+		cap.color = lit
+		var cw := 30.0 if heights[i] > 0.7 else 16.0
+		cap.polygon = PackedVector2Array([
+			Vector2(cx - 3.0, world_bottom - ch), Vector2(cx + cw, world_bottom - ch),
+			Vector2(cx + cw, world_bottom - ch + 9.0), Vector2(cx - 3.0, world_bottom - ch + 9.0),
+		])
+		group.add_child(cap)
+		# 柱身两道凹槽
+		for k in range(2):
+			var flute := Line2D.new()
+			flute.width = 1.0
+			flute.default_color = deep
+			var fx := cx + 10.0 + float(k) * 10.0
+			flute.points = PackedVector2Array([
+				Vector2(fx, world_bottom - 6.0), Vector2(fx + 1.0, world_bottom - ch + 12.0),
+			])
+			group.add_child(flute)
+	# 额枋：横在两段柱顶之间，断口朝外
+	var lintel_y := world_bottom - h * 1.0 + 2.0
+	var lintel := Polygon2D.new()
+	lintel.color = stone
+	lintel.polygon = PackedVector2Array([
+		Vector2(x - 8.0, lintel_y), Vector2(x + gap * 2.2, lintel_y),
+		Vector2(x + gap * 2.2, lintel_y + 16.0), Vector2(x - 8.0, lintel_y + 18.0),
+	])
+	group.add_child(lintel)
+
+## 半埋的巨型拱门：只露出拱顶和水面以上的柱子，像一座陷进地里的门。
+func _add_sunken_arch(parent: Node, x: float, h: float, w: float,
+		stone: Color, lit: Color, deep: Color) -> void:
+	var group := Node2D.new()
+	group.name = "SunkenArch"
+	parent.add_child(group)
+	var base := world_bottom
+	var r := w * 0.5
+	var thick := 34.0
+	var cx := x + r
+	var spring := base - h * 0.55
+	# 拱圈：外圈从左扫到右、内圈再扫回来，中间镂空
+	var ring := PackedVector2Array()
+	var seg := 22
+	for i in range(seg + 1):
+		var a := PI * (1.0 - float(i) / float(seg))
+		ring.append(Vector2(cx + cos(a) * (r + thick), spring - sin(a) * (r + thick)))
+	for i in range(seg + 1):
+		var a := PI * float(i) / float(seg)
+		ring.append(Vector2(cx + cos(a) * r, spring - sin(a) * r))
+	var body := Polygon2D.new()
+	body.color = stone
+	body.polygon = ring
+	group.add_child(body)
+	# 两根柱子：只到起拱线，往下一路埋进地面
+	for side in [0, 1]:
+		var px := cx - r - thick if side == 0 else cx + r
+		var pillar := Polygon2D.new()
+		pillar.color = deep
+		pillar.polygon = PackedVector2Array([
+			Vector2(px, base), Vector2(px + 2.0, spring + 8.0),
+			Vector2(px + thick - 2.0, spring + 10.0), Vector2(px + thick, base),
+		])
+		group.add_child(pillar)
+	# 拱顶外缘受光
+	var rim := Line2D.new()
+	rim.width = 2.2
+	rim.default_color = Color(0.150, 0.172, 0.190, 0.5)
+	var rim_pts := PackedVector2Array()
+	for i in range(seg + 1):
+		var a := PI * (1.0 - float(i) / float(seg))
+		rim_pts.append(Vector2(cx + cos(a) * (r + thick), spring - sin(a) * (r + thick)))
+	rim.points = rim_pts
+	group.add_child(rim)
+
+## 半塌的立面：一整面墙，中间塌出一个大洞，露出后面的暗部。
+func _add_broken_facade(parent: Node, x: float, h: float, w: float,
+		stone: Color, lit: Color, deep: Color) -> void:
+	var group := Node2D.new()
+	group.name = "BrokenFacade"
+	parent.add_child(group)
+	var base := world_bottom
+	# 墙体：左上角塌掉一块，右边留一排整齐的楼层线
+	var wall := Polygon2D.new()
+	wall.color = stone
+	wall.polygon = PackedVector2Array([
+		Vector2(x, base), Vector2(x, base - h * 0.92), Vector2(x + w * 0.18, base - h * 0.92),
+		Vector2(x + w * 0.26, base - h * 0.62), Vector2(x + w * 0.52, base - h * 0.58),
+		Vector2(x + w * 0.62, base - h * 0.96), Vector2(x + w, base - h * 0.94),
+		Vector2(x + w, base),
+	])
+	group.add_child(wall)
+	# 楼层线：横着几条，把墙分成几层
+	for k in range(3):
+		var ly := base - h * (0.22 + 0.26 * float(k))
+		var floor_line := Line2D.new()
+		floor_line.width = 1.6
+		floor_line.default_color = deep
+		floor_line.points = PackedVector2Array([Vector2(x + 2.0, ly), Vector2(x + w - 2.0, ly - 4.0)])
+		group.add_child(floor_line)
+	# 窗：三列两行，靠右那一列还完整
+	for k in range(3):
+		for row in range(2):
+			var wx := x + w * (0.10 + 0.28 * float(k))
+			var wy := base - h * (0.30 + 0.30 * float(row))
+			var win := Polygon2D.new()
+			win.color = Color(0.020, 0.024, 0.032, 0.94)
+			win.polygon = PackedVector2Array([
+				Vector2(wx, wy), Vector2(wx + w * 0.11, wy - 2.0),
+				Vector2(wx + w * 0.11, wy - h * 0.13), Vector2(wx, wy - h * 0.125),
+			])
+			group.add_child(win)
+	# 塌口底下的碎块：落在墙根
+	for k in range(4):
+		var rub := Polygon2D.new()
+		rub.color = deep
+		var rx := x + w * (0.30 + 0.12 * float(k))
+		var rw := w * 0.06 + float(k) * 3.0
+		rub.polygon = PackedVector2Array([
+			Vector2(rx, base), Vector2(rx + rw * 0.3, base - 16.0 - float(k) * 4.0),
+			Vector2(rx + rw, base - 8.0), Vector2(rx + rw * 1.2, base),
+		])
+		group.add_child(rub)
+
+## 前景石头（M5-49）。
+##
+## 组长要的是"从地底长出来的大石头"，压在屏幕前，但**不能整个盖住角色**，
+## 最多盖掉一半。所以贴着地面走的那几块只做到 14~24px 高（角色 26px，盖到腰），
+## 高一点的两块放在跳台**下方**的地面上 —— 玩家那时候在台子上，压不到人。
+##
+## z 用 4（父节点 -3 → 世界 1），正好压在角色(0)前面。
+func _build_foreground_rocks() -> void:
+	var layer := Node2D.new()
+	layer.name = "ForegroundRocks"
+	layer.z_index = 4
+	add_child(layer)
+	# [x, 宽, 高, variant]
+	# [x, 宽, 高, variant, 石头根部的 y]
+	# 贴着地面的那几块只到 16~23px（角色 26px，最多盖到腰）；
+	# 两块大的立在悬崖里，根扎在深渊里，人从石台上跳过去，压不到。
+	var rocks := [
+		[1150.0, 96.0, 18.0, 0, 659.0],
+		[2730.0, 84.0, 16.0, 2, 659.0],
+		[5920.0, 92.0, 17.0, 4, 659.0],
+		[6720.0, 104.0, 23.0, 5, 659.0],
+		[8830.0, 86.0, 19.0, 6, 659.0],
+		[7020.0, 156.0, 104.0, 1, 742.0],
+		[8310.0, 138.0, 88.0, 3, 736.0],
+	]
+	for spec in rocks:
+		_add_foreground_rock(layer, float(spec[0]), float(spec[1]), float(spec[2]), int(spec[3]), float(spec[4]))
+
+## 一块前景石：主体 + 两侧碎块 + 受光棱 + 暗面 + 苔。全部是一个一个顶点写的，不用随机拼。
+func _add_foreground_rock(parent: Node2D, x: float, w: float, h: float, variant: int, base: float) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 9100 + variant * 131
+	var group := Node2D.new()
+	group.name = "ForegroundRock"
+	parent.add_child(group)
+
+	var body_color := Color(0.018, 0.022, 0.028, 1)
+	var facet := Color(0.044, 0.052, 0.062, 1)
+	var rim := Color(0.205, 0.225, 0.245, 0.72)
+
+	var half := w * 0.5
+	# 主体：底部埋进地里 40px，顶上高低不平，左肩比右肩高一点
+	var top_left := base - h * rng.randf_range(0.82, 1.0)
+	var top_mid := base - h * rng.randf_range(0.95, 1.12)
+	var top_right := base - h * rng.randf_range(0.62, 0.86)
+	var body := Polygon2D.new()
+	body.color = body_color
+	body.polygon = PackedVector2Array([
+		Vector2(x - half, base + 4.0),
+		Vector2(x - half, top_left + h * 0.34),
+		Vector2(x - half * 0.62, top_left),
+		Vector2(x - half * 0.10, top_mid),
+		Vector2(x + half * 0.46, top_right),
+		Vector2(x + half * 0.78, base - h * 0.28),
+		Vector2(x + half, base - h * 0.10),
+		Vector2(x + half, base + 4.0),
+	])
+	group.add_child(body)
+
+	# 左肩受光的那一小块：前景全黑会糊成一个洞，得有一线亮
+	var lit := Polygon2D.new()
+	lit.color = facet
+	lit.polygon = PackedVector2Array([
+		Vector2(x - half * 0.62, top_left), Vector2(x - half * 0.10, top_mid),
+		Vector2(x - half * 0.30, top_mid + h * 0.30), Vector2(x - half * 0.70, top_left + h * 0.28),
+	])
+	group.add_child(lit)
+
+	# 顶棱：沿肩膀走一条细线
+	var edge := Line2D.new()
+	edge.width = 2.2
+	edge.default_color = rim
+	edge.points = PackedVector2Array([
+		Vector2(x - half * 0.86, top_left + h * 0.10),
+		Vector2(x - half * 0.62, top_left),
+		Vector2(x - half * 0.10, top_mid),
+		Vector2(x + half * 0.46, top_right),
+	])
+	group.add_child(edge)
+
+	# 崩口：顶上一道裂缝，从上往下斜着劈开一小段
+	var crack := Line2D.new()
+	crack.width = 1.2
+	crack.default_color = Color(0.006, 0.008, 0.012, 0.9)
+	var cx := x + half * 0.10
+	crack.points = PackedVector2Array([
+		Vector2(cx, top_mid + 2.0), Vector2(cx - 5.0, top_mid + h * 0.30),
+		Vector2(cx + 2.0, top_mid + h * 0.46),
+	])
+	group.add_child(crack)
+
+	# 脚边的碎石堆：一圈比石头略宽的浅色碎石，把石头的根和地面接上。
+	# 悬崖里那两块不铺 —— 它们的根在深渊里，没有地面可接。
+	if base <= 700.0:
+		var talus := Polygon2D.new()
+		talus.color = Color(0.074, 0.084, 0.094, 0.95)
+		talus.polygon = PackedVector2Array([
+			Vector2(x - half * 1.26, base + 4.0), Vector2(x - half * 0.92, base - h * 0.26),
+			Vector2(x - half * 0.30, base - h * 0.14), Vector2(x + half * 0.40, base - h * 0.18),
+			Vector2(x + half * 0.96, base - h * 0.30), Vector2(x + half * 1.24, base + 4.0),
+		])
+		group.add_child(talus)
+
+	# 脚下的两小块碎岩：让石头像"顶开地面长出来"，而不是插进去的
+	for k in range(2):
+		var shard := Polygon2D.new()
+		shard.color = body_color
+		var sx := x + half * (1.12 if k == 0 else -1.04)
+		var sw := 12.0 + float(k) * 5.0
+		shard.polygon = PackedVector2Array([
+			Vector2(sx - sw * 0.5, base + 2.0), Vector2(sx, base - 9.0 - float(k) * 3.0),
+			Vector2(sx + sw * 0.5, base + 2.0),
+		])
+		group.add_child(shard)
+
+	# 苔：只长在顶面和左侧，一点点就够
+	for k in range(2):
+		var moss := Polygon2D.new()
+		moss.color = Color(0.070, 0.105, 0.086, 0.75)
+		var mx := x - half * (0.50 - 0.34 * float(k))
+		moss.polygon = PackedVector2Array([
+			Vector2(mx, top_left + h * 0.06), Vector2(mx + 22.0, top_left + h * 0.02),
+			Vector2(mx + 16.0, top_left + h * 0.14), Vector2(mx + 4.0, top_left + h * 0.16),
+		])
+		group.add_child(moss)
+
 
 ## 从上方漏下来的一束冷光：让画面上半部分不是一片死黑，也给入口一个方向感。
 ## 用 8 个顶点 + 逐顶点 alpha，左右边缘淡出，避免出现一块硬边的灰色梯形。
@@ -113,23 +481,6 @@ func _build_shaft() -> void:
 	core.material = mat
 	add_child(core)
 
-func _process(delta: float) -> void:
-	_time += delta
-	if _camera != null:
-		for layer in _layers:
-			var node: Node2D = layer["node"]
-			var factor: float = layer["factor"]
-			node.position = Vector2(
-				_camera.global_position.x * (1.0 - factor),
-				_camera.global_position.y * (1.0 - factor) * 0.30
-			)
-	for item in _fog:
-		var fog: Node2D = item["node"]
-		var base: Vector2 = item["base"]
-		fog.position = base + Vector2(sin(_time * item["speed"] + item["phase"]) * 40.0, 0.0)
-	if _spores != null and _camera != null:
-		_spores.position = _camera.global_position
-
 # ---------- 背景 ----------
 
 ## 左侧岩壁（M5-27，组长反馈"开局左边只有一条细墙线，屏幕左侧一片空白"）。
@@ -149,41 +500,15 @@ func _build_grand_backdrop() -> void:
 	var far_lit := Color(0.092, 0.104, 0.116)
 
 	# ① 巨型石像：固定三座，位置写死（原来用随机步长的 while，实测会退化成死循环）
-	for spec in [[4600.0, 380.0, 82.0], [11800.0, 470.0, 96.0], [19200.0, 410.0, 88.0]]:
-		var statue := Node2D.new()
-		statue.name = "Colossus"
-		statue.position = Vector2(float(spec[0]), world_bottom + 40.0)
-		root.add_child(statue)
-		var h := float(spec[1])
-		var w := float(spec[2])
-		var body := Polygon2D.new()
-		body.color = far
-		body.polygon = PackedVector2Array([
-			Vector2(-w, 0), Vector2(w, 0), Vector2(w * 0.86, -h * 0.62),
-			Vector2(w * 0.6, -h * 0.78), Vector2(0, -h), Vector2(-w * 0.6, -h * 0.78),
-			Vector2(-w * 0.86, -h * 0.62),
-		])
-		statue.add_child(body)
-		var lit := Line2D.new()
-		lit.width = 2.0
-		lit.default_color = far_lit
-		lit.points = PackedVector2Array([
-			Vector2(-w * 0.6, -h * 0.78), Vector2(0, -h + 6.0), Vector2(w * 0.6, -h * 0.78),
-		])
-		statue.add_child(lit)
-		var base := Polygon2D.new()
-		base.color = far_lit
-		base.polygon = PackedVector2Array([
-			Vector2(-w * 1.15, 0), Vector2(w * 1.15, 0),
-			Vector2(w * 0.95, -26), Vector2(-w * 0.95, -26),
-		])
-		statue.add_child(base)
+	# M5-49：原来只是一块五边形，远看像帐篷。改成一座一座搭：基座、长袍、肩、两臂、头、兜帽。
+	for spec in [[2300.0, 380.0, 82.0], [3600.0, 470.0, 96.0], [6600.0, 410.0, 88.0]]:
+		_add_colossus(root, float(spec[0]), float(spec[1]), float(spec[2]), far, far_lit)
 
 	# ② 吊在半空的铁笼：固定六个
 	for i in range(6):
 		var cage := Node2D.new()
 		cage.name = "Cage"
-		var cx := 1600.0 + float(i) * 3600.0
+		var cx := 900.0 + float(i) * 1500.0
 		var top_y := world_top + 60.0 + float(i % 3) * 40.0
 		cage.position = Vector2(cx, top_y)
 		root.add_child(cage)
@@ -220,8 +545,8 @@ func _build_grand_backdrop() -> void:
 		cage.add_child(beast)
 
 	# ③ 地面白骨：固定十四处，避过悬崖
-	var bone_positions := [700.0, 2300.0, 5200.0, 6900.0, 8600.0, 10400.0, 12600.0,
-		15200.0, 16800.0, 18400.0, 20600.0, 21100.0, 21600.0, 22000.0]
+	var bone_positions := [700.0, 1150.0, 1900.0, 2450.0, 3100.0, 3700.0, 4300.0, 4900.0,
+		5500.0, 6100.0, 6800.0, 8700.0, 9100.0, 9450.0]
 	for bx_pos in bone_positions:
 		var bx: float = bx_pos
 		if _over_gap(bx):
@@ -255,6 +580,136 @@ func _build_grand_backdrop() -> void:
 				Vector2(off, 6.0), Vector2(off + 6.0 + float(k), 7.0),
 			])
 			pile.add_child(bone)
+
+## 一座巨型石像（M5-49）：基座、长袍、肩、两臂、颈、头、兜帽，从上到下一条一条搭。
+## 原点在雕像脚下（世界 y = world_bottom + 40，比地面低一截，底部埋在土里），y 向上为负。
+func _add_colossus(parent: Node, x: float, h: float, w: float,
+		stone: Color, lit: Color) -> void:
+	var statue := Node2D.new()
+	statue.name = "Colossus"
+	statue.position = Vector2(x, world_bottom + 40.0)
+	parent.add_child(statue)
+
+	# ① 基座：两级方台
+	var plinth := Polygon2D.new()
+	plinth.color = lit
+	plinth.polygon = PackedVector2Array([
+		Vector2(-w * 1.15, 0.0), Vector2(w * 1.15, 0.0),
+		Vector2(w * 1.10, -h * 0.045), Vector2(-w * 1.10, -h * 0.045),
+	])
+	statue.add_child(plinth)
+	var plinth2 := Polygon2D.new()
+	plinth2.color = stone
+	plinth2.polygon = PackedVector2Array([
+		Vector2(-w * 0.98, -h * 0.045), Vector2(w * 0.98, -h * 0.045),
+		Vector2(w * 0.92, -h * 0.085), Vector2(-w * 0.92, -h * 0.085),
+	])
+	statue.add_child(plinth2)
+
+	# ② 长袍：下摆宽、腰身收，左右各有一道折线
+	var robe := Polygon2D.new()
+	robe.color = stone
+	robe.polygon = PackedVector2Array([
+		Vector2(-w * 0.92, -h * 0.085), Vector2(w * 0.92, -h * 0.085),
+		Vector2(w * 0.80, -h * 0.30), Vector2(w * 0.66, -h * 0.52),
+		Vector2(w * 0.56, -h * 0.62), Vector2(-w * 0.56, -h * 0.62),
+		Vector2(-w * 0.66, -h * 0.52), Vector2(-w * 0.80, -h * 0.30),
+	])
+	statue.add_child(robe)
+	# 长袍的两道褶：从腰往下斜着分叉，让下摆不是一块板
+	for side in [0, 1]:
+		var fold := Line2D.new()
+		fold.width = 1.4
+		fold.default_color = Color(0.028, 0.032, 0.040, 0.85)
+		var dir := -1.0 if side == 0 else 1.0
+		fold.points = PackedVector2Array([
+			Vector2(dir * w * 0.60, -h * 0.56), Vector2(dir * w * 0.72, -h * 0.30),
+			Vector2(dir * w * 0.86, -h * 0.10),
+		])
+		statue.add_child(fold)
+
+	# ③ 肩：一块横着挑出来的石梁
+	var shoulder := Polygon2D.new()
+	shoulder.color = lit
+	shoulder.polygon = PackedVector2Array([
+		Vector2(-w * 0.78, -h * 0.62), Vector2(w * 0.78, -h * 0.62),
+		Vector2(w * 0.70, -h * 0.70), Vector2(-w * 0.70, -h * 0.70),
+	])
+	statue.add_child(shoulder)
+
+	# ④ 两臂：贴着身体垂下来，手肘往外拐一点
+	for side in [0, 1]:
+		var dir := -1.0 if side == 0 else 1.0
+		var arm := Polygon2D.new()
+		arm.color = stone
+		arm.polygon = PackedVector2Array([
+			Vector2(dir * w * 0.70, -h * 0.68), Vector2(dir * w * 0.86, -h * 0.66),
+			Vector2(dir * w * 0.92, -h * 0.30), Vector2(dir * w * 0.74, -h * 0.30),
+			Vector2(dir * w * 0.66, -h * 0.46),
+		])
+		statue.add_child(arm)
+		# 手：一小块方石，垂在袍子两侧
+		var hand := Polygon2D.new()
+		hand.color = lit
+		hand.polygon = PackedVector2Array([
+			Vector2(dir * w * 0.92, -h * 0.30), Vector2(dir * w * 0.74, -h * 0.30),
+			Vector2(dir * w * 0.76, -h * 0.24), Vector2(dir * w * 0.90, -h * 0.24),
+		])
+		statue.add_child(hand)
+
+	# ⑤ 颈与头：头是七边形，兜帽在上面压出一个尖
+	var neck := Polygon2D.new()
+	neck.color = stone
+	neck.polygon = PackedVector2Array([
+		Vector2(-w * 0.24, -h * 0.70), Vector2(w * 0.24, -h * 0.70),
+		Vector2(w * 0.20, -h * 0.76), Vector2(-w * 0.20, -h * 0.76),
+	])
+	statue.add_child(neck)
+	var head := Polygon2D.new()
+	head.color = stone
+	head.polygon = PackedVector2Array([
+		Vector2(-w * 0.34, -h * 0.76), Vector2(w * 0.34, -h * 0.76),
+		Vector2(w * 0.30, -h * 0.86), Vector2(w * 0.16, -h * 0.90),
+		Vector2(-w * 0.16, -h * 0.90), Vector2(-w * 0.30, -h * 0.86),
+	])
+	statue.add_child(head)
+	# 兜帽：从头顶罩下来，尖顶比头再高一截
+	var hood := Polygon2D.new()
+	hood.color = lit
+	hood.polygon = PackedVector2Array([
+		Vector2(-w * 0.40, -h * 0.80), Vector2(w * 0.40, -h * 0.80),
+		Vector2(w * 0.22, -h * 0.99), Vector2(0.0, -h),
+		Vector2(-w * 0.22, -h * 0.99),
+	])
+	statue.add_child(hood)
+	# 脸：兜帽下的一团暗，远看才像"有张脸"
+	var face := Polygon2D.new()
+	face.color = Color(0.012, 0.014, 0.020, 0.92)
+	face.polygon = PackedVector2Array([
+		Vector2(-w * 0.20, -h * 0.78), Vector2(w * 0.20, -h * 0.78),
+		Vector2(w * 0.16, -h * 0.88), Vector2(-w * 0.16, -h * 0.88),
+	])
+	statue.add_child(face)
+
+	# ⑥ 受光：兜帽左沿和左臂各一条，其余留黑
+	var rim := Line2D.new()
+	rim.width = 2.0
+	rim.default_color = Color(0.180, 0.200, 0.220, 0.45)
+	rim.points = PackedVector2Array([
+		Vector2(-w * 0.40, -h * 0.80), Vector2(-w * 0.22, -h * 0.99),
+		Vector2(0.0, -h + 2.0),
+	])
+	statue.add_child(rim)
+
+	# ⑦ 身上的裂纹：两条，一条从肩到腰，一条在袍角
+	var crack := Line2D.new()
+	crack.width = 1.2
+	crack.default_color = Color(0.024, 0.028, 0.036, 0.9)
+	crack.points = PackedVector2Array([
+		Vector2(w * 0.30, -h * 0.62), Vector2(w * 0.22, -h * 0.46),
+		Vector2(w * 0.34, -h * 0.32),
+	])
+	statue.add_child(crack)
 
 ## 一团圆钝的软组织剪影（笼里的东西用）
 func _blob_points(cx: float, cy: float, rx: float, ry: float) -> PackedVector2Array:
@@ -522,6 +977,24 @@ func _build_under_ground() -> void:
 				mass.add_child(lit)
 			bx += _rng.randf_range(220.0, 420.0)
 
+	# 悬崖那一段底下要"看不见底"。不补这层的话，背景那几座远景尖塔会从深渊里冒上来，
+	# 石台看着就像架在灰色山脊上，悬空感全没了。上面稍亮一点，往下迅速压到全黑。
+	if gap_from >= 0.0:
+		var void_bands := [
+			{"top": 648.0, "bottom": 706.0, "color": Color(0.040, 0.048, 0.058, 0.94)},
+			{"top": 706.0, "bottom": 812.0, "color": Color(0.016, 0.020, 0.028, 0.97)},
+			{"top": 812.0, "bottom": 1060.0, "color": Color(0.005, 0.007, 0.010, 1.0)},
+		]
+		for band in void_bands:
+			var poly := Polygon2D.new()
+			poly.name = "ChasmVoid"
+			poly.color = band["color"]
+			poly.polygon = PackedVector2Array([
+				Vector2(gap_from, band["top"]), Vector2(gap_to, band["top"]),
+				Vector2(gap_to, band["bottom"]), Vector2(gap_from, band["bottom"]),
+			])
+			mass.add_child(poly)
+
 ## 一块圆钝的石头（半埋在岩层里，只露上半截）
 func _boulder_points(cx: float, cy: float, r: float) -> PackedVector2Array:
 	var pts := PackedVector2Array()
@@ -604,150 +1077,6 @@ func _add_pebbles(parent: Node2D, x: float) -> void:
 			Vector2(px - w * 0.4, 0.5 - h), Vector2(px + w * 0.5, 0.5 - h * 0.8),
 		])
 		group.add_child(rim)
-
-func _build_sky() -> void:
-	var sky := Polygon2D.new()
-	sky.name = "Sky"
-	sky.color = Color(1, 1, 1, 1)
-	sky.polygon = PackedVector2Array([
-		Vector2(-200.0, world_top), Vector2(world_width + 200.0, world_top),
-		Vector2(world_width + 200.0, world_bottom + 80.0), Vector2(-200.0, world_bottom + 80.0),
-	])
-	# 上亮下暗的竖直渐变：上面的冷光像从洞口漏下来，底下是看不见的深渊
-	sky.vertex_colors = PackedColorArray([
-		Color(0.160, 0.190, 0.210), Color(0.150, 0.180, 0.200),
-		Color(0.052, 0.062, 0.072), Color(0.046, 0.055, 0.064),
-	])
-	add_child(sky)
-
-func _build_far() -> void:
-	var root := Node2D.new()
-	root.name = "Far"
-	add_child(root)
-	# 远端断柱：高低错落，压成雾色；柱顶断口用两三段折线破一下。
-	# 数量按地图宽算（M4-19 教学关拉到 5000），不然过了 2600 背景就只剩一片渐变。
-	var far_count := int(ceil(world_width / 360.0)) + 1
-	for i in range(far_count):
-		var x := -300.0 + float(i) * 360.0 + _rng.randf_range(-70.0, 70.0)
-		var h := _rng.randf_range(280.0, 580.0)
-		var w := _rng.randf_range(54.0, 120.0)
-		var base_y := world_bottom - 20.0
-		var pillar := Polygon2D.new()
-		# 组长反馈：坑边的灰矩形看着像一块能站的平台，走上去却没有碰撞 ——
-		# 那是这层远景断柱。把颜色压暗、轮廓光减弱，让它们退到雾里当背景，
-		# 不再和前景石台抢同一个灰度。
-		pillar.color = Color(0.105, 0.125, 0.140)
-		pillar.polygon = PackedVector2Array([
-			Vector2(x, base_y), Vector2(x, base_y - h),
-			Vector2(x + w * 0.35, base_y - h - _rng.randf_range(4.0, 26.0)),
-			Vector2(x + w * 0.72, base_y - h + _rng.randf_range(0.0, 16.0)),
-			Vector2(x + w, base_y - h + _rng.randf_range(18.0, 52.0)),
-			Vector2(x + w, base_y),
-		])
-		root.add_child(pillar)
-		# 只给左侧一条轮廓光，黑块才不是死黑
-		var rim := Line2D.new()
-		rim.width = 1.6
-		rim.default_color = Color(0.24, 0.32, 0.34, 0.26)
-		rim.points = PackedVector2Array([Vector2(x, base_y - 10.0), Vector2(x, base_y - h + 20.0)])
-		root.add_child(rim)
-	_layers.append({"node": root, "factor": 0.16})
-
-func _build_mid() -> void:
-	var root := Node2D.new()
-	root.name = "Mid"
-	add_child(root)
-	# 三座塌了半边的拱：柱子在，拱圈只留左半边，暗示这里曾经是通道。
-	# 拱的间距固定 900，数量跟着地图宽走（5000 的地图要六座才铺满）。
-	var arch_count := int(ceil(world_width / 900.0)) + 1
-	for i in range(arch_count):
-		var x := 240.0 + float(i) * 900.0
-		var base_y := world_bottom - 10.0
-		var w := 360.0
-		var h := 300.0
-		var t := 34.0
-		for dx in [0.0, w - t]:
-			var pillar := Polygon2D.new()
-			pillar.color = Color(0.055, 0.070, 0.080)
-			pillar.polygon = PackedVector2Array([
-				Vector2(x + dx, base_y), Vector2(x + dx, base_y - h),
-				Vector2(x + dx + t, base_y - h), Vector2(x + dx + t, base_y),
-			])
-			root.add_child(pillar)
-		var ring := Polygon2D.new()
-		ring.color = Color(0.055, 0.070, 0.080)
-		var pts := PackedVector2Array()
-		var cx := x + w * 0.5
-		var r := w * 0.5
-		for k in range(13):
-			var a := PI * (1.0 - float(k) / 12.0)
-			pts.append(Vector2(cx + cos(a) * r, base_y - h - sin(a) * r))
-		for k in range(13):
-			var a := PI * (1.0 - float(k) / 12.0)
-			pts.append(Vector2(cx + cos(a) * (r - t), base_y - h - sin(a) * (r - t)))
-		ring.polygon = pts
-		root.add_child(ring)
-		var rim := Line2D.new()
-		rim.width = 1.4
-		rim.default_color = Color(0.22, 0.31, 0.32, 0.40)
-		var rim_pts := PackedVector2Array()
-		for k in range(13):
-			var a := PI * (1.0 - float(k) / 12.0)
-			rim_pts.append(Vector2(cx + cos(a) * r, base_y - h - sin(a) * r))
-		rim.points = rim_pts
-		root.add_child(rim)
-	_layers.append({"node": root, "factor": 0.34})
-
-func _build_fog() -> void:
-	var root := Node2D.new()
-	root.name = "Fog"
-	add_child(root)
-	# 雾团铺满整张地图：数量按宽度算，位置按比例摊开
-	var fog_count := int(ceil(world_width / 900.0)) + 1
-	for i in range(fog_count):
-		var fog := Polygon2D.new()
-		fog.color = Color(0.16, 0.23, 0.25, 0.045 + (i % 3) * 0.012)
-		fog.polygon = _ellipse(560.0 + (i % 3) * 170.0, 90.0 + (i % 3) * 30.0, 26)
-		var base := Vector2(world_width * (0.10 + 0.80 * float(i) / maxf(float(fog_count - 1), 1.0)), world_bottom - 60.0)
-		fog.position = base
-		root.add_child(fog)
-		_fog.append({"node": fog, "base": base, "speed": 0.10 + (i % 3) * 0.04, "phase": i * 2.1})
-
-func _build_spores() -> void:
-	_spores = CPUParticles2D.new()
-	_spores.name = "Spores"
-	_spores.amount = 50
-	_spores.lifetime = 8.0
-	_spores.preprocess = 2.0
-	_spores.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
-	_spores.emission_rect_extents = Vector2(760.0, 380.0)
-	_spores.direction = Vector2(0, -1)
-	_spores.spread = 180.0
-	_spores.gravity = Vector2(0, 0)
-	_spores.initial_velocity_min = 2.0
-	_spores.initial_velocity_max = 9.0
-	_spores.scale_amount_min = 0.4
-	_spores.scale_amount_max = 1.3
-	_spores.color = Color(0.58, 0.78, 0.74, 0.45)
-	_spores.texture = _dot_texture()
-	var mat := CanvasItemMaterial.new()
-	mat.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
-	_spores.material = mat
-	_spores.z_index = 9
-	add_child(_spores)
-
-func _build_vignette() -> void:
-	var layer := CanvasLayer.new()
-	layer.name = "Vignette"
-	layer.layer = 1
-	add_child(layer)
-	var rect := ColorRect.new()
-	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var mat := ShaderMaterial.new()
-	mat.shader = VIGNETTE_SHADER
-	rect.material = mat
-	layer.add_child(rect)
-	rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 
 # ---------- 地形装饰（只改视觉，不动碰撞） ----------
 
@@ -1344,11 +1673,3 @@ func _radial_texture() -> GradientTexture2D:
 	tex.height = 128
 	return tex
 
-func _dot_texture() -> ImageTexture:
-	var img := Image.create(4, 4, false, Image.FORMAT_RGBA8)
-	for y in range(4):
-		for x in range(4):
-			var d := Vector2(x - 1.5, y - 1.5).length() / 2.0
-			var a := clampf(1.0 - d, 0.0, 1.0)
-			img.set_pixel(x, y, Color(1, 1, 1, a))
-	return ImageTexture.create_from_image(img)

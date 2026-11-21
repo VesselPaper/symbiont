@@ -6,7 +6,7 @@ extends Node
 ## M4-14 起：BGM 七首分层循环；转场/献祭/死亡走 Music 一次性层；
 ## Boss 激活切战斗曲；NPC/怪物声音由事件和 AI 脚本触发。
 ## M4-15 起音乐和地方环境音改用真实录音渲染（tools/generate_music.py），
-## 八条音效由 tools/import_sfx.py 生成：六条从录音库剪，史莱姆叫声和拾取音是现场拼的；
+## 21 条音效由 tools/import_sfx.py 从录音库剪，其余 28 条由 tools/generate_audio.py 合成；
 ## 素材许可见 assets/audio/README.md。
 
 const BGM_DIR := "res://assets/audio/"
@@ -32,7 +32,8 @@ const AMB_TRACKS := {
 	"floor2": "amb_floor2.wav",
 	"floor3": "amb_floor3.wav",
 }
-## 与 tools/generate_audio.py 的 SFX_TABLE 一一对应；加音效时两边一起改。
+## 与 tools/import_sfx.py（21 条）和 tools/generate_audio.py 的 SFX_TABLE（其余）合起来一一对应；
+## 加音效时脚本和这张表一起改。
 const SFX_NAMES := [
 	"hit", "hit_flesh", "drum", "hit_wood", "hit_metal", "swing", "pogo", "enemy_hit", "enemy_die",
 	"boss_hit", "boss_roar", "boss_charge", "boss_slam", "shockwave", "boss_down",

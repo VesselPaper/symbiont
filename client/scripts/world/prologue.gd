@@ -15,6 +15,8 @@ extends Node2D
 ## 对外保留：节点名 Soul / Heart、`_fuse()`。
 
 const FONT_PATH := "res://assets/fonts/NotoSansCJKsc-Regular.otf"
+## 序章所有台词同一个颜色：纯白。原来身影那几句是偏紫的，组长要求统一成白色。
+const WHISPER_COLOR := Color(0.94, 0.95, 0.96, 0.97)
 const NEXT_SCENE := "res://scenes/world/test_arena.tscn"
 
 const SOUL_START := Vector2(250, 560)
@@ -541,7 +543,11 @@ func _process(delta: float) -> void:
 	_update_soul(delta)
 	_update_heart(delta)
 	if not _fused:
-		while _beat_index < BEATS.size() and _time >= float(BEATS[_beat_index]["at"]):
+		# 表里的 at 只当"最早开始时间"：上一句还没读完就不插队，
+		# 否则长句会被下一句直接顶掉（组长说的"没读完就没了"）。
+		while (_beat_index < BEATS.size()
+				and _time >= float(BEATS[_beat_index]["at"])
+				and not _whisper_busy and _whisper_queue.is_empty()):
 			_whisper_soul(str(BEATS[_beat_index]["text"]), float(BEATS[_beat_index]["hold"]))
 			_beat_index += 1
 			if _beat_index == BEATS.size():
@@ -866,8 +872,6 @@ func _after_fuse() -> void:
 	for item in AFTER_FUSE:
 		tw.tween_interval(float(item["delay"]))
 		tw.tween_callback(func() -> void: _whisper_soul(str(item["text"]), float(item["hold"])))
-	tw.tween_interval(4.0)
-	tw.tween_callback(func() -> void: _whisper(1, "想看见的话，就把身上多余的部分交出来。我不急，我等得起。", 4.6, true))
 
 # ---------- 从虚空落到地面：边坠边变身 ----------
 #
@@ -1140,37 +1144,75 @@ func _leave() -> void:
 	get_tree().change_scene_to_file(NEXT_SCENE)
 
 # ---------- 耳语 ----------
+#
+# 组长反馈"文字显示的时长有问题，要保证玩家可以读完才消失"。
+# 原来的时长是每句写死的 hold（2~5.6 秒），长句根本读不完，而且下一句到点时
+# 直接把上一句的 tween 杀掉 —— 上一句还没淡完就被换掉，看着像"闪一下没了"。
+# 现在三条规则：
+#   1. 每句停留时间按字数算（中文按每秒 6 字，短句最少 2 秒），不再吃写死的 hold；
+#   2. 每句都是"淡入 0.8 秒 → 停 → 淡出 1.2 秒"，淡入淡出一定走完；
+#   3. 句子排队播，上一句淡出结束下一句才开始，谁也不会被中途打断。
+
+## 中文朗读速度：每秒 6 字。留足余量，比正常默读慢。
+const READ_CHARS_PER_SECOND := 6.0
+## 一句最少停多久（字数很少的句子也不至于一闪而过）
+const WHISPER_MIN_HOLD := 2.0
+const WHISPER_FADE_IN := 0.8
+const WHISPER_FADE_OUT := 1.2
+
+var _whisper_queue: Array[Dictionary] = []
+var _whisper_busy := false
 
 func _whisper_soul(text: String, hold: float) -> void:
-	_whisper(0, text, hold, true)
+	_queue_whisper(0, text, hold)
 
 func _whisper_heart(text: String, hold: float) -> void:
-	# M5-47：这三句要贴在屏幕下方（原来走的是画面中央的旁白位）
-	_set_subtitle_mode(true)
-	_whisper(1, text, hold, false)
+	# 身影说的话和旁白一个位置：附身之前都摆在屏幕正中央，等黑雾真的钻进身体后
+	# 才由 _begin_descent 切到字幕位（组长要的：先中间，附身以后才下来）
+	_queue_whisper(1, text, hold)
 
-## who: 0 = 旁白（偏白）；1 = 身影说的话（偏紫）。两者都摆在屏幕正中央，只换颜色。
-func _whisper(who: int, text: String, hold: float, is_soul: bool) -> void:
-	var label := _soul_label if who == 0 else _heart_label
+func _queue_whisper(who: int, text: String, hold: float) -> void:
+	_whisper_queue.append({"who": who, "text": text, "hold": hold})
+	_play_next_whisper()
+
+## 这一句要显示多久：按字数算，写死的 hold 只当"下限"
+func _whisper_seconds(text: String) -> float:
+	var chars := float(text.length())
+	var read := maxf(chars / READ_CHARS_PER_SECOND, WHISPER_MIN_HOLD)
+	return read
+
+func _play_next_whisper() -> void:
+	if _whisper_busy or _whisper_queue.is_empty():
+		return
+	var label := _soul_label
 	if label == null or not is_instance_valid(label):
 		return
-	var old := _note_tween if is_soul else _heart_note_tween
+	_whisper_busy = true
+	var item: Dictionary = _whisper_queue.pop_front()
+	var text := str(item["text"])
+	var old := _note_tween if int(item["who"]) == 0 else _heart_note_tween
 	if old != null and old.is_valid():
 		old.kill()
 	# 先把透明度压到 0 再换字：否则上一句还没淡完，新句子会"闪现"出来
 	label.modulate.a = 0.0
 	label.text = text
-	label.add_theme_color_override("font_color",
-		Color(0.80, 0.84, 0.88, 0.95) if who == 0 else Color(0.74, 0.66, 0.88, 0.96))
+	label.add_theme_color_override("font_color", WHISPER_COLOR)
+	var hold := maxf(float(item["hold"]), _whisper_seconds(text))
 	var tw := create_tween()
 	tw.set_trans(Tween.TRANS_SINE)
-	tw.tween_property(label, "modulate:a", 1.0, 1.1)
-	tw.tween_interval(maxf(hold, 0.6))
-	tw.tween_property(label, "modulate:a", 0.0, 1.7)
-	if is_soul:
+	tw.tween_property(label, "modulate:a", 1.0, WHISPER_FADE_IN)
+	tw.tween_interval(hold)
+	tw.tween_property(label, "modulate:a", 0.0, WHISPER_FADE_OUT)
+	tw.tween_callback(_on_whisper_finished)
+	if int(item["who"]) == 0:
 		_note_tween = tw
 	else:
 		_heart_note_tween = tw
+
+func _on_whisper_finished() -> void:
+	_whisper_busy = false
+	# 下一句要等这一句真正淡完再开始；call_deferred 避免在 tween 回调里又开 tween
+	_play_next_whisper.call_deferred()
 
 # ---------- 小工具 ----------
 

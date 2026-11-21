@@ -18,7 +18,7 @@
 | `client/components/` | 跨场景复用的零件：对话、交互提示、美术底座、教程、魂模型、粒子 |
 | `client/autoload/` | 全局单例：EventBus、GameManager、DataDB、SaveSystem、Settings、Network |
 | `client/data/` | 生成物（SQL 导出的 JSON），**禁止手改** |
-| `client/assets/` | art/player（主角 7 张分层图）、audio（全部 wav）、fonts、shaders |
+| `client/assets/` | `art/player`（主角 7 张分层图）、audio（63 个 wav）、fonts、shaders |
 | `client/tests/` | `*_test.gd` 无头回归；`*_shots.gd` 截图探针（不进回归） |
 | `client/shots/` | 开发期截图 |
 | `server/` | FastAPI 后端：app/（main/models/db/config）、tests/ |

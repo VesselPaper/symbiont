@@ -1360,4 +1360,3 @@ func _enter_floor2() -> void:
 
 func _change_to_floor2() -> void:
 	get_tree().change_scene_to_file(FLOOR2_SCENE)
-

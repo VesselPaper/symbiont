@@ -17,14 +17,17 @@ const INTRO_DIALOGUE_ID := "intro_parasite_1"
 ## 教程结束后开放的下一层门（同一地图右侧，地图边界墙前面）
 const FLOOR1_SCENE := "res://scenes/world/floor1.tscn"
 
-## 教学关站位表（M4-19）。
+## 教学关站位表。
 ##
-## 组长反馈：教学关和钟厅一样“每个项目都挤在一起”。这一版把各环之间的横向距离
-## 统一拉到 340~510px（一屏约 747px），地图从 4000 加到 5000：
+## 组长定的两条新规矩（M5-48）：
+##   1. 每一环的提示文字写在“要地方”前面 1 秒的位置 —— 跑速 250，就是 250px；
+##   2. 相邻两环之间走 3 秒 —— 750px。
+## 悬崖（六块悬空石台过深渊）和火堆按物理需要单独留位置，塞不进 750 的档，
+## 其余七段都是 750 一档。
 ##
-##   出生 80 → 移动光点 560 → 跳台 820..2400（拿剑 1310、木桩甲 1650、下劈台 2075..2235）
-##   → 浅坑 2460..2800（史莱姆 2660，只有一只）→ 祭坛台 2860..3400（祭坛 3130）
-##   → 长廊台阶 4060..4770 → 层门 4900 → 右墙 5000
+##   出生 140 → 移动 890（字 640）→ 跳台 1440..4080（跳跃 1640、尸体 2190、铁剑 2390、
+##   木桩甲 3140、下劈台 3900..4100、木桩乙 3880）→ 战斗 4750 → 拾取 5500 → 火堆 6250
+##   → 悬崖 7000..8400（六块石台）→ 右岸 8400 起（祭坛 9000）→ 层门 9650
 ##
 ## 场景文件 test_arena.tscn 里的坐标只是给编辑器看的初值，运行时全部按这张表摆。
 ## 改布局只改表（外加 world_width 那一项会同步地面/右墙/镜头/背景），别再去 .tscn 挪节点。
@@ -32,53 +35,53 @@ const FLOOR1_SCENE := "res://scenes/world/floor1.tscn"
 ## M4-21 起表里的 *_mark 只当「这一环的提示写在哪」的锚点（原先是光点站位，光点已删）。
 const PLAYER_HALF_HEIGHT := 13.0   # 玩家碰撞盒 14×26，中心到脚底 13
 ## 组长反馈"地图太紧凑"：整张教学关横向统一放大 1.25 倍（x 与宽度一起缩放，
-## 拓扑不变、间距与跑动距离同步变长，约多出 1.2 km 的横向路程）。
+## 拓扑不变、间距与跑动距离同步变长）。M5-48 改成 3 秒一档之后这张表不再乘它，
+## 常量留着是因为别的脚本还在引用。
 const SPREAD := 1.25
 const STAGE := {
-	"world_width": 22300.0,
+	"world_width": 9800.0,
 	"spawn": Vector2(140, 647),
-	# 移动环：走到 1500 才算学会走路，字写在 1420
-	"move_mark": Vector2(1500, 585),
-	"move_hint": Vector2(1420, 585),
-	"move_gate": Vector2(1660, 559),
-	# 跳台：顶 571，从 3800 铺到 8400 —— 拿剑、打桩、下劈都在这一条长台上
-	"ledge": Rect2(3800, 571, 8000, 90),
-	"jump_mark": Vector2(4000, 500),
-	"jump_gate": Vector2(4200, 471),
-	"corpse": Vector2(6300, 567),
-	"sword": Vector2(6500, 568),
-	"weapon_mark": Vector2(6500, 500),
-	"dummy_a": Vector2(9200, 558),
-	"attack_mark": Vector2(9200, 480),
-	"attack_gate": Vector2(9440, 471),
+	# 移动环：走到 890 才算学会走路，字写在前面 250（1 秒）
+	"move_mark": Vector2(890, 585),
+	"move_hint": Vector2(640, 585),
+	"move_gate": Vector2(990, 559),
+	# 跳台：顶 571，从 1440 铺到 4080 —— 拿剑、打桩、下劈都在这一条台上
+	"ledge": Rect2(1440, 571, 2640, 90),
+	"jump_mark": Vector2(1640, 500),
+	"jump_gate": Vector2(1840, 471),
+	"corpse": Vector2(2190, 567),
+	"sword": Vector2(2390, 568),
+	"weapon_mark": Vector2(2390, 500),
+	"dummy_a": Vector2(3140, 558),
+	"attack_mark": Vector2(3140, 480),
+	"attack_gate": Vector2(3380, 471),
 	# 下劈：小方台（顶 440），悬在台前的木桩乙是踏板
-	"pogo": Rect2(11400, 440, 200, 131),
-	"dummy_b": Vector2(11380, 496),   # 悬在方台前的踏板（落到地面就够不着台顶）
-	"pogo_mark": Vector2(11500, 372),
-	"pogo_gate": Vector2(11840, 449),
+	"pogo": Rect2(3900, 440, 200, 131),
+	"dummy_b": Vector2(3880, 496),   # 悬在方台前的踏板（落到地面就够不着台顶）
+	"pogo_mark": Vector2(4000, 372),
+	"pogo_gate": Vector2(4140, 449),
 	# 战斗场景：史莱姆一直在这儿等着，走到能看见它的时候触发剧情
 	# M5-37（组长："别每次都刷两只史莱姆"）：这里留空 —— 火焰剧情那只 CaveBeast 就是这一战的怪
 	"slimes": [],
-	"combat_mark": Vector2(14000, 590),
-	"combat_gate": Vector2(14340, 309),
+	"combat_mark": Vector2(4750, 590),
+	"combat_gate": Vector2(5000, 309),
 	# 浅坑两侧的台阶已撤（M5-30），这个键留着是因为 _build_hollow_steps 还在读
 	"pit_steps": [],
-	# 火堆：打完史莱姆再走 10 秒
-	# 悬崖：左岸到 19000，右岸从 20400 起
-	# 过河石台（M5-39）：各块之间留 90px，跳跃水平行程约 130px，够得着
+	# 悬崖：左岸到 7000，右岸从 8400 起
+	# 过河石台（M5-39）：各块之间留 90px 以内，跳跃水平行程约 130px，够得着
 	"gallery": [
-		Rect2(19083, 607, 150, 26), Rect2(19316, 552, 150, 26),
-		Rect2(19549, 505, 150, 26), Rect2(19782, 565, 150, 26),
-		Rect2(20015, 530, 150, 26), Rect2(20248, 575, 150, 26),
+		Rect2(7083, 607, 150, 26), Rect2(7316, 552, 150, 26),
+		Rect2(7549, 505, 150, 26), Rect2(7782, 565, 150, 26),
+		Rect2(8015, 530, 150, 26), Rect2(8248, 575, 150, 26),
 	],
-	"chasm_left": 19000.0,
-	"chasm_right": 20400.0,
+	"chasm_left": 7000.0,
+	"chasm_right": 8400.0,
 	# 右岸台地：过河之后的落脚台（顶 572），台后面就是祭坛和门
-	"altar_hall": Rect2(20400, 572, 675, 90),
-	"altar": Vector2(21500, 659),
-	"pickup_mark": Vector2(14800, 646),
-	"sacrifice_mark": Vector2(21500, 659),
-	"door": Vector2(22150, 659),
+	"altar_hall": Rect2(8400, 572, 300, 90),
+	"altar": Vector2(9000, 659),
+	"pickup_mark": Vector2(5500, 646),
+	"sacrifice_mark": Vector2(9000, 659),
+	"door": Vector2(9650, 659),
 }
 
 ## 物理门：每环一个，只有做完前面那一环才开。高度按玩家跳跃高度留死角：
@@ -160,7 +163,6 @@ func _ready() -> void:
 	_build_next_floor_door()
 	_build_tall_grass()
 	_build_story_beats()
-	_build_foreground_occluders()
 	# 门前圣所装饰（供台、烛台、断柱、瓦砾、门楣旧布）
 	_build_door_shrine()
 	_build_tutorial_gates()
@@ -211,7 +213,7 @@ func _apply_stage() -> void:
 
 	# 地面：M5-11（组长要求"多平台下方地面多余，可设悬崖跳平台通过"）——
 	# 长廊台阶那一段下面的地面被挖掉了，整条地面拆成"左岸 + 右岸"两块，
-	# 中间是一道掉下去会死的深渊，只能踩着长廊的四块石台过去。
+	# 中间是一道掉下去会死的深渊，只能踩着长廊的六块石台过去（M5-39 从四块加到六块）。
 	var chasm_left: float = STAGE["chasm_left"]
 	var chasm_right: float = STAGE["chasm_right"]
 	var ground := $GroundLeft as StaticBody2D
@@ -222,9 +224,10 @@ func _apply_stage() -> void:
 	_build_chasm_kill_zone(chasm_left, chasm_right)
 	($WallRight as Node2D).position = Vector2(stage_w, 75)
 
-	# 背景板、视差背景、镜头右限幅：三者必须和地面同宽，不然走到头会看见空白
-	($Backdrop as Node2D).position = Vector2(stage_w * 0.5, 360)
-	($Backdrop as Polygon2D).polygon = _box_polygon(Vector2(stage_w, 720))
+	# 背景底座（components/abyss_backdrop.gd，和第一、二、三层同一套）和美术层
+	# 都必须跟地面同宽，不然走到头会看见空白。
+	# 背景节点不设 position：它内部按相机算视差，挪了整片远景会一起偏。
+	($Backdrop as Node).set("world_width", stage_w)
 	($BackdropArt as Node).set("world_width", stage_w)
 	# 告诉美术层悬崖的范围：它靠这两项决定"哪些石头/断柱不能浮在空气里"
 	($BackdropArt as Node).set("gap_from", chasm_left)
@@ -538,16 +541,15 @@ func _box_polygon(size: Vector2) -> PackedVector2Array:
 const TEXT_HEIGHT_ABOVE_SURFACE := 84.0
 ## 每一环的落脚面（x, 这一环的地面/台面顶 y）；文字由它算出来
 const STATION_SURFACES := [
-	Vector2(380, 659),    # MOVE：就写在出生点旁边（角色还不会按键，得先看见这句）
-	Vector2(3400, 659),   # JUMP：跳台前面 3 秒（还是平地）
-	Vector2(5900, 571),   # WEAPON：铁剑前面 3 秒
-	Vector2(8600, 571),   # ATTACK：木桩前面 3 秒
-	# POGO：句子的左边是木桩乙、右边是下劈方台。方台从 440 一直堆到 571（和跳台面贴着），
-	# 所以"平台下方"其实是方块里面，字写那儿会被埋进石头 —— 写方块左边，人站在跳台上就能看见。
-	Vector2(10660, 571),
-	Vector2(13400, 659),  # COMBAT：史莱姆前面 3 秒
-	Vector2(14800, 659),  # PICKUP：肢体掉落处（离 combat 门够远，不压门）
-	Vector2(20900, 572),  # SACRIFICE：祭坛前面 3 秒（右岸台地）
+	Vector2(640, 659),    # MOVE：判定点 890 往前 250
+	Vector2(1190, 659),   # JUMP：跳台左缘 1440 往前 250（还站在平地上）
+	Vector2(2140, 571),   # WEAPON：铁剑 2390 往前 250
+	Vector2(2890, 571),   # ATTACK：木桩甲 3140 往前 250
+	# POGO：方台 3900 往前 250。再往前 100 就会压到 attack 门，所以卡在这里
+	Vector2(3650, 571),
+	Vector2(4500, 659),   # COMBAT：战斗位 4750 往前 250
+	Vector2(5250, 659),   # PICKUP：肢体 5500 往前 250
+	Vector2(8750, 659),   # SACRIFICE：祭坛 9000 往前 250
 ]
 func station_anchors() -> Array[Vector2]:
 	var out: Array[Vector2] = []
@@ -700,10 +702,10 @@ func _build_slab_holder(holder_name: String, rects: Array, names: Array) -> void
 		# M5-25：原来这块是比地面更暗的纯灰 (0.155,0.170,0.180)，在深色背景上就是一块"错误方块"。
 		# 改成和主地面同一个色（0.170,0.190,0.200），再补上横缝和亮边，读起来才是石头台。
 		slab.color = Color(0.176, 0.196, 0.208, 1)
-		slab.polygon = PackedVector2Array([
-			Vector2(-half.x, -half.y), Vector2(half.x, -half.y),
-			Vector2(half.x, half.y), Vector2(-half.x, half.y),
-		])
+		# M5-49（组长："悬浮的平台可以换成石块，现在还是矩形"）：
+		# 顶面照样是平的（歪了角色会看着踩空），侧面和底面切成碎口，
+		# 底下挂几块碎岩 —— 碰撞盒还是那个 150×26，人踩上去的手感一点没变。
+		slab.polygon = _rock_slab_polygon(half, i)
 		body.add_child(slab)
 		# M4-23 组长反馈：这些台阶只有一整块纯色，看着像“错误地形”。
 		# 现在按和主地面同一套画法补：顶面亮边 + 顶面暗线 + 两道接缝 + 一点苔痕，
@@ -759,18 +761,54 @@ func _build_slab_holder(holder_name: String, rects: Array, names: Array) -> void
 			var cxx := -half.x + rect.size.x * 0.5
 			chain.points = PackedVector2Array([Vector2(cxx, half.y), Vector2(cxx + 3.0, half.y + 34.0)])
 			body.add_child(chain)
-		for k in range(2):
+		# 底下的碎岩：原来是两块悬空的方块，读起来像挂了两只桶。
+		# 改成贴着石头底面长出来的尖块，越往下越窄，和上面的锯齿连成一整块。
+		for k in range(3):
 			var chunk := Polygon2D.new()
 			chunk.name = "SlabChunk"
-			var tone := 0.120 + 0.02 * float(k)
-			chunk.color = Color(tone, tone * 1.05, tone * 1.1, 0.95)
-			var cx2 := -half.x + rect.size.x * (0.3 + 0.4 * float(k))
+			var tone := 0.132 + 0.016 * float(k)
+			chunk.color = Color(tone, tone * 1.05, tone * 1.1, 0.98)
+			var cx2 := -half.x + rect.size.x * (0.22 + 0.26 * float(k))
+			var bottom_y := half.y + 12.0 + float(k % 2) * 6.0
 			chunk.polygon = PackedVector2Array([
-				Vector2(cx2 - 9, half.y + 2), Vector2(cx2 + 7, half.y + 1),
-				Vector2(cx2 + 4, half.y + 12), Vector2(cx2 - 6, half.y + 14),
+				Vector2(cx2 - 10.0, bottom_y - 4.0), Vector2(cx2 + 8.0, bottom_y - 3.0),
+				Vector2(cx2 + 3.0, bottom_y + 12.0), Vector2(cx2 - 4.0, bottom_y + 16.0),
+				Vector2(cx2 - 8.0, bottom_y + 6.0),
 			])
 			body.add_child(chunk)
 		holder.add_child(body)
+
+## 悬浮石台的轮廓：顶面是平的一条线，其余三面按石头切出来。
+##
+## 为什么顶面不做起伏：碰撞盒是矩形，玩家脚踩的是那条直线；顶面一歪就成了"脚悬在半空"。
+## 底面故意做成锯齿并往下多伸 10~20px —— 这一截不参与碰撞，只是让石头有厚度，读得出是块石。
+## 每个 variant 有固定的随机种子，同一块石头每次进关长得一样，不会一刷新就变形状。
+func _rock_slab_polygon(half: Vector2, variant: int) -> PackedVector2Array:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 7300 + variant * 97
+	var pts := PackedVector2Array()
+	# ① 顶面：从左上到右上，只允许 0~1px 的起伏
+	var steps := 6
+	var inset := rng.randf_range(1.0, 3.0)
+	for i in range(steps + 1):
+		var t := float(i) / float(steps)
+		pts.append(Vector2(lerpf(-half.x + inset, half.x - inset, t), -half.y + rng.randf_range(0.0, 1.0)))
+	# ② 右端：切掉一个小角，往下的边不平直
+	var right := half.x - inset
+	pts.append(Vector2(right - rng.randf_range(0.0, 2.0), -half.y + half.y * rng.randf_range(0.5, 0.9)))
+	pts.append(Vector2(right - rng.randf_range(3.0, 7.0), half.y - rng.randf_range(0.0, 3.0)))
+	# ③ 底面：从右往左的锯齿，尖朝下；x 必须一路减小，否则多边形会自己缠住
+	var left := -half.x + inset
+	var teeth := 7
+	for i in range(teeth + 1):
+		var t := float(i) / float(teeth)
+		var x := lerpf(right - 4.0, left + 4.0, t)
+		var dip := rng.randf_range(14.0, 26.0) if i % 2 == 0 else rng.randf_range(-1.0, 4.0)
+		pts.append(Vector2(x, half.y + dip))
+	# ④ 左端：抬回去，和顶面接上
+	pts.append(Vector2(left + rng.randf_range(3.0, 7.0), half.y - rng.randf_range(0.0, 3.0)))
+	pts.append(Vector2(left + rng.randf_range(0.0, 2.0), -half.y + half.y * rng.randf_range(0.5, 0.9)))
+	return pts
 
 func _build_next_floor_door() -> void:
 	_door_root = Node2D.new()
@@ -1022,78 +1060,19 @@ func _ring_points(center: Vector2, radii: Vector2, steps: int) -> PackedVector2A
 ## 高草丛（M5-37）：一片一片种在地面和台面上，玩家走过去会被拨动。
 ## 每片草的 y 按它所在的地形给（跳台面 571，普通地面 659，右岸台地 572）。
 const GRASS_PATCHES := [
-	[180.0, 900.0, 659.0], [1400.0, 1900.0, 659.0], [2100.0, 2900.0, 659.0],
-	[4000.0, 5000.0, 571.0], [6100.0, 7100.0, 571.0],
-	[8200.0, 9100.0, 571.0], [10200.0, 11000.0, 571.0],
-	[12300.0, 13200.0, 659.0], [15000.0, 16000.0, 659.0],
-	[17000.0, 18200.0, 659.0], [20500.0, 21100.0, 572.0],
-	[21300.0, 21900.0, 659.0],
+	[180.0, 800.0, 659.0], [1000.0, 1400.0, 659.0],
+	[1450.0, 2100.0, 571.0], [2250.0, 3000.0, 571.0], [3200.0, 3800.0, 571.0],
+	[4150.0, 4500.0, 659.0], [4800.0, 5450.0, 659.0],
+	[5550.0, 6150.0, 659.0], [6350.0, 6900.0, 659.0],
+	[8450.0, 8700.0, 572.0], [8750.0, 9500.0, 659.0],
 ]
-
-
-## 前景遮挡（M5-41 重做）：压在角色前面的暗色剪影。
-##
-## 上一版是一堆 4~7px 的细线，读起来像栅栏，组长说难看。现在改成"有厚度"的剪影：
-## 每根草叶是一个带弧度的填充多边形（中间宽、两头收），体量放大、数量减少，
-## 另外配两块近景岩石，颜色压到 0.02 上下 —— 是"更近的一层"，不是"画糊了"。
-func _build_foreground_occluders() -> void:
-	var layer := Node2D.new()
-	layer.name = "ForegroundOccluders"
-	layer.z_index = 3
-	add_child(layer)
-	var leaf_dark := Color(0.022, 0.030, 0.034, 0.94)
-	var leaf_edge := Color(0.048, 0.062, 0.058, 0.85)
-	var rock_dark := Color(0.030, 0.038, 0.044, 0.96)
-	var rock_edge := Color(0.070, 0.082, 0.086, 0.7)
-
-	# 近景岩石：四块，压在画面下缘 —— 走过去时挡住角色下半身，又不至于糊成一团黑
-	for spec in [[2400.0, 320.0, 150.0], [7600.0, 360.0, 190.0], [12800.0, 300.0, 160.0], [18600.0, 340.0, 175.0]]:
-		var rock := Node2D.new()
-		rock.name = "ForegroundRock"
-		rock.position = Vector2(float(spec[0]), 690.0)
-		layer.add_child(rock)
-		var rw := float(spec[2])
-		var rh := float(spec[1])
-		var body := Polygon2D.new()
-		body.color = rock_dark
-		body.polygon = PackedVector2Array([
-			Vector2(-rw, 0), Vector2(-rw * 0.9, -rh * 0.36),
-			Vector2(-rw * 0.5, -rh * 0.78), Vector2(rw * 0.2, -rh),
-			Vector2(rw * 0.85, -rh * 0.46), Vector2(rw, 0),
-		])
-		rock.add_child(body)
-		var edge := Line2D.new()
-		edge.width = 2.2
-		edge.default_color = rock_edge
-		edge.points = PackedVector2Array([
-			Vector2(-rw * 0.9, -rh * 0.36), Vector2(-rw * 0.5, -rh * 0.78),
-			Vector2(rw * 0.2, -rh), Vector2(rw * 0.85, -rh * 0.46),
-		])
-		rock.add_child(edge)
-
-	# 顶部垂下来的枯藤：细线，衬出"更近的一层"但不遮视线
-	for cx in [3200.0, 9000.0, 14400.0, 19600.0]:
-		var vine := Node2D.new()
-		vine.name = "ForegroundVine"
-		vine.position = Vector2(cx, -40.0)
-		layer.add_child(vine)
-		for k2 in range(3):
-			var strand := Line2D.new()
-			strand.width = 2.4 - float(k2) * 0.5
-			strand.default_color = Color(0.020, 0.026, 0.030, 0.9)
-			var sx := float(k2 - 1) * 16.0
-			var length := 180.0 + float((k2 * 73) % 140)
-			strand.points = PackedVector2Array([
-				Vector2(sx, 0), Vector2(sx + 6.0, length * 0.5), Vector2(sx - 4.0, length),
-			])
-			vine.add_child(strand)
 
 
 ## 路上的剧情节点（M5-40）：走到某个位置就念一段旁白，每段只播一次。
 const STORY_BEATS := [
-	{"x": 4300.0, "id": "tutorial_colossus"},
-	{"x": 8500.0, "id": "tutorial_cage"},
-	{"x": 18500.0, "id": "tutorial_chasm"},
+	{"x": 2300.0, "id": "tutorial_colossus"},
+	{"x": 3600.0, "id": "tutorial_cage"},
+	{"x": 6800.0, "id": "tutorial_chasm"},
 ]
 
 var _story_seen: Dictionary = {}
@@ -1427,10 +1406,10 @@ func _build_campfire() -> void:
 ## 掉血必须是确定发生的一次，不能看玩家闪不闪得开。
 ## 怪物就用史莱姆（同一套跳扑 AI），只是血加厚，算"稍简单的小 boss"：
 ## 它不会一招秒人，也不会放弹幕，代价是它就在悬崖边上 —— 打急了会被自己撞下去。
-const BEAST_TRIGGER := Vector2(13300, 620)
-const BEAST_SPAWN := Vector2(14000, 646)
+const BEAST_TRIGGER := Vector2(4550, 620)
+const BEAST_SPAWN := Vector2(4750, 646)
 ## 篝火位置：必须在剧情和战斗之后（见 _build_campfire 的注释）
-const CAMPFIRE_X := 16500.0
+const CAMPFIRE_X := 6250.0
 ## 火堆的 y：地面 659 往下让 22px（石圈 + 石块自身的高度），不然会陷进地里
 const CAMPFIRE_Y := 637.0
 const BEAST_HP := 14

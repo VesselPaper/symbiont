@@ -12,9 +12,11 @@
 | `music_*.wav` 3 段 | 同上，直接剪 Meta 的管风琴、弦乐不谐和音，配 VSCO 锣/定音鼓/大提琴 | 44100Hz |
 | `amb_*.wav` 4 条 | 同上，剪 Meta 的机房底噪 / 水下环境，低通成不同楼层的音色 | 44100Hz |
 | 21 条音效 | `tools/audio/import_sfx.py`：从 Oculus Audio Pack / VSCO 剪，挥砍、跳跃、二段跳、三条命中、史莱姆叫声、残肢拾取、UI 三件、开箱、四种拾取是现场拼的（命中 = 材质声 + 一层低频重量） | 44100Hz |
-| 其余 36 条音效 | `tools/audio/generate_audio.py` 合成 | 22050Hz |
+| 其余 28 条音效 | `tools/audio/generate_audio.py` 合成 | 22050Hz |
 
 混合采样率在 Godot 里没问题，各自按原采样率解码。
+
+上面五类加起来是 63 个 wav，`client/assets/audio/` 里就是这么多文件，核数用 `(Get-ChildItem -Recurse -Filter *.wav).Count`。
 
 BGM 每首用低频持续音、高八度弦垫、事件拨弦/钟声、定音鼓脉冲/心跳分层，不是固定 6 秒和弦循环。`music_*` 由 `AudioDirector/Music` 叠在 BGM 上，播完自动把 BGM 抬回来。
 

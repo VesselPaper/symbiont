@@ -3,12 +3,13 @@
 按顺序跑，每一步都有"预期看到什么"和"这时候说什么"。
 所有数字都是本机实测值（2026-11-15），不是估的。
 
-前置：Docker Desktop 已启动，`scripts/gen_cert.ps1` 已跑过。
+前置：Docker Desktop 已启动，`scripts/make_ca.ps1` 与 `scripts/trust_ca.ps1` 已跑过。
 
 ```powershell
-scripts/gen_cert.ps1
+scripts/make_ca.ps1
+scripts/trust_ca.ps1
 docker compose -f deploy/docker-compose.yml up -d --build
-docker compose -f deploy/docker-compose.baseline.yml up -d --build
+docker compose -f deploy/ops/docker-compose.before.yml up -d --build
 ```
 
 ---
@@ -46,7 +47,7 @@ curl.exe -i --max-time 3 http://localhost:13307/ 2>&1 | Select-Object -First 3
 开一个终端当中继：
 
 ```powershell
-python deploy/tap.py --listen 18181 --target 18081
+python deploy/ops/tap.py --listen 18181 --target 18081
 ```
 
 另开一个终端：
@@ -79,7 +80,7 @@ server: uvicorn
 ## 三、换成 HTTPS 再看一遍（约 60 秒）
 
 ```powershell
-python deploy/tap.py --listen 18182 --target 443
+python deploy/ops/tap.py --listen 18182 --target 443
 ```
 
 ```powershell
@@ -134,7 +135,7 @@ docker port symbiont-mysql-1        # 空
 ## 五、分流（约 90 秒）
 
 ```powershell
-python deploy/bench.py --mode seq --n 12
+python deploy/ops/bench.py --mode seq --n 12
 ```
 
 实测：
@@ -158,7 +159,7 @@ python deploy/bench.py --mode seq --n 12
 ## 六、限流（约 90 秒）
 
 ```powershell
-python deploy/bench.py --n 40 --concurrency 40
+python deploy/ops/bench.py --n 40 --concurrency 40
 ```
 
 实测：
@@ -184,7 +185,7 @@ python deploy/bench.py --n 40 --concurrency 40
 
 ```powershell
 docker stop symbiont-server-2-1
-python deploy/bench.py --mode seq --n 9
+python deploy/ops/bench.py --mode seq --n 9
 ```
 
 实测：
@@ -215,7 +216,7 @@ docker start symbiont-server-2-1
 
 ```powershell
 docker compose -f deploy/docker-compose.yml down
-docker compose -f deploy/docker-compose.baseline.yml down
+docker compose -f deploy/ops/docker-compose.before.yml down
 ```
 
 **说法**：整套加起来是三个配置文件——`nginx.conf`、`docker-compose.yml`、
@@ -227,7 +228,7 @@ docker compose -f deploy/docker-compose.baseline.yml down
 ## 万一现场翻车
 
 1. **Docker 起不来**：先跑 `docker compose ps`，再跑 `docker compose logs proxy`。
-2. **证书报错**：重跑 `scripts/gen_cert.ps1`。
+2. **证书报错**：重跑 `scripts/make_ca.ps1`。
 3. **80/443 被占**：本机 Apache 占 8080、打印控件占 8000 和 18000，别用那几个。
 4. **最坏情况**：直接放录屏。录屏里同样是这七步，数据一模一样。
 

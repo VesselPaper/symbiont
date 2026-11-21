@@ -31,6 +31,17 @@ const VIGNETTE_SHADER := preload("res://assets/shaders/vignette.gdshader")
 @export var spore_color := Color(0.62, 0.84, 0.82, 0.55)
 ## 入口大拱门背后的冷光，给构图一个亮点
 @export var arch_glow := Color(0.18, 0.48, 0.48, 0.12)
+## 最前面那层粗黑垂藤和左下角岩影：第一、二、三层用来框画面。
+## 教学关是一条开阔长走廊，这几团黑会挡视线，组长要求撤掉，所以给了个开关。
+@export var show_foreground := true
+## 远景尖塔的疏密与最高高度。默认值是按 5000~6000 宽的关卡调的；
+## 教学关 22300 宽、又是一条没有建筑遮挡的长廊，按默认值会排成一排密不透风的竖条，
+## 所以那边调疏、调矮。
+@export var spire_spacing := 150.0
+@export var spire_height_max := 700.0
+## 入口那座假拱门（第一、二、三层的入口摆一个"门在那儿"的构图支点）。
+## 教学关真正的门在地图最右端，出生点摆一座假拱反而误导，所以那边关掉。
+@export var show_landmark := true
 
 var _camera: Node2D
 var _layers: Array[Dictionary] = []
@@ -44,11 +55,13 @@ func _ready() -> void:
 	if camera_path != NodePath(""):
 		_camera = get_node_or_null(camera_path) as Node2D
 	_build_sky()
-	_build_spires("Far", 0.16, far_color, 300.0, 700.0, 150.0)
-	_build_landmark()
+	_build_spires("Far", 0.16, far_color, 300.0, spire_height_max, spire_spacing)
+	if show_landmark:
+		_build_landmark()
 	_build_arches("Mid", 0.34, mid_color)
 	_build_vines("Vines", 1.12)
-	_build_foreground()
+	if show_foreground:
+		_build_foreground()
 	_build_fog()
 	_build_spores()
 	_build_vignette()

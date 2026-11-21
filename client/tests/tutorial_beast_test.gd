@@ -10,8 +10,8 @@ extends SceneTree
 ##   ⑤ 火堆只在血不满时能用，回 1 颗心
 
 const ARENA := "res://scenes/world/test_arena.tscn"
-const TRIGGER := Vector2(13300, 640)
-const CAMPFIRE := Vector2(16500, 637)
+const TRIGGER := Vector2(4550, 640)   # STAGE 的 combat 前 200
+const CAMPFIRE := Vector2(6250, 637)  # test_arena 的 CAMPFIRE_X
 
 var _failed := false
 

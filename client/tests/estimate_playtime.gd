@@ -16,8 +16,9 @@ const SCENES := [
 	["第三层", "res://scenes/world/floor3.tscn"],
 ]
 
-# 与 player.gd 保持一致；改了那边要同步这里
-const RUN_SPEED := 300.0
+# 与 player.gd 保持一致；改了那边要同步这里（player.gd 现在是 250，这里曾经写 300，
+# 估出来的时长偏短，交接文档里记过这一条）
+const RUN_SPEED := 250.0
 const JUMP_VELOCITY := -727.0
 const GRAVITY := 2550.0
 

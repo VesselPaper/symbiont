@@ -1,6 +1,6 @@
 # 后端 server/（FastAPI）
 
-账号 / 远程存档 / 统计埋点 / 排行榜 REST API（方案 B 范围；如改为方案 A 可整体移除本目录）。
+远程存档 / 统计埋点 REST API。账号与排行榜只有设计和表结构，没有实现（方案 B 范围；如改为方案 A 可整体移除本目录）。
 
 ## 本地运行
 
@@ -28,7 +28,7 @@ server/
 │   ├── config.py      配置（SYMBIONT_ 环境变量覆盖）
 │   ├── db.py          引擎/会话/依赖
 │   ├── models.py      SQLAlchemy 模型（对齐 database/schema.sql）
-│   └── routers/       路由：health（M0），auth/saves/events/leaderboard（M2）
+│   └── routers/       路由：health、saves、events 三个；auth 与 leaderboard 未实现
 ├── tests/             pytest
 ├── requirements.txt
 └── pytest.ini
@@ -37,5 +37,5 @@ server/
 ## 里程碑
 
 - **M0（本阶段）**：骨架 + /health + OpenAPI + 冒烟测试。
-- **M2**：auth（注册/登录/token）、saves（远程存档 GET/PUT）、events（批量埋点）、leaderboard（GET/POST）、MySQL 联调、docker-compose 全栈。
-- WebSocket：**明确不做**，理由见 docs/03-系统详细设计.md（单机无实时需求）。
+- **M2**：saves（远程存档 GET/PUT）、events（批量埋点）、MySQL 联调、docker-compose 全栈已做；auth（注册/登录/token）与 leaderboard 只有设计，没做。
+- WebSocket：**明确不做**，理由见 `doc/03-系统详细设计.md`（单机无实时需求）。

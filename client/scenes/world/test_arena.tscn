@@ -12,6 +12,7 @@
 [ext_resource type="PackedScene" uid="uid://v226loe7qfs6" path="res://scenes/items/weapon_pickup.tscn" id="11_sword"]
 [ext_resource type="Script" uid="uid://bb3calw7xaodd" path="res://components/arena_art.gd" id="13_arena_art"]
 [ext_resource type="Script" uid="uid://cgn07t3mt3oaj" path="res://components/prop_corpse.gd" id="15_corpse"]
+[ext_resource type="Script" path="res://components/abyss_backdrop.gd" id="16_abyss"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_ground"]
 size = Vector2(5000, 60)
@@ -32,11 +33,24 @@ size = Vector2(540, 90)
 script = ExtResource("1_arena")
 metadata/_edit_lock_ = true
 
-[node name="Backdrop" type="Polygon2D" parent="." unique_id=571203853]
-z_index = -2
-position = Vector2(2500, 360)
-color = Color(0.075426795, 0.0860123, 0.10365506, 1)
-polygon = PackedVector2Array(-2500, -360, 2500, -360, 2500, 360, -2500, 360)
+[node name="Backdrop" type="Node2D" parent="." unique_id=571203853]
+z_index = -4
+script = ExtResource("16_abyss")
+camera_path = NodePath("../Camera2D")
+world_width = 22300.0
+world_top = -300.0
+world_bottom = 659.0
+seed_value = 20261117
+far_color = Color(0.076, 0.098, 0.124, 1)
+mid_color = Color(0.014, 0.020, 0.030, 1)
+vine_color = Color(0.007, 0.010, 0.015, 1)
+rim_color = Color(0.170, 0.300, 0.370, 0.42)
+spore_color = Color(0.520, 0.760, 0.820, 0.5)
+arch_glow = Color(0.120, 0.380, 0.460, 0.12)
+show_foreground = false
+show_landmark = false
+spire_spacing = 260.0
+spire_height_max = 360.0
 metadata/_edit_lock_ = true
 
 [node name="GroundLeft" type="StaticBody2D" parent="." unique_id=2143097642]
