@@ -25,7 +25,7 @@ func _process(delta: float) -> bool:
 		return false
 	var tutorial := _level.get_node("Tutorial")
 	_check(tutorial.process_mode != Node.PROCESS_MODE_DISABLED, "普通周目误停用了教学")
-	var hud := _level.get_node("ObjectiveHUD") as Node2D
+	var hud := _level.get_node("ObjectiveHUD") as CanvasLayer
 	_check(hud != null, "普通周目缺少教学目标文字节点")
 	_check(_level.get_node_or_null("TrueHEProps/OriginRelic") == null, "普通周目错误生成骨片")
 	var altar := _level.get_node("Altar")

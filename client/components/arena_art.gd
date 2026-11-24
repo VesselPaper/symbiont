@@ -1164,11 +1164,13 @@ func _build_terrain_material() -> void:
 	var y := top + 6.0
 	var row := 0
 	while y < bottom - 2.0:
-		var tone := 0.150 + float(row % 3) * 0.012 + _rng.randf_range(-0.006, 0.006)
+		# P0 美术打磨：原来深浅差只有 ±0.006，屏幕上看着就是一整块纯灰；
+		# 现在拉开到 0.128~0.176 四档，近看能读出砌层，远看还是同一面墙。
+		var tone := 0.128 + float(row % 4) * 0.016 + _rng.randf_range(-0.010, 0.010)
 		for span in _spans_at(rects, y):
 			var band := Polygon2D.new()
 			band.name = "CourseBand"
-			band.color = Color(tone, tone * 1.05, tone * 1.10, 0.55)
+			band.color = Color(tone, tone * 1.05, tone * 1.10, 0.62)
 			band.polygon = PackedVector2Array([
 				Vector2(span.x, y), Vector2(span.y, y),
 				Vector2(span.y, y + 12.0), Vector2(span.x, y + 12.0),
@@ -1176,8 +1178,8 @@ func _build_terrain_material() -> void:
 			root.add_child(band)
 			var seam := Line2D.new()
 			seam.name = "CourseSeam"
-			seam.width = 1.0
-			seam.default_color = Color(0.052, 0.062, 0.070, 0.42)
+			seam.width = 1.2
+			seam.default_color = Color(0.052, 0.062, 0.070, 0.55)
 			seam.points = PackedVector2Array([Vector2(span.x + 2.0, y + 0.5), Vector2(span.y - 2.0, y + 0.5)])
 			root.add_child(seam)
 		y += 24.0
@@ -1195,10 +1197,11 @@ func _build_terrain_material() -> void:
 			if _inside_terrain(rects, Vector2(cx, cy)) and _rng.randf() > 0.12:
 				var w := _rng.randf_range(20.0, 58.0)
 				var h := _rng.randf_range(7.0, 15.0)
-				var tone2 := _rng.randf_range(0.138, 0.222)
+				# P0 美术打磨：石块明度拉开（0.112~0.258），石面才有"体积"，不再是一片同色
+				var tone2 := _rng.randf_range(0.112, 0.258)
 				var stone := Polygon2D.new()
 				stone.name = "TerrainStone"
-				stone.color = Color(tone2, tone2 * 1.04, tone2 * 1.10, 0.90)
+				stone.color = Color(tone2, tone2 * 1.04, tone2 * 1.10, 0.95)
 				var skew := _rng.randf_range(-3.0, 3.0)
 				var dent := _rng.randf_range(-3.0, 3.0)
 				stone.polygon = PackedVector2Array([
@@ -1212,12 +1215,22 @@ func _build_terrain_material() -> void:
 				var lit := Line2D.new()
 				lit.name = "TerrainStoneLit"
 				lit.width = 1.0
-				lit.default_color = Color(0.285, 0.300, 0.305, 0.16)
+				lit.default_color = Color(0.285, 0.300, 0.305, 0.30)
 				lit.points = PackedVector2Array([
 					Vector2(cx - w * 0.5 + 1.0, cy + skew + 1.0),
 					Vector2(cx + w * 0.5 - 1.0, cy + skew + dent),
 				])
 				root.add_child(lit)
+				# 石块下沿压一道暗线：亮上暗下，石头才"凸"出来
+				var stone_shade := Line2D.new()
+				stone_shade.name = "TerrainStoneShade"
+				stone_shade.width = 1.0
+				stone_shade.default_color = Color(0.030, 0.038, 0.044, 0.40)
+				stone_shade.points = PackedVector2Array([
+					Vector2(cx - w * 0.5 + 2.0, cy + skew + h + 0.5),
+					Vector2(cx + w * 0.5 - 2.0, cy + skew + h - 0.5),
+				])
+				root.add_child(stone_shade)
 			stones_y += _rng.randf_range(16.0, 24.0)
 		gx += _rng.randf_range(72.0, 128.0)
 
@@ -1241,7 +1254,43 @@ func _build_terrain_material() -> void:
 			root.add_child(joint)
 		jx += _rng.randf_range(200.0, 400.0)
 
-	# ④ 顶面亮边：按**整个地形轮廓**画一条连续线（M5-28 二次修）。
+	# ④ 裂缝（P0 美术打磨）：稀疏几条折线，大片石面不再是一块均匀的灰
+	var crack_x := 120.0
+	while crack_x < world_width - 80.0:
+		var crack_spans := _vspans_at(rects, crack_x)
+		if not crack_spans.is_empty():
+			var cs: Vector2 = crack_spans[0]
+			var crack := Line2D.new()
+			crack.name = "TerrainCrack"
+			crack.width = 1.1
+			crack.default_color = Color(0.032, 0.042, 0.048, 0.55)
+			var pts := PackedVector2Array()
+			var px := crack_x
+			var py := _rng.randf_range(cs.x + 6.0, maxf(cs.x + 7.0, cs.y - 10.0))
+			for _step in range(int(_rng.randf_range(2.0, 4.0))):
+				pts.append(Vector2(px, py))
+				px += _rng.randf_range(-14.0, 14.0)
+				py += _rng.randf_range(6.0, 16.0)
+			crack.points = pts
+			root.add_child(crack)
+		crack_x += _rng.randf_range(120.0, 260.0)
+
+	# ⑤ 底部压暗（P0 美术打磨）：每块地形底部叠一条暗带，
+	#    平台底面不再是"一刀切平的灰块"，读得出厚度
+	for r in rects:
+		var ao := Polygon2D.new()
+		ao.name = "TerrainBaseShade"
+		ao.color = Color(0.018, 0.026, 0.032, 0.38)
+		var ao_h := minf(10.0, r.size.y * 0.4)
+		ao.polygon = PackedVector2Array([
+			Vector2(r.position.x, r.end.y - ao_h),
+			Vector2(r.end.x, r.end.y - ao_h),
+			Vector2(r.end.x, r.end.y),
+			Vector2(r.position.x, r.end.y),
+		])
+		root.add_child(ao)
+
+	# ⑥ 顶面亮边：按**整个地形轮廓**画一条连续线（M5-28 二次修）。
 	# 原来是一块地形画一条 —— 下劈方台坐在跳台顶面上的时候，跳台那条亮边正好从方台屁股底下穿过去，
 	# 看着就是"平台底下有一道亮纹、再往下一刀切平"（组长指的就是这个）。
 	# 现在只沿"每个横坐标最上面那层地形"画，方台底下那段自然没有线。
@@ -1298,6 +1347,22 @@ func _add_terrain_rim(root: Node2D, rects: Array[Rect2]) -> void:
 			shifted.append(p + Vector2(0.0, 3.5))
 		shade.points = shifted
 		root.add_child(shade)
+		# 青苔（P0 美术打磨）：沿顶面亮边随机长几撮，平台顶面不再是一条纯亮线
+		for i in range(seg.size()):
+			if i % 6 != 0 or _rng.randf() > 0.5:
+				continue
+			var mp: Vector2 = seg[i]
+			var moss := Polygon2D.new()
+			moss.name = "TerrainMoss"
+			var mw := _rng.randf_range(4.0, 9.0)
+			moss.color = Color(MOSS_COLOR.r, MOSS_COLOR.g, MOSS_COLOR.b, _rng.randf_range(0.55, 0.85))
+			moss.polygon = PackedVector2Array([
+				mp + Vector2(-mw, 1.5),
+				mp + Vector2(-mw * 0.4, -1.2),
+				mp + Vector2(mw * 0.3, -0.6),
+				mp + Vector2(mw, 1.5),
+			])
+			root.add_child(moss)
 
 ## 地形矩形（世界坐标）：地面、平台、台阶都算
 func _terrain_rects() -> Array[Rect2]:

@@ -16,8 +16,8 @@ extends Node
 ##     肢体拾取(PICKUP)、献祭(SACRIFICE)
 ##   - 对话台词走 DataDB 是对话组件的职责；本组件的目标文案属 UI 提示，
 ##     允许写在代码常量里（见 OBJECTIVE_TEXTS）
-##   - M4-22 组长定稿：每环提示做完**不消失**，留在地图上当路标（走过的句子变暗、当前那句亮），
-##     临时话只有「获得铁剑」「教程完成」两句，各自计时收掉
+##   - 提示形态（P0 反馈改版）：只把"当前这一环"的一句话交给 HUD，显示在屏幕底部；
+##     进入下一环就换下一句，教程结束收起。不再把做过的句子留在背景里当地标。
 ##
 ## 挂载：作为场景子节点，export ui_path 指向目标文字 UI（scenes/ui/objective_hud.tscn）。
 ## UI 契约（duck typing；ui_path 留空则只走逻辑不显示，便于无头测试）：
@@ -26,19 +26,16 @@ extends Node
 
 ## 开场对话入口 id：它整条链（含 next_id）播完后教程才开始
 const START_AFTER_DIALOGUE_ID := "intro_parasite_1"
-## 拿到铁剑后"获得铁剑"气泡的停留时长（秒），到点进入攻击环
-const WEAPON_FLASH_DURATION := 1.2
-## 教程完成提示的停留时长（秒），到点隐藏气泡
-const DONE_HINT_DURATION := 1.0
+## 拿到铁剑后"获得铁剑"气泡的停留时长（秒），到点进入攻击环。
+## P0 反馈：操作后弹的提示统一播 2 秒再收，1.2 秒来不及读完
+const WEAPON_FLASH_DURATION := 2.0
+## 教程完成提示的停留时长（秒），到点隐藏气泡（同上，统一 2 秒）
+const DONE_HINT_DURATION := 2.0
 
-## 每环提示文字的默认锚点（文字刻在锚点上方，钉在世界坐标，不跟玩家走）。
-## M4-19/M4-21 起实际站位由 test_arena 的 STAGE 表在 _ready 里推进来，
-## 这份常量只作“单独挂 Tutorial、没有场景注入”时的兜底，数值和 STAGE 表一致。
-## 高度统一抬到地面/平台顶面之上 60px 以上（组长反馈：A/D 那句贴着石墙读不清）。
-## M4-22：MOVE 那句整句左移一个文字宽度（560 → 406），让开 600 处那道 200px 高的教学骨栅门；
-## 走路的判定点还是 STAGE 表的 move_mark(560)，这里只挪“话写在哪”。
+## 每环提示文字的默认锚点。旧版把这些字刻在世界坐标上，现在提示固定在屏幕底部，
+## 锚点只剩"临时气泡挂在哪"这一个用途；保留这份表和 set_step_anchors，
+## 是为了关卡的 STAGE 表仍能一次性推进来、以后要回到世界提示时不用改接口。
 ## 兜底锚点（M5-25）：这一环落脚面往上 3 个角色身高（28×3=84）。
-## 场景在 _ready 里会调 set_step_anchors 覆盖这份——改布局改 test_arena 的 STATION_SURFACES。
 const STEP_ANCHORS: Array[Vector2] = [
 	Vector2(640, 575),   # MOVE：平地 659 - 84
 	Vector2(1190, 575),  # JUMP：跳台前面 1 秒的平地 659 - 84
@@ -61,9 +58,11 @@ const POGO_PLATFORM_KEY := "pogo"
 
 ## 每环目标文案。M4-23 组长定稿：提示要带上按键，新手才知道按什么；
 ## 但话说在前面，按键放在括号里当“旁注”，读起来仍是寄生体在耳边低语，不像说明书。
+## P0 反馈：第一个要跳的地方恢复一句"空格跳跃"；它和其它目标提示一样走近才出现，
+## 按下空格就算做出反应，随即收起（见 _process 的 JUMP 分支）。
 const OBJECTIVE_TEXTS := [
 	"按 A 或 D 往右走，走一段它自己就熟了。",  # MOVE
-	"跳上这块台子，空格按住别松。",            # JUMP
+	"按空格进行跳跃。",                        # JUMP
 	"把地上那把铁器捡起来，走近了按 K。",      # WEAPON
 	"对着草人按 J，砍一下试试手感。",          # ATTACK
 	"踩着草人借力，落地前按 J 往下劈，上那个方台。",  # POGO（成功标志是站上去，不是挥出下劈）
@@ -73,6 +72,14 @@ const OBJECTIVE_TEXTS := [
 ]
 const WEAPON_FLASH_TEXT := "获得铁剑"
 const DONE_BUBBLE_TEXT := "教程完成"
+
+## 靠近提示（P0 反馈）：铁剑、木桩这类目标提示，只有走到离目标这么近才出现；
+## 离开范围就收起，做失败（比如挥空）还站在附近的话继续挂着，直到动作成功。
+## 240 ≈ 8.5 个角色身高（28px），比一屏（12 身高）小，玩家能感觉出是"走到跟前才提醒"。
+const HINT_RADIUS := 240.0
+## 哪些环吃"靠近才提示"，值为场景 tutorial_hint_targets() 的键；空串 = 进环就提示。
+## 下标与 Step 枚举对齐：MOVE=0 … SACRIFICE=7
+const HINT_TARGET_KEYS := ["", "JUMP", "WEAPON", "ATTACK", "POGO", "COMBAT", "PICKUP", "SACRIFICE"]
 
 ## 步骤状态机：WAIT_FOR_DIALOGUE 等待开场对话；MOVE..SACRIFICE 对应分区环；DONE 结束
 enum Step { WAIT_FOR_DIALOGUE = -1, MOVE, JUMP, WEAPON, ATTACK, POGO, COMBAT, PICKUP, SACRIFICE, DONE }
@@ -89,6 +96,14 @@ var _dummy_b_initial_hp := 0      # 进入 ATTACK 时假人乙的初始 hp
 var _anchors: Array[Vector2] = STEP_ANCHORS.duplicate()  # 实际锚点，场景可在 _ready 里覆盖
 var _weapon_flash_timer := 0.0    # "获得铁剑"气泡倒计时，到点进 ATTACK
 var _done_hint_timer := 0.0
+## MOVE 环的按下沿判定：上一帧是否按着 A/D（见 _process 里的 MOVE 分支）
+var _move_held_last := false
+## JUMP 环的按下沿判定：上一帧是否按着空格
+var _jump_held_last := false
+## 跳跃提示是否已被"按键反应"消费：按下空格后不再因为还站在范围内而重新弹出
+var _jump_hint_consumed := false
+## 当前环的提示是否正显示（靠近类提示用，见 _update_proximity_hint）
+var _hint_shown := false
 
 ## 由所在场景推进来的锚点表（test_arena 的 STAGE 表）。参数不对就保持默认，不崩。
 func set_step_anchors(list: Array) -> void:
@@ -119,6 +134,8 @@ func _process(delta: float) -> void:
 		return
 	if _step == Step.WAIT_FOR_DIALOGUE:
 		return
+	# 目标类提示：每帧按"离目标多远"决定显示/收起（成功与否由下面的判定推进）
+	_update_proximity_hint()
 	# WEAPON：拿到铁剑后短暂显示"获得铁剑"，到点进 ATTACK。
 	# 剑拾取物没有软隔离，玩家在 JUMP 环跳上台时可能顺路先捡走，
 	# 所以进环时直接判"已持剑"也能开始闪烁提示，避免教学卡死
@@ -134,10 +151,26 @@ func _process(delta: float) -> void:
 		return
 	match _step:
 		Step.MOVE:
-			# 组长定稿：走到位就算学会，不用光点碰
-			if _player_reached(MOVE_MARK_KEY):
+			# P0 反馈：玩家按下 A/D 就说明"会走了"，提示在同一帧收掉、门打开；
+			# 不用再走到 STAGE 的 move_mark。保留过线兜底，传送/读档回来也能推进。
+			# 用"上一帧是否按着"自己判按下沿：无头测试里 action_press 与 _process
+			# 不在同一帧，is_action_just_pressed 会漏掉（踩过）。
+			var moving := Input.is_action_pressed("move_left") or Input.is_action_pressed("move_right")
+			if moving and not _move_held_last:
 				_advance()
+			elif _player_reached(MOVE_MARK_KEY):
+				_advance()
+			_move_held_last = moving
 		Step.JUMP:
+			# 近距提示：按下空格就算"做出反应"，提示立刻收起；
+			# 人还在范围内也不重弹（_jump_hint_consumed 卡住），直到真的站上平台推进
+			var jumping := Input.is_action_pressed("jump")
+			if jumping and not _jump_held_last:
+				_jump_hint_consumed = true
+				if _hint_shown:
+					_hint_shown = false
+					_hide_step_text()
+			_jump_held_last = jumping
 			# 必须真的站上跳台（在台上按着跳跃键乱蹦也会过，因为判定是“落地站在台上”）
 			if _player_on_platform(JUMP_PLATFORM_KEY):
 				_advance()
@@ -191,8 +224,8 @@ func _on_sacrifice_done(_sacrifice_id: String, _total_count: int) -> void:
 	# SACRIFICE → DONE（终态，不走 _advance，避免再显示环提示）
 	_step = Step.DONE
 	_done_hint_timer = DONE_HINT_DURATION
-	# 组长（M4-22）：每环提示做完要留在地图上当地标，所以这里只把全部刻字调暗，
-	# 不藏 HUD；"教程完成"才是临时一句，1 秒后自己收。
+	# P0 改版：教程结束后不再把八句话留在背景里，直接收起目标提示；
+	# 只让"教程完成"这句临时提示自己计时收掉。
 	if _ui != null and _ui.has_method("set_active_step"):
 		_ui.call("set_active_step", -1)
 	_show_bubble(DONE_BUBBLE_TEXT)
@@ -204,6 +237,17 @@ func is_completed() -> bool:
 ## 进入下一步：先推进再显示对应环提示；到 DONE 由献祭流程接管
 func _advance() -> void:
 	_step += 1
+	_hint_shown = false
+	_jump_hint_consumed = false
+	# 进环那一刻如果空格还按着（比如跳上平台的过程中），不算"新按了一次"，
+	# 不然跳跃提示会被立刻消费掉、玩家根本没看见
+	_jump_held_last = Input.is_action_pressed("jump")
+	# 换环先把上一条收掉：靠近类提示如果"进来时不在范围内"，不会再有隐藏动作，
+	# 不先收就会把上一环的要求留在屏幕上（踩过）
+	_hide_step_text()
+	# P0 反馈「获得铁剑一直播放」：气泡是上一环的临时提示，换环必须一起收。
+	# 之前 WEAPON 的计时器到点只调 _advance()，没人隐藏气泡，它就永久挂在屏幕上了。
+	_hide_bubble()
 	match _step:
 		Step.JUMP:
 			# MOVE 做完，移门打开；玩家才能真正靠近第一平台
@@ -297,25 +341,83 @@ func _has_monster_limb() -> bool:
 
 # ---- 世界里的目标文字 ----
 
-## 进入某环：这一环亮起来，句子刻到地图上。做过的那些句子由 HUD 自己留着变暗。
-## 先 set_active_step 再 show_objective：这样新刻的那句直接按“当前环”上色。
+## 进入某环：把当前这一句交给 HUD。旧的那句由 HUD 在换字时一并收掉，
+## 所以玩家做完动作后，屏幕上不会再留着刚才那条要求。
 func _show_step_text(step: int) -> void:
 	if step < 0 or step >= OBJECTIVE_TEXTS.size() or _ui == null:
+		return
+	# 目标类提示不在这里直接弹：等玩家走进 HINT_RADIUS 再显示（见 _update_proximity_hint）
+	if _hint_target_key(step) != "":
+		_update_proximity_hint()
+		return
+	_push_step_text(step)
+
+## 真正把某环的文案交给 HUD（空文案 = 收起上一条）
+func _push_step_text(step: int) -> void:
+	if step < 0 or step >= OBJECTIVE_TEXTS.size() or _ui == null:
+		return
+	var text: String = str(OBJECTIVE_TEXTS[step])
+	# 这一环按需求不提示（JUMP）：只把上一条收掉，屏幕上不留字
+	if text.strip_edges() == "":
+		_hide_step_text()
 		return
 	var anchor_index := clampi(step, 0, _anchors.size() - 1)
 	if _ui.has_method("set_active_step"):
 		_ui.call("set_active_step", step)
 	if not _ui.has_method("show_objective"):
 		# UI 没实现新契约（老气泡/纯逻辑测试）：退回临时气泡，至少话还在
-		_show_bubble(OBJECTIVE_TEXTS[step])
+		_show_bubble(text)
 		return
-	_ui.call("show_objective", step, OBJECTIVE_TEXTS[step], _anchors[anchor_index])
+	_ui.call("show_objective", step, text, _anchors[anchor_index])
 
-## 临时提示（获得铁剑 / 教程完成）：挂在当前环锚点上方，显示时长由本组件计时
+## 收起当前目标提示（不动临时气泡）
+func _hide_step_text() -> void:
+	if _ui != null and _ui.has_method("set_active_step"):
+		_ui.call("set_active_step", -1)
+
+## 某环是否"靠近才提示"；返回场景目标表里的键，空串表示进环就提示
+func _hint_target_key(step: int) -> String:
+	if step < 0 or step >= HINT_TARGET_KEYS.size():
+		return ""
+	return str(HINT_TARGET_KEYS[step])
+
+## 每帧按距离决定提示显隐：进了范围才弹，走出范围就收；
+## 没做成之前一直有效 —— 挥空、捡错位置都不会让提示提前消失。
+func _update_proximity_hint() -> void:
+	var key := _hint_target_key(_step)
+	if key == "":
+		return
+	# JUMP：按下空格后这次提示已经"消费"掉了，人还在附近也不再弹
+	if _step == Step.JUMP and _jump_hint_consumed:
+		return
+	var arena := get_parent()
+	var targets := {}
+	if arena != null and arena.has_method("tutorial_hint_targets"):
+		targets = arena.call("tutorial_hint_targets")
+	# 场景没给目标点（组件单独挂测试）：退回"进环即提示"，别把提示弄丢
+	if not targets.has(key):
+		if not _hint_shown:
+			_hint_shown = true
+			_push_step_text(_step)
+		return
+	var player := _get_player() as Node2D
+	if player == null or not is_instance_valid(player):
+		return
+	var target: Vector2 = targets[key]
+	var near := player.global_position.distance_to(target) <= HINT_RADIUS
+	if near == _hint_shown:
+		return
+	_hint_shown = near
+	if near:
+		_push_step_text(_step)
+	else:
+		_hide_step_text()
+
+## 临时提示（获得铁剑 / 教程完成）：固定在屏幕提示条上方，显示时长由本组件计时
 func _show_bubble(text: String) -> void:
 	if _ui == null:
 		return
-	# 文字是地图背景的一部分：每步钉在自己那环的锚点上方，不跟着玩家走。
+	# 旧契约还要一个世界坐标；新版 HUD 固定在屏幕上，这个位置已经不影响排版
 	if _ui.has_method("set_bubble_position"):
 		var target_index := clampi(_step, 0, _anchors.size() - 1)
 		_ui.call("set_bubble_position", _anchors[target_index])

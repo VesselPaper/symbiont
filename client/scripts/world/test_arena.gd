@@ -72,7 +72,7 @@ const STAGE := {
 	"gallery": [
 		Rect2(7083, 607, 150, 26), Rect2(7316, 552, 150, 26),
 		Rect2(7549, 505, 150, 26), Rect2(7782, 565, 150, 26),
-		Rect2(8015, 530, 150, 26), Rect2(8248, 575, 150, 26),
+		Rect2(8015, 530, 150, 26), Rect2(8248, 572, 152, 26),
 	],
 	"chasm_left": 7000.0,
 	"chasm_right": 8400.0,
@@ -582,6 +582,20 @@ func player_on_platform(rect_key: String, player: Node) -> bool:
 		return false
 	var feet := body.global_position.y + PLAYER_HALF_HEIGHT
 	return absf(feet - rect.position.y) <= 6.0
+
+## 教程"走近才提示"的目标点（P0 反馈：铁剑、木桩这类提示只在玩家靠近时出现）。
+## 键和 tutorial.gd 的 HINT_TARGET_KEYS 对应；坐标全部取自 STAGE，不在组件里另抄一份。
+func tutorial_hint_targets() -> Dictionary:
+	return {
+		# 第一个要跳的地方：跳台左缘（顶 571），玩家在台下平地就会看到"按空格"
+		"JUMP": Vector2(STAGE["ledge"].position.x, STAGE["ledge"].position.y),
+		"WEAPON": STAGE["sword"],
+		"ATTACK": STAGE["dummy_a"],
+		"POGO": STAGE["dummy_b"],
+		"COMBAT": STAGE["combat_mark"],
+		"PICKUP": STAGE["pickup_mark"],
+		"SACRIFICE": STAGE["altar"],
+	}
 
 ## 物理帧也刷一次：坠落时人每帧走十几像素，只在 _process 刷会差半帧，
 ## 亮圈看起来比人慢一点点（像在拖）。两个回合同写同一个值，最后一次生效就行。

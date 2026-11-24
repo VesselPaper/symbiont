@@ -1,4 +1,4 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=11 format=3]
 
 [ext_resource type="Texture2D" path="res://assets/art/player/cape.png" id="1_cape"]
 [ext_resource type="Texture2D" path="res://assets/art/player/body.png" id="2_body"]
@@ -6,6 +6,7 @@
 [ext_resource type="Texture2D" path="res://assets/art/player/cloak_hem.png" id="4_hem"]
 [ext_resource type="Texture2D" path="res://assets/art/player/helmet.png" id="5_helmet"]
 [ext_resource type="Texture2D" path="res://assets/art/player/eyes.png" id="6_eyes"]
+[ext_resource type="Shader" path="res://assets/shaders/player_rim.gdshader" id="7_rim"]
 
 [sub_resource type="Gradient" id="Gradient_eye"]
 offsets = PackedFloat32Array(0, 1)
@@ -19,18 +20,23 @@ fill = 1
 fill_from = Vector2(0.5, 0.5)
 fill_to = Vector2(1, 0.5)
 
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_rim"]
+shader = ExtResource("7_rim")
+
 [node name="KnightBody" type="Node2D"]
 
 [node name="Cape" type="Node2D" parent="."]
 position = Vector2(2, 0.5)
 
 [node name="Panel" type="Sprite2D" parent="Cape"]
+material = SubResource("ShaderMaterial_rim")
 position = Vector2(-10.24, -14.66)
 scale = Vector2(0.1458, 0.1458)
 centered = false
 texture = ExtResource("1_cape")
 
 [node name="Silhouette" type="Sprite2D" parent="."]
+material = SubResource("ShaderMaterial_rim")
 position = Vector2(-8.24, -14.16)
 scale = Vector2(0.1458, 0.1458)
 centered = false
@@ -40,6 +46,7 @@ texture = ExtResource("2_body")
 position = Vector2(-3, 0.5)
 
 [node name="Panel" type="Sprite2D" parent="CloakTail"]
+material = SubResource("ShaderMaterial_rim")
 position = Vector2(-5.24, -14.66)
 scale = Vector2(0.1458, 0.1458)
 centered = false
@@ -49,6 +56,7 @@ texture = ExtResource("3_top")
 position = Vector2(-1, 3.76)
 
 [node name="Panel" type="Sprite2D" parent="CloakTail/CloakHem"]
+material = SubResource("ShaderMaterial_rim")
 position = Vector2(-4.24, -18.42)
 scale = Vector2(0.1458, 0.1458)
 centered = false
@@ -64,6 +72,7 @@ position = Vector2(2.6, 10.6)
 position = Vector2(0, 0)
 
 [node name="Skull" type="Sprite2D" parent="Head"]
+material = SubResource("ShaderMaterial_rim")
 position = Vector2(-8.24, -14.16)
 scale = Vector2(0.1458, 0.1458)
 centered = false
@@ -74,6 +83,38 @@ position = Vector2(-8.24, -14.16)
 scale = Vector2(0.1458, 0.1458)
 centered = false
 texture = ExtResource("6_eyes")
+
+[node name="Weapon" type="Node2D" parent="."]
+visible = false
+position = Vector2(6.4, 2.2)
+rotation = 1.3
+z_index = 1
+
+[node name="Pommel" type="Polygon2D" parent="Weapon"]
+color = Color(0.33, 0.36, 0.4, 1)
+polygon = PackedVector2Array(-5.6, 0, -4.5, -1.2, -3.6, 0, -4.5, 1.2)
+
+[node name="Grip" type="Polygon2D" parent="Weapon"]
+color = Color(0.24, 0.19, 0.15, 1)
+polygon = PackedVector2Array(-4.4, -0.9, -1.2, -0.9, -1.2, 0.9, -4.4, 0.9)
+
+[node name="Guard" type="Polygon2D" parent="Weapon"]
+color = Color(0.3, 0.34, 0.38, 1)
+polygon = PackedVector2Array(-1, -2.2, 0.8, -2.2, 1.1, -1.2, 1.1, 1.2, 0.8, 2.2, -1, 2.2)
+
+[node name="Blade" type="Polygon2D" parent="Weapon"]
+color = Color(0.62, 0.68, 0.74, 1)
+polygon = PackedVector2Array(1, -1.6, 9, -1.05, 12, 0, 9, 1.05, 1, 1.6)
+
+[node name="BladeEdge" type="Line2D" parent="Weapon"]
+points = PackedVector2Array(1.2, -1.45, 9.1, -0.95, 11.7, 0)
+width = 0.7
+default_color = Color(0.9, 0.95, 1, 0.36)
+
+[node name="BladeRidge" type="Line2D" parent="Weapon"]
+points = PackedVector2Array(2, 0, 8.6, 0)
+width = 0.7
+default_color = Color(0.46, 0.52, 0.58, 0.75)
 
 [node name="SlashArc" type="Line2D" parent="."]
 position = Vector2(8, -4)

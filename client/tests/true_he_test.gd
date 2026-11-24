@@ -57,7 +57,7 @@ func _check(ok: bool, msg: String) -> void:
 func _check_setup() -> void:
 	var tutorial := _level.get_node("Tutorial")
 	_check(tutorial.process_mode == Node.PROCESS_MODE_DISABLED, "二周目 Tutorial 没被停用")
-	var hud := _level.get_node("ObjectiveHUD") as Node2D
+	var hud := _level.get_node("ObjectiveHUD") as CanvasLayer
 	_check(not hud.visible, "二周目教学目标文字还显示")
 	var player := _level.get_node("Player")
 	_check(bool(player.get("has_weapon")), "二周目玩家没带剑")

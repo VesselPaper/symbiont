@@ -48,11 +48,11 @@ func _check_arena() -> void:
 	var hud := _level.get_node_or_null("ObjectiveHUD")
 	_check(hud != null, "缺少目标提示")
 	if hud != null:
-		_check(int(hud.z_index) >= 4, "目标提示还在道具后面 z=%d" % hud.z_index)
-		var consts: Dictionary = hud.get_script().get_script_constant_map()
-		var offset: Vector2 = consts.get("TEXT_OFFSET", Vector2.ZERO)
-		# M5-25：文字位置改由关卡按"这一环落脚面往上 3 个角色身高"算，HUD 不再加偏移
-		_check(absf(offset.y) <= 1.0, "HUD 又自己加了一层垂直偏移（%s）" % offset)
+		# P0 改版：提示从世界刻字改成屏幕底部 HUD（CanvasLayer），不再有 z_index
+		_check(hud is CanvasLayer, "目标提示应是屏幕空间的 CanvasLayer")
+		if hud is CanvasLayer:
+			_check(int((hud as CanvasLayer).layer) >= 1,
+				"目标提示图层太低，会被场景盖住 layer=%d" % int((hud as CanvasLayer).layer))
 	# M4-21 组长要求删掉引导光：场景里不该再有 guide_mark，也别让“光点”再被谁引用回来
 	_check(_level.get_node_or_null("guide_mark") == null, "教学关还留着引导光 guide_mark")
 	# M5-22（组长要求"祭坛上方的文字只留一行"）：教学关里祭坛自己的常驻提示要关掉，

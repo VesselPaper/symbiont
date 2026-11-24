@@ -1,144 +1,147 @@
-extends Node2D
-## 地图内目标文字（M4-01 初版 / M4-22 组长试玩定稿）
+extends CanvasLayer
+## 教学目标提示（P0 反馈改版：从"刻在地图上的句子"改成屏幕底部的实时提醒）
 ##
-## 组长两条反馈合成这一版：
-##   ① 开头 A/D 那句压在骨栅门上读不清 → 锚点整句左移（数值在 test_arena 的 STAGE 表）
-##   ② 每环提示做完要留在地图上当地标，不要消失 → 从“一句话的临时气泡”改成“每环一枚刻字”：
-##      走到哪环，哪环那句亮起来；做过的留在原地变暗，玩家回头还看得见自己走过的要求。
+## 旧版把每一环的目标句钉在世界坐标上，做完也不消失，当作地图路标。
+## 反馈：这些字挂在背景里像 UI 糊在场景上，而且玩家其实只在当前这一步需要看。
+## 现在：
+##   - 整块提示固定在屏幕底部居中（CanvasLayer，不随地图滚动、不吃相机缩放）；
+##   - 只显示当前这一环的一句，做完立刻换成下一句，教程结束就收起；
+##   - 出现时机仍由 tutorial.gd 掌握：开场对话播完 → MOVE 提示自动出现，
+##     玩家走过移动点 → 收起并换 JUMP —— 即"落地、对话结束才提示，做出动作就消失"。
 ##
-## 文字画在世界坐标（z_index=6，压在地形/道具前面），随地图滚动，不跟玩家走。
-##
-## 与 tutorial.gd 的契约（duck typing，ui_path 留空就只走逻辑不显示）：
-##   show_objective(step, text, world_pos)  第 step 环刻一句；重复调用原地改字
-##   set_active_step(step)                  当前环亮、其余暗；-1 = 没有当前环（教程结束）
-##   show_bubble(text) / hide_bubble()      临时提示（获得铁剑 / 教程完成），由调用方计时
-##   set_bubble_position(global_pos)        临时提示挂在哪个锚点上方
-## 旧契约保持可用（objective_hud_test 与截图脚本还在用），只是 hide_bubble 现在只收临时提示，
-## 不再把整块目标文字一起藏掉 —— 那是组长明确不要的行为。
+## 与 tutorial.gd 的契约（duck typing，ui_path 留空则只走逻辑不显示）：
+##   show_objective(step, text, world_pos)  world_pos 只为兼容旧契约保留，已不使用
+##   set_active_step(step)                  -1 = 教程结束，收起提示
+##   show_bubble(text) / hide_bubble()      临时提示（获得铁剑 / 教程完成）
+##   set_bubble_position(global_pos)        旧契约兼容，临时提示同样固定在屏幕上
 
 const FONT_PATH := "res://assets/fonts/NotoSansCJKsc-Regular.otf"
-## 目标文字就摆在第 level 给的锚点上（M5-25：位置改由关卡按"落脚面往上 3 个身高"算，
-## HUD 不再自己再往上抬一截，抬两下字就飘走了）。留这个常量是为了以后要整体微调时有个口子。
-const TEXT_OFFSET := Vector2(0, 0)
-## 临时提示再往上让 26px，避免和那一环的刻字叠在一起
-const FLASH_OFFSET := Vector2(0, -26)
-## 每句话的版心：360 宽、40 高，居中排版，长的目标句会自动折行
-## M5-22（组长反馈"文字太大，至少缩到一半"）：字号 20 → 10，版心跟着收一半，
-## 这么大的一行压在场景上会盖住地形和敌人，读起来也累。
-const LABEL_SIZE := Vector2(360, 40)
-const FONT_SIZE := 10
+## 屏幕提示字号（旧版刻在世界里的字只有 10，跟着 zoom 一起缩；这里固定在屏幕上，18 才读得清）
+const FONT_SIZE := 18
+const HINT_COLOR := Color(0.82, 0.94, 0.89, 0.95)
+const FLASH_COLOR := Color(0.92, 0.92, 0.72, 1.0)
+const OUTLINE_COLOR := Color(0.015, 0.03, 0.034, 0.85)
+const OUTLINE_SIZE := 4
+const FADE_TIME := 0.18
+## 提示条距屏幕底边的高度（屏幕坐标，负值 = 从下往上）
+const HINT_BOTTOM := -116.0
+## 临时提示在目标提示上方再让 42px，避免两句叠在一起
+const BUBBLE_BOTTOM := -158.0
 
-## 当前环：亮一点（比完成态高出一倍多，扫一眼就知道现在该干什么）
-const ACTIVE_COLOR := Color(0.80, 0.95, 0.90, 0.96)
-## 做过的：留在地图上但退到背景里，不抢当前目标；alpha 别压太低，
-## 深色背景上 0.30 基本看不见，玩家会以为提示被删了（M4-22 组长要的是“还看得见的路标”）
-const DONE_COLOR := Color(0.66, 0.78, 0.76, 0.45)
-## 临时提示用偏暖的骨色，和任务刻字的冷青区分开
-const FLASH_COLOR := Color(0.88, 0.90, 0.74, 1.0)
-
-var _objectives: Dictionary = {}   # step(int) → Label
+var _hint: Label
+var _bubble: Label
 var _active_step := -1
-var _flash: Label
-var _flash_anchor := Vector2.ZERO
-var _tween: Tween
+## 旧契约里临时提示的锚点，现在不参与排版，只存着不报错
+var _bubble_anchor := Vector2.ZERO
+var _hint_tween: Tween
+var _bubble_tween: Tween
 var _font: Font
 
 func _ready() -> void:
 	_font = load(FONT_PATH) as Font
 	if _font == null:
 		push_error("objective_hud: 加载中文字体失败 %s" % FONT_PATH)
-	_flash = get_node_or_null("Label") as Label
-	if _flash == null:
-		_flash = _make_label("Label")
-	_flash.modulate.a = 0.0
-	visible = false
+	_hint = get_node_or_null("Hint") as Label
+	if _hint == null:
+		_hint = _make_label("Hint", HINT_BOTTOM, HINT_COLOR)
+	_bubble = get_node_or_null("Bubble") as Label
+	if _bubble == null:
+		_bubble = _make_label("Bubble", BUBBLE_BOTTOM, FLASH_COLOR)
+	_apply_style(_hint, HINT_COLOR)
+	_apply_style(_bubble, FLASH_COLOR)
+	_hint.text = ""
+	_bubble.text = ""
+	_hint.modulate.a = 0.0
+	_bubble.modulate.a = 0.0
 
-## 第 step 环刻一句：没有就新建，有了原地改字。位置钉在世界坐标，不跟玩家走。
-func show_objective(step: int, text: String, world_pos: Vector2) -> void:
+## 进入某环：把这一条提示换成新一句。旧的一句随文本替换一起消失（只剩当前这一句）。
+func show_objective(step: int, text: String, _world_pos: Vector2) -> void:
 	if text.strip_edges() == "":
+		# 空文案 = 这一环不提示：把上一条收掉，别让上一环的要求留在屏幕上
+		_active_step = -1
+		_fade(_hint, 0.0, false)
 		return
-	var label := _objective_label(step)
-	label.text = text
-	_center_at(label, world_pos + TEXT_OFFSET)
-	# 刚刻出来的这一环就是当前环，颜色按当前态画；set_active_step 随后会再统一上色
-	_paint(label, step == _active_step)
-	visible = true
+	_active_step = step
+	_hint.text = text
+	_fade(_hint, 1.0, true)
 
-## 切换“当前环”：那一句亮，别的（做完的/还没轮到的）一律退到背景色。
-## step = -1 时全部变暗（教程结束，地图上只剩刻字，不再指示下一步）。
+## 切换当前环：step = -1（教程结束）时收起提示。
 func set_active_step(step: int) -> void:
 	_active_step = step
-	for key in _objectives.keys():
-		var label: Label = _objectives[key]
-		if label != null and is_instance_valid(label):
-			_paint(label, int(key) == step)
+	if step < 0:
+		_fade(_hint, 0.0, false)
 
-## 临时提示挂在哪个锚点上方（tutorial 每步传自己那环的锚点）
-func set_bubble_position(global_pos: Vector2) -> void:
-	_flash_anchor = global_pos
-	if _flash != null and is_instance_valid(_flash):
-		_center_at(_flash, _flash_anchor + TEXT_OFFSET + FLASH_OFFSET)
-
-## 弹一句临时提示（获得铁剑 / 教程完成）。显隐计时由调用方掌握，见 tutorial.gd。
+## 临时提示（获得铁剑 / 教程完成）。显隐计时由调用方掌握，见 tutorial.gd。
 func show_bubble(text: String) -> void:
-	if _flash == null or not is_instance_valid(_flash):
+	if _bubble == null or not is_instance_valid(_bubble):
 		return
-	_flash.text = text
-	_flash.add_theme_color_override("font_color", FLASH_COLOR)
-	set_bubble_position(_flash_anchor)
-	visible = true
-	if _tween != null and _tween.is_valid():
-		_tween.kill()
-	_flash.modulate.a = 0.0
-	_tween = create_tween()
-	_tween.tween_property(_flash, "modulate:a", 1.0, 0.20)
+	_bubble.text = text
+	_fade(_bubble, 1.0, true)
 
-## 只收临时提示；目标刻字留着（M4-22 组长：做完不消失）
 func hide_bubble() -> void:
-	if _tween != null and _tween.is_valid():
-		_tween.kill()
-	if _flash != null and is_instance_valid(_flash):
-		_flash.modulate.a = 0.0
+	if _bubble != null and is_instance_valid(_bubble):
+		_fade(_bubble, 0.0, false)
 
-## 某一环的刻字有没有、文字是什么（给测试和截图脚本查）
+## 旧契约兼容：临时提示现在也固定在屏幕上，锚点不再参与排版。
+func set_bubble_position(global_pos: Vector2) -> void:
+	_bubble_anchor = global_pos
+
+## 当前提示文案；只有正在显示的那一环有内容（给测试和截图脚本查）
 func get_objective_text(step: int) -> String:
-	var label: Label = _objectives.get(step)
-	return label.text if label != null and is_instance_valid(label) else ""
+	if step != _active_step or _hint == null:
+		return ""
+	return _hint.text
 
+## 屏幕上当前有几条目标提示（0 或 1；新版不再把做过的句子留在背景里）
 func get_objective_count() -> int:
-	return _objectives.size()
+	if _hint == null or _active_step < 0 or _hint.text.strip_edges() == "":
+		return 0
+	return 1
 
 # ---- 内部 ----
 
-func _objective_label(step: int) -> Label:
-	var label: Label = _objectives.get(step)
-	if label != null and is_instance_valid(label):
-		return label
-	label = _make_label("Objective%d" % step)
-	_objectives[step] = label
-	return label
+## 淡入淡出：同一层提示复用一条 Tween，连续推进时不会叠出两条动画抢 alpha
+func _fade(label: Label, target: float, show: bool) -> void:
+	if label == null or not is_instance_valid(label):
+		return
+	var old := _hint_tween if label == _hint else _bubble_tween
+	if old != null and old.is_valid():
+		old.kill()
+	if show:
+		visible = true
+	var tween := create_tween()
+	tween.tween_property(label, "modulate:a", target, FADE_TIME)
+	if label == _hint:
+		_hint_tween = tween
+	else:
+		_bubble_tween = tween
 
-func _make_label(node_name: String) -> Label:
+## 兜底：场景里没有 Hint/Bubble 节点时在屏幕底部按锚点建一个
+func _make_label(node_name: String, bottom: float, color: Color) -> Label:
 	var label := Label.new()
 	label.name = node_name
-	label.position = Vector2(-LABEL_SIZE.x * 0.5, -LABEL_SIZE.y * 0.5)
-	label.size = LABEL_SIZE
+	label.anchor_left = 0.5
+	label.anchor_top = 1.0
+	label.anchor_right = 0.5
+	label.anchor_bottom = 1.0
+	label.offset_left = -420.0
+	label.offset_top = bottom
+	label.offset_right = 420.0
+	label.offset_bottom = bottom + 36.0
+	label.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	label.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	label.add_theme_font_size_override("font_size", FONT_SIZE)
-	label.add_theme_color_override("font_outline_color", Color(0.02, 0.035, 0.038, 0.72))
-	label.add_theme_constant_override("outline_size", 3)
-	if _font != null:
-		label.add_theme_font_override("font", _font)
 	add_child(label)
+	_apply_style(label, color)
 	return label
 
-## 当前态/完成态只差颜色：字号不动，免得“做完的句子缩水”像被删掉一截
-func _paint(label: Label, is_active: bool) -> void:
-	label.add_theme_color_override("font_color", ACTIVE_COLOR if is_active else DONE_COLOR)
-
-## Label 的原点是左上角，这里按“文字中心”摆：控制台/测试量出来的坐标才和锚点对得上
-func _center_at(label: Label, world_center: Vector2) -> void:
-	label.global_position = world_center - LABEL_SIZE * 0.5
+func _apply_style(label: Label, color: Color) -> void:
+	if _font != null:
+		label.add_theme_font_override("font", _font)
+	label.add_theme_font_size_override("font_size", FONT_SIZE)
+	label.add_theme_color_override("font_color", color)
+	label.add_theme_color_override("font_outline_color", OUTLINE_COLOR)
+	label.add_theme_constant_override("outline_size", OUTLINE_SIZE)

@@ -2,18 +2,46 @@
 
 [ext_resource type="Script" path="res://scripts/ui/objective_hud.gd" id="1_hud"]
 
-[node name="ObjectiveHUD" type="Node2D"]
-z_index = 6
+[node name="ObjectiveHUD" type="CanvasLayer"]
+layer = 2
 script = ExtResource("1_hud")
 
-[node name="Label" type="Label" parent="."]
-position = Vector2(-260, -30)
-size = Vector2(520, 60)
+[node name="Hint" type="Label" parent="."]
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -420.0
+offset_top = -116.0
+offset_right = 420.0
+offset_bottom = -80.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_colors/font_color = Color(0.82, 0.94, 0.89, 0.95)
+theme_override_colors/font_outline_color = Color(0.015, 0.03, 0.034, 0.85)
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 18
 horizontal_alignment = 1
 vertical_alignment = 1
 autowrap_mode = 2
-theme_override_colors/font_color = Color(0.70, 0.88, 0.84, 0.58)
-theme_override_colors/font_outline_color = Color(0.02, 0.035, 0.038, 0.72)
-theme_override_constants/outline_size = 3
-theme_override_font_sizes/font_size = 20
-text = "目标"
+
+[node name="Bubble" type="Label" parent="."]
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -420.0
+offset_top = -158.0
+offset_right = 420.0
+offset_bottom = -122.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_colors/font_color = Color(0.92, 0.92, 0.72, 1)
+theme_override_colors/font_outline_color = Color(0.015, 0.03, 0.034, 0.85)
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 18
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 2
