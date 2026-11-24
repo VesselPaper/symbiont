@@ -217,6 +217,9 @@ var _slash_down_core: Line2D    # 下劈内层白芯
 @onready var _foot_r: Node2D = $Body/FootR
 @onready var _slash: Line2D = $Body/SlashArc
 @onready var _slash_down: Line2D = $Body/SlashDown
+# P0 美术打磨：手里的剑与脚下的接触阴影（都在 player.tscn / knight_body.tscn 里）
+@onready var _weapon: Node2D = $Body/Weapon
+@onready var _shadow: Node2D = $Shadow
 @onready var _hitbox_side: Area2D = $HitboxSide
 @onready var _hitbox_down: Area2D = $HitboxDown
 var _hitbox_down_shape: RectangleShape2D  # 下劈命中查询用（M1-13，见 _query_pogo_target）
@@ -484,6 +487,7 @@ func _hide_slash_layers() -> void:
 ##   横砍 → 抬臂蓄力再甩下去 + 弧线残影；下劈 → 剑指地 + 竖弧；
 ##   受击 → 缩身抖一下；倒地 → 侧倒淡出；复活 → 从地上撑起来。
 func _update_visual_anim(delta: float) -> void:
+	_update_contact_shadow()
 	if _rest_timer > 0.0:
 		# 篝火休息：蹲坐 → 撑地起身；按方向键可随时中断。
 		# M4-56 起角色手里不挂剑，所以不再有"把剑放到地上再抓回来"那一段。
@@ -510,6 +514,8 @@ func _update_visual_anim(delta: float) -> void:
 			_body.position = Vector2(0, lerpf(10.0, 0.0, rise) - 4.0 * sin(rise * PI))
 			_body.rotation = 0.12 * float(_facing) * (1.0 - rise)
 		_update_cloth(delta, 0.0, 0.0)
+		if _weapon != null:
+			_weapon.visible = false   # 篝火旁坐着时不举剑
 		return
 	_anim_time += delta
 	# 开场砸地那一下的计时（M4-62）：放在这里统一递减，_update_visual_anim 只负责摆姿势
@@ -711,11 +717,100 @@ func _update_visual_anim(delta: float) -> void:
 	_foot_r.position = Vector2(2.6, 10.6) + foot_r
 	_update_head(delta, body_y, body_rot)
 	_slash.rotation = slash_rot
+	_update_weapon()
 	_update_cloth(delta, body_x, _cloak_flare)
 	# 刚捡到铁剑时整身亮一下，代替过去"手里那把剑发光"
 	if _weapon_flash_timer > 0.0:
 		tint = tint.lerp(Color(1.5, 1.6, 1.4, 1.0), 0.35)
 		_body.modulate = tint
+
+## 手上的剑（P0 美术打磨）。
+## 以前只有"挥砍时的一条白弧"，角色手里是空的 —— 现在剑常驻：
+##   待机/跑动 → 自然下垂微微摆；横砍 → 抬剑再横扫；上撩 → 自下往上；前刺 → 剑尖向前；
+##   下劈 → 剑尖朝下扎。角度和段位一一对应，和 SlashArc 的朝向一致。
+func _update_weapon() -> void:
+	if _weapon == null:
+		return
+	_weapon.visible = has_weapon and _death_timer <= 0.0
+	if not _weapon.visible:
+		return
+	var rest_rot := 1.3
+	var rot := rest_rot
+	var pos := Vector2(6.4, 2.2)
+	if _pogo_active:
+		var wind := 1.0 - clampf((_attack_anim_total - _attack_anim_timer) / 0.09, 0.0, 1.0)
+		rot = lerpf(-0.55, PI * 0.5, wind)
+		pos += Vector2(1.5 * wind, 6.5 * wind)
+	elif _attack_anim_timer > 0.0:
+		var p := 1.0 - _attack_anim_timer / maxf(0.01, _attack_anim_total)
+		if _attack_anim_kind == 1:
+			# 空中下劈：剑直指地面，整个动作里往下压
+			rot = PI * 0.5 + 0.12
+			pos += Vector2(1.5, 2.0 + 4.5 * sin(clampf(p, 0.0, 1.0) * PI))
+		elif _combo_step == 1:
+			# 第二段·上撩：先压到身下，再自下往上挑
+			if p < 0.20:
+				rot = lerpf(rest_rot, PI * 0.5 - 0.1, p / 0.20)
+			elif p < 0.72:
+				var q1 := (p - 0.20) / 0.52
+				rot = lerpf(PI * 0.5 - 0.1, -1.15, q1 * q1)
+			else:
+				var q2 := (p - 0.72) / 0.28
+				rot = lerpf(-1.15, rest_rot, q2)
+		elif _combo_step == 2:
+			# 第三段·前刺：收剑到身后，再笔直扎出去
+			if p < 0.30:
+				var q3 := p / 0.30
+				rot = lerpf(rest_rot, -0.55, q3)
+				pos.x -= 2.4 * q3
+			elif p < 0.60:
+				var q4 := (p - 0.30) / 0.30
+				rot = 0.0
+				pos.x += 4.0 * (1.0 - pow(1.0 - q4, 3.0))
+			else:
+				var q5 := (p - 0.60) / 0.40
+				rot = lerpf(0.0, rest_rot, q5)
+				pos.x += 4.0 * (1.0 - q5)
+		else:
+			# 第一段·横劈：抬剑蓄力 → 横扫 → 收招
+			if p < 0.26:
+				rot = lerpf(rest_rot, -1.45, p / 0.26)
+			elif p < 0.78:
+				var q6 := (p - 0.26) / 0.52
+				rot = lerpf(-1.45, 1.15, q6 * q6)
+			else:
+				var q7 := (p - 0.78) / 0.22
+				rot = lerpf(1.15, rest_rot, q7)
+	else:
+		# 待机呼吸 + 走路时的自然摆动
+		rot += sin(_anim_time * 2.0) * 0.025
+		if is_on_floor() and absf(velocity.x) > 30.0:
+			rot += sin(_anim_time * 12.0) * 0.06
+	_weapon.rotation = rot
+	_weapon.position = pos
+
+## 脚下的接触阴影（P0 美术打磨）：向下打一条射线找地面，
+## 阴影贴地、随高度变淡变小 —— 不然角色在暗底上像"飘着"。
+func _update_contact_shadow() -> void:
+	if _shadow == null:
+		return
+	if _death_timer > 0.0 or _is_dead:
+		_shadow.visible = false
+		return
+	var from := global_position + Vector2(0.0, 2.0)
+	var query := PhysicsRayQueryParameters2D.create(from, from + Vector2(0.0, 220.0), 1)
+	query.exclude = [get_rid()]
+	var hit := get_world_2d().direct_space_state.intersect_ray(query)
+	if hit.is_empty():
+		_shadow.visible = false
+		return
+	var ground_y := float(hit.position.y)
+	var drop := maxf(ground_y - (global_position.y + 12.0), 0.0)
+	var k := clampf(1.0 - drop / 150.0, 0.18, 1.0)
+	_shadow.visible = true
+	_shadow.global_position = Vector2(global_position.x, ground_y + 1.0)
+	_shadow.scale = Vector2(k, k)
+	_shadow.modulate = Color(1, 1, 1, 0.45 + 0.55 * k)
 
 ## 启动 / 停止（M4-69）：从"速度变化量"里读出来，专门给视觉用，不碰物理。
 ## 起步那一下身子往前压、停步那一下往前一顿再收回，靠这两个量在走路/待机里叠加。

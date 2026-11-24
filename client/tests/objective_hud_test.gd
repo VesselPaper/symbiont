@@ -1,16 +1,16 @@
 extends SceneTree
-## 地图内目标文字回归（M4-01 初版 / M4-22 组长定稿：做完不消失）
+## 目标任务提示回归（P0 改版：从背景刻字改为屏幕底部的实时提醒）
 ##   Godot_v4.7.2-stable_win64_console.exe --headless --path client --script res://tests/objective_hud_test.gd
 ##
-## 验收三件事：
-##   1. 目标文字是世界坐标（固定在锚点上方），随地图滚动，玩家走过去它不动；
-##   2. 每环一句刻上去就留着 —— 推进到下一环后，上一句还在，只是变暗（组长 M4-22 反馈）；
-##   3. 临时提示（获得铁剑 / 教程完成）才是会收的那一句，hide_bubble 只收它，不藏整块文字。
+## 验收四件事：
+##   1. 提示挂在 CanvasLayer 上，固定在屏幕底部居中，不随地图/相机滚动，也不跟玩家走；
+##   2. 只显示当前这一环的一句：换到下一环时上一句直接消失，背景里不留残影；
+##   3. 教程结束（set_active_step(-1)）后提示收起；
+##   4. 临时提示（获得铁剑 / 教程完成）单独一层，收它不会把目标提示一起藏掉。
 
 const SCENE := "res://scenes/world/test_arena.tscn"
-## 当前环比做完的句子亮多少：完成态 alpha 0.30，当前态 0.94，差得远才不会看错
-const MIN_ACTIVE_ALPHA := 0.80
-const MAX_DONE_ALPHA := 0.45
+## 提示条中心距屏幕底边的高度：HINT_BOTTOM(-116) + 高度 36 的一半
+const HINT_CENTER_FROM_BOTTOM := 98.0
 
 var _failed := false
 
@@ -22,87 +22,71 @@ func _run() -> void:
 	var level: Node = load(SCENE).instantiate()
 	root.add_child(level)
 	await process_frame
-	var hud := level.get_node_or_null("ObjectiveHUD") as Node2D
+	var hud := level.get_node_or_null("ObjectiveHUD")
 	var player := level.get_node_or_null("Player") as Node2D
-	_check(hud != null, "缺少 ObjectiveHUD")
-	var old_bubble := level.get_node_or_null("TutorialBubble")
-	_check(old_bubble == null, "旧 TutorialBubble 还在，会继续跟玩家")
+	_check(hud is CanvasLayer, "目标提示应该是屏幕空间的 CanvasLayer")
+	_check(hud != null and hud.get_parent() == level, "目标提示不应挂在玩家或其它节点下")
+	if hud is CanvasLayer:
+		_check(int(hud.layer) >= 1, "目标提示图层太低，会被场景/对话盖住: layer=%d" % int(hud.layer))
+	_check(player != null, "缺少玩家")
 	if hud != null:
-		_check(hud.get_parent() == level, "目标文字不应挂在玩家或其它节点下")
-		_check(hud.z_index >= 4 and hud.z_index <= 8, "目标文字层级不对，会被道具挡住: z=%d" % hud.z_index)
-		var consts: Dictionary = hud.get_script().get_script_constant_map()
-		var offset: Vector2 = consts.get("TEXT_OFFSET", Vector2.ZERO)
-		# M5-25：位置完全由关卡按"落脚面往上 3 个身高"算，HUD 自己不再加偏移
-		_check(absf(offset.y) <= 1.0, "HUD 又自己加了一层垂直偏移: %s" % offset)
-		var font_size := int(consts.get("FONT_SIZE", 20))
-		_check(font_size <= 10, "目标文字字号没缩到一半（%d）" % font_size)
-		var flash := hud.get_node_or_null("Label") as Label
-		_check(flash != null, "缺少临时提示 Label")
-		_check(player != null, "缺少玩家")
-		_check_objectives_stay(hud, player)
-		_check_flash_only(hud)
+		await _check_single_hint(hud, player)
+		await _check_flash_only(hud)
 	print("[objective_hud] %s" % ("PASS" if not _failed else "FAIL"))
 	quit(0 if not _failed else 1)
 
-## 二、三：每环刻字留着、当前环更亮、位置不跟玩家走
-func _check_objectives_stay(hud: Node2D, player: Node2D) -> void:
-	hud.call("show_objective", 0, "走到前面（A/D）", Vector2(406, 585))
-	await process_frame
-	var first := str(hud.call("get_objective_text", 0))
-	_check(first == "走到前面（A/D）", "第一句没刻上去: %s" % first)
-	var label0 := hud.get_node_or_null("Objective0") as Label
-	_check(label0 != null, "第一句没有自己的 Label 节点")
-	_check(hud.visible, "刻了目标文字后 HUD 还不可见")
-	var pos0 := label0.global_position if label0 != null else Vector2.ZERO
-	var want := Vector2(406, 585)
-	# Label 原点是左上角，这里看"文字中心"是不是正好挂在锚点上（M5-25 起 HUD 不加偏移）
-	var center0 := label0.get_global_rect().get_center() if label0 != null else Vector2.ZERO
-	_check(center0.distance_to(want) < 1.0, "文字中心没挂在锚点上: %s" % center0)
-
+## 一、二、三：屏幕固定、只留当前一句、结束收起
+func _check_single_hint(hud: Node, player: Node2D) -> void:
+	hud.call("show_objective", 0, "按 A 或 D 走一段", Vector2(406, 585))
+	await create_timer(0.3).timeout
+	var hint := hud.get_node_or_null("Hint") as Label
+	_check(hint != null, "缺少目标提示 Label（Hint）")
+	if hint == null:
+		return
+	_check(hint.text == "按 A 或 D 走一段", "当前提示文案不对: %s" % hint.text)
+	_check(hint.modulate.a >= 0.8, "提示没有淡入（alpha=%.2f）" % hint.modulate.a)
+	_check(int(hud.call("get_objective_count")) == 1, "屏幕上应只有 1 条提示")
+	# 屏幕固定：文字中心在底部居中，且玩家移动后不动
+	var vp := hud.get_viewport().get_visible_rect().size
+	var center := hint.get_global_rect().get_center()
+	_check(absf(center.x - vp.x * 0.5) < 2.0,
+		"提示没有水平居中: %.1f / %.1f" % [center.x, vp.x * 0.5])
+	_check(absf(center.y - (vp.y - HINT_CENTER_FROM_BOTTOM)) < 2.0,
+		"提示不在屏幕底部: y=%.1f" % center.y)
+	var pos_before := hint.global_position
 	if player != null:
-		player.global_position.x += 220.0
-		await process_frame
-	if label0 != null and label0.global_position.distance_to(pos0) > 0.5:
-		_check(false, "玩家移动把目标文字带走了")
+		player.global_position.x += 260.0
+	await process_frame
+	_check(hint.global_position.distance_to(pos_before) < 0.5, "玩家移动把提示带走了")
 
-	# 推进到第二环：第一句必须还在（组长 M4-22：做完不消失）
+	# 推进到下一环：上一句必须被换掉，背景里不能留下旧字
 	hud.call("set_active_step", 1)
-	hud.call("show_objective", 1, "跳上平台（空格）", Vector2(900, 500))
-	await process_frame
-	_check(hud.get_node_or_null("Objective0") != null, "推进到第二环后，第一句被删掉了")
-	_check(str(hud.call("get_objective_text", 0)) == "走到前面（A/D）", "第一句的文案被改掉了")
-	_check(str(hud.call("get_objective_text", 1)) == "跳上平台（空格）", "第二句没刻上去")
-	_check(int(hud.call("get_objective_count")) == 2, "目标文字数量应为 2，实际 %d" % int(hud.call("get_objective_count")))
-	var label1 := hud.get_node_or_null("Objective1") as Label
-	var a0 := _alpha(label0)
-	var a1 := _alpha(label1)
-	print("[objective_hud] 第一句 alpha=%.2f（做完） 第二句 alpha=%.2f（当前）" % [a0, a1])
-	_check(a1 >= MIN_ACTIVE_ALPHA, "当前那环不够亮: %.2f" % a1)
-	_check(a0 <= MAX_DONE_ALPHA, "做完的那句没变暗: %.2f" % a0)
+	hud.call("show_objective", 1, "跳上这块台子", Vector2(900, 500))
+	await create_timer(0.3).timeout
+	_check(str(hud.call("get_objective_text", 0)) == "", "上一环的提示还留着")
+	_check(str(hud.call("get_objective_text", 1)) == "跳上这块台子", "第二句没显示")
+	_check(int(hud.call("get_objective_count")) == 1, "换句后屏幕上出现了多条提示")
 
-	# 教程结束（set_active_step(-1)）：全部变暗，但一句都不许消失
+	# 教程结束：提示收起
 	hud.call("set_active_step", -1)
-	await process_frame
-	_check(int(hud.call("get_objective_count")) == 2, "结束态把刻字删掉了")
-	_check(_alpha(label0) <= MAX_DONE_ALPHA and _alpha(label1) <= MAX_DONE_ALPHA, "结束态还有句子是亮的")
+	await create_timer(0.3).timeout
+	_check(int(hud.call("get_objective_count")) == 0, "教程结束后提示没收起")
+	_check(hint.modulate.a <= 0.05, "教程结束后提示没有淡出（alpha=%.2f）" % hint.modulate.a)
 
-## 三：临时提示只收自己
-func _check_flash_only(hud: Node2D) -> void:
-	hud.call("set_bubble_position", Vector2(900, 500))
+## 四：临时提示独立一层
+func _check_flash_only(hud: Node) -> void:
+	hud.call("show_objective", 6, "捡起肢体", Vector2(5250, 575))
 	hud.call("show_bubble", "获得铁剑")
-	await process_frame
-	var flash := hud.get_node_or_null("Label") as Label
-	_check(flash != null and flash.text == "获得铁剑", "临时提示文案没写进 Label")
+	await create_timer(0.3).timeout
+	var bubble := hud.get_node_or_null("Bubble") as Label
+	if bubble == null:
+		_check(false, "缺少临时提示 Bubble")
+		return
+	_check(bubble.text == "获得铁剑", "临时提示文案没写进 Bubble")
 	hud.call("hide_bubble")
-	await process_frame
-	_check(int(hud.call("get_objective_count")) == 2, "收临时提示时把目标刻字一起清掉了")
-	_check(hud.visible, "收临时提示后整块目标文字被藏起来了")
-
-## Label 当前正文字色 alpha（在做/做完只差这个）
-func _alpha(label: Label) -> float:
-	if label == null:
-		return -1.0
-	return label.get_theme_color("font_color").a
+	await create_timer(0.3).timeout
+	_check(int(hud.call("get_objective_count")) == 1, "收临时提示时把目标提示一起清掉了")
+	_check(bubble.modulate.a <= 0.05, "临时提示没有淡出（alpha=%.2f）" % bubble.modulate.a)
 
 func _check(ok: bool, msg: String) -> void:
 	if not ok:

@@ -47,6 +47,13 @@ def row_to_dict(row: tuple, cols: list[str]) -> dict:
     return out
 
 
+def _write_text(path: Path, text: str) -> None:
+    # Path.write_text 的 newline 参数是 3.10 才有的，本机只有 3.9，这里退回 open；
+    # 仍然统一写 LF，保证不同机器导出的文件逐字节一致
+    with path.open("w", encoding="utf-8", newline="\n") as fh:
+        fh.write(text)
+
+
 def export_table(conn: sqlite3.Connection, table: str, data_dir: Path) -> dict:
     cur = conn.execute(f"SELECT * FROM {table}")
     cols = [c[0] for c in cur.description]
@@ -57,17 +64,15 @@ def export_table(conn: sqlite3.Connection, table: str, data_dir: Path) -> dict:
     for row in cur.fetchall():
         rec = row_to_dict(row, cols)
         pk = str(rec.get(cols[0], "")) or f"row_{len(index)}"
-        (out_dir / f"{pk}.json").write_text(
+        _write_text(
+            out_dir / f"{pk}.json",
             json.dumps(rec, ensure_ascii=False, indent=2),
-            encoding="utf-8",
-            newline="\n",
         )
         index[pk] = {k: rec[k] for k in INDEX_FIELDS if k in rec}
 
-    (out_dir / f"{table}{INDEX_SUFFIX}.json").write_text(
+    _write_text(
+        out_dir / f"{table}{INDEX_SUFFIX}.json",
         json.dumps(index, ensure_ascii=False, indent=2),
-        encoding="utf-8",
-        newline="\n",
     )
     return index
 

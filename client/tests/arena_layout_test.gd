@@ -32,7 +32,6 @@ func _process(_delta: float) -> bool:
 	_check_order()
 	_check_gaps()
 	_check_gates()
-	_check_hint_text_clear_of_gates()
 	_check_terrain()
 	_check_targets_match()
 	print("[arena_layout] %s" % ("PASS" if not _failed else "FAIL"))
@@ -113,34 +112,8 @@ func _gate_blocks_something(gate_id: String, gate_x: float) -> bool:
 			next_x = minf(next_x, float(item["x"]))
 	return next_x < 1.0e9
 
-## 提示文字是整句宽度，不是锚点一个点：M4-22 组长说的“A/D 提示压在骨栅门上”，
-## 就是锚点让开了、字却还横穿门身。这里按真实字宽把每句话的矩形和门矩形比一遍。
-func _check_hint_text_clear_of_gates() -> void:
-	var font := load("res://assets/fonts/NotoSansCJKsc-Regular.otf") as Font
-	if font == null:
-		_check(false, "加载中文字体失败，量不了提示文字宽度")
-		return
-	var tutorial := _level.get_node("Tutorial")
-	var consts: Dictionary = tutorial.get_script().get_script_constant_map()
-	var texts: Array = consts["OBJECTIVE_TEXTS"]
-	var hud := _level.get_node("ObjectiveHUD")
-	var offset: Vector2 = hud.get_script().get_script_constant_map()["TEXT_OFFSET"]
-	var anchors: Array = tutorial.get("_anchors")
-	var heights: Dictionary = _level.get_script().get_script_constant_map()["TUTORIAL_GATE_HEIGHTS"]
-	for i in range(anchors.size()):
-		var text: String = str(texts[i])
-		var width := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 20).x
-		var center: Vector2 = anchors[i] + offset
-		# 20px 字号一行，字形高度按 26 算；左右各半句宽，就是那行字的实际占地
-		var rect := Rect2(center - Vector2(width, 26.0) * 0.5, Vector2(width, 26.0))
-		for gate_id in heights.keys():
-			var gate_pos: Vector2 = _stage["%s_gate" % str(gate_id)]
-			var h: float = float(heights[gate_id])
-			var gate_rect := Rect2(gate_pos - Vector2(17.0, h * 0.5), Vector2(34.0, h))
-			if rect.intersects(gate_rect):
-				_check(false, "第 %d 句「%s」压住了 %s 门（字 %.0f×26 在 %s）" % [
-					i, text, str(gate_id), width, str(rect)])
-		print("[arena_layout] %-3d「%s」字宽 %.0f，中心 %s" % [i, text, width, str(center)])
+## （P0 改版）提示文字已从世界坐标移到屏幕底部 HUD，不再和教学门抢版面，
+## 原来按字宽量"哪句话压住了哪扇门"的检查随之删除。
 
 # ---------- 三、场景和表对上了 ----------
 

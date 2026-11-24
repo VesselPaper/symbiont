@@ -1,6 +1,7 @@
 extends SceneTree
-## 背景目标文字截图（开发用，手动跑，不加 --headless）：
+## 屏幕目标提示截图（开发用，手动跑，不加 --headless）：
 ##   Godot_v4.7.2-stable_win64_console.exe --path client --script res://tests/world_hint_shots.gd
+## P0 改版后提示不再刻在世界坐标上，这里只验证底部提示条的字号/位置/换句行为。
 
 const SCENE := "res://scenes/world/test_arena.tscn"
 const OUT_DIR := "res://shots"
@@ -19,13 +20,10 @@ func _process(delta: float) -> bool:
 		if dbox != null:
 			dbox.visible = false
 		var hud := _arena.get_node("ObjectiveHUD")
-		# 直接摆到祭坛上方的 SACRIFICE 目标点：验证文字压在祭坛模型前面
-		# 锚点从 Tutorial 生效的那份表读（M4-19 起由 STAGE 表推进来；M4-21 光点已删）
-		# M4-22 起目标是“刻在地图上的句子”，所以调 show_objective 而不是临时气泡
-		var target: Vector2 = tutorial.get("_anchors")[7]
-		hud.call("show_objective", 6, "捡起肢体，献给我", tutorial.get("_anchors")[6])
+		# 连推两句：验证换环时上一句直接消失、屏幕上只剩当前这句
+		hud.call("show_objective", 6, "捡起肢体，献给我", Vector2.ZERO)
 		hud.call("set_active_step", 7)
-		hud.call("show_objective", 7, "带到祭坛，按 K 献祭", target)
+		hud.call("show_objective", 7, "带到祭坛，按 K 献祭", Vector2.ZERO)
 		return false
 	_elapsed += delta
 	if not _done and _elapsed >= 0.8:

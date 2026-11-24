@@ -10,7 +10,8 @@ const PAUSE_SCENE := preload("res://scenes/ui/pause_menu.tscn")
 const MAX_HEARTS := 5
 const HEART_SPACING := 22.0
 const HUD_POS := Vector2(24, 646)
-const TOAST_TIME := 1.8
+## 拾取提示的停留时长（秒）。P0 反馈：操作后弹出的提示统一播 2 秒再消失
+const TOAST_TIME := 2.0
 ## 低血量阈值（M5-05 组长要求）：只剩这么多颗心时，屏幕四周开始冒黑雾 + 冒出"血量危险"
 const DANGER_HP := 1
 ## 黑雾的呼吸频率/基础浓度：慢一点，才像"视线在变窄"，不像报警灯
